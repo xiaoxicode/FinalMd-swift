@@ -1,0 +1,91 @@
+name: Build macOS App
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: 编译并打包 墨写.app
+    runs-on: macos-15
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 显示工具链
+        run: |
+          xcode-select -p
+          xcrun --show-sdk-path
+          swift --version
+          sw_vers
+
+      - name: Markdown 双向转换冒烟测试
+        run: ./scripts/run-smoke.sh
+
+      - name: 编译 Release 并组装 app
+        run: ./scripts/make_app.sh
+
+      - name: 校验 bundle 结构
+        run: |
+          APP="build/墨写.app"
+          test -x "$APP/Contents/MacOS/墨写" || { echo "❌ 缺少可执行文件"; exit 1; }
+          test -f "$APP/Contents/Info.plist" || { echo "❌ 缺少 Info.plist"; exit 1; }
+          test -f "$APP/Contents/Resources/AppIcon.icns" || { echo "❌ 缺少图标"; exit 1; }
+          echo "版本：$(plutil -extract CFBundleShortVersionString raw -o - "$APP/Contents/Info.plist")"
+          echo "最低系统：$(plutil -extract LSMinimumSystemVersion raw -o - "$APP/Contents/Info.plist")"
+          codesign -dv "$APP" 2>&1 | head -3 || true
+          du -sh "$APP"
+
+      - name: 用 Developer ID 签名并公证（可选）
+        # 脚本自己会判断：缺少证书类 secrets 时直接跳过，保持 make_app.sh 的 ad-hoc 签名。
+        #   MACOS_CERTIFICATE             base64 的 .p12 开发者证书
+        #   MACOS_CERTIFICATE_PASSWORD
+        #   MACOS_KEYCHAIN_PASSWORD
+        #   NOTARIZE_APPLE_ID / NOTARIZE_TEAM_ID / NOTARIZE_PASSWORD（App 专用密码）
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+          NOTARIZE_APPLE_ID: ${{ secrets.NOTARIZE_APPLE_ID }}
+          NOTARIZE_TEAM_ID: ${{ secrets.NOTARIZE_TEAM_ID }}
+          NOTARIZE_PASSWORD: ${{ secrets.NOTARIZE_PASSWORD }}
+        run: ./scripts/sign_and_notarize.sh
+
+      - name: 打成 zip 并记录校验和
+        id: dist
+        run: |
+          VERSION="$(plutil -extract CFBundleShortVersionString raw -o - build/墨写.app/Contents/Info.plist)"
+          ZIP="FinalMd-macOS-${VERSION}-${GITHUB_SHA::7}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "build/墨写.app" "$ZIP"
+          shasum -a 256 "$ZIP" | tee "$ZIP.sha256"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinalMd-macOS-${{ github.run_number }}
+          path: |
+            FinalMd-macOS-*.zip
+            FinalMd-macOS-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 发布到 Release（仅打 tag 时）
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ZIP="${{ steps.dist.outputs.zip }}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$ZIP" "$ZIP.sha256" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" --generate-notes "$ZIP" "$ZIP.sha256"
+          fi
