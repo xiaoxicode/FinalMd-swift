@@ -237,6 +237,7 @@ func testScrollViewZoom() {
         check("初始文档宽度 = 页宽 + 两侧留白", abs(page.frame.width - docWidth) < 0.5)
 
         // 缩小 → 页面水平居中（白色区 = 文档内 24..width-24）
+        // 注意：居中目标用 clip 实际宽度而不是写死的窗口宽，CI 虚拟屏幕可能约束窗口尺寸
         func pageScreenCenterX() -> CGFloat {
             (24 + (page.frame.width - 24 - 24) / 2 - clip.bounds.origin.x) * scroll.magnification
         }
@@ -245,7 +246,7 @@ func testScrollViewZoom() {
             scroll.layoutSubtreeIfNeeded()
             page.needsLayout = true; page.layout(); scroll.layoutSubtreeIfNeeded()
             check("mag \(mag) 页面居中（偏差 < 1pt）",
-                  abs(pageScreenCenterX() - 540) < 1.0)
+                  abs(pageScreenCenterX() - clip.frame.width / 2) < 1.0)
         }
 
         // 放大 → 出现水平滚动范围
