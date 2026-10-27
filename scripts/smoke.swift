@@ -257,13 +257,16 @@ func testScrollViewZoom() {
         check("mag 2.0 有水平滚动范围", range > 300)
 
         // NSEvent 双指横滑（发给 scroll view 与发给文字视图都要能拖动）
+        // 滚动是异步落地的，每次事件后多转两圈 runloop 再读，避免偶发失败
         func pan(_ deltaX: CGFloat, to target: NSView) {
-            if let cg = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 2,
-                                wheel1: 0, wheel2: Int32(-deltaX), wheel3: 0),
-               let e = NSEvent(cgEvent: cg) {
-                target.scrollWheel(with: e)
+            for _ in 0..<2 {
+                if let cg = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 2,
+                                    wheel1: 0, wheel2: Int32(-deltaX), wheel3: 0),
+                   let e = NSEvent(cgEvent: cg) {
+                    target.scrollWheel(with: e)
+                }
+                RunLoop.main.run(until: Date().addingTimeInterval(0.03))
             }
-            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
         }
         let before = clip.bounds.origin.x
         pan(-10, to: scroll)
@@ -288,6 +291,68 @@ func testScrollViewZoom() {
     }
 }
 
+// MARK: ⌘/⌃ + 滚轮缩放
+
+func testWheelZoom() {
+    MainActor.assumeIsolated {
+        _ = NSApplication.shared
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+
+        let textView = NSTextView(frame: .zero)
+        let (scroll, page) = EditorScrollFactory.make(textView: textView)
+        let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 700),
+                           styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        win.contentView = scroll
+        win.orderFrontRegardless()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        scroll.frame = NSRect(x: 0, y: 0, width: 1080, height: 700)
+        scroll.layoutSubtreeIfNeeded()
+        page.needsLayout = true; page.layout(); scroll.layoutSubtreeIfNeeded()
+
+        var reported: CGFloat = -1
+        scroll.onWheelZoom = { reported = $0 }
+
+        func wheel(deltaY: Int32, command: Bool) -> NSEvent? {
+            guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 2,
+                                   wheel1: deltaY, wheel2: 0, wheel3: 0) else { return nil }
+            if command { cg.flags = CGEventFlags.maskCommand }
+            return NSEvent(cgEvent: cg)
+        }
+
+        // 上滚 = 放大
+        let base = scroll.magnification
+        scroll.scrollWheel(with: wheel(deltaY: 2, command: true)!)
+        check("⌘+滚轮上滚放大", scroll.magnification > base + 0.001)
+        check("缩放值回调同步模型", abs(reported - scroll.magnification) < 0.001)
+
+        // 下滚 = 缩小
+        let zoomedIn = scroll.magnification
+        scroll.scrollWheel(with: wheel(deltaY: -4, command: true)!)
+        check("⌘+滚轮下滚缩小", scroll.magnification < zoomedIn - 0.001)
+
+        // 不带修饰键时滚轮只滚动，不缩放
+        let before = scroll.magnification
+        scroll.scrollWheel(with: wheel(deltaY: 6, command: false)!)
+        check("普通滚轮不触发缩放", abs(scroll.magnification - before) < 0.0005)
+
+        // 上下限
+        for _ in 0..<40 { scroll.scrollWheel(with: wheel(deltaY: 4, command: true)!) }
+        check("放大不超过上限 2.0", scroll.magnification <= 2.0 + 0.0001)
+        check("放大确实到上限", abs(scroll.magnification - 2.0) < 0.0001)
+        for _ in 0..<60 { scroll.scrollWheel(with: wheel(deltaY: -4, command: true)!) }
+        check("缩小不低于下限 0.6", scroll.magnification >= 0.6 - 0.0001)
+        check("缩小确实到下限", abs(scroll.magnification - 0.6) < 0.0001)
+
+        // 缩放后页面仍然水平居中（锚点缩放不能破坏居中）
+        page.needsLayout = true; page.layout(); scroll.layoutSubtreeIfNeeded()
+        let clip = scroll.contentView
+        func pageCenterX() -> CGFloat {
+            (24 + (page.frame.width - 48) / 2 - clip.bounds.origin.x) * scroll.magnification
+        }
+        check("滚轮缩到最小时页面仍居中", abs(pageCenterX() - clip.frame.width / 2) < 1.0)
+    }
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -300,6 +365,7 @@ testEscaping()
 testHeroDocument()
 testWelcomeDocument()
 testScrollViewZoom()
+testWheelZoom()
 testLocalization()
 
 print("")

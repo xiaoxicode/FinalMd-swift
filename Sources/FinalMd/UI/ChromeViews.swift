@@ -117,6 +117,7 @@ struct StatusBarView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Text("\(l10n.t("stat.zoom")) \(Int(round(model.zoom * 100)))%")
+                .help("⌘ / ⌃ + 滚轮缩放页面（捏合触控板同样可以）")
             Text("Markdown")
         }
         .font(.system(size: 11.5))

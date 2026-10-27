@@ -29,6 +29,14 @@ struct EditorView: NSViewRepresentable {
         context.coordinator.pageView = page
         context.coordinator.observe(scrollView: scroll)
 
+        // ⌘/⌃ + 滚轮缩放：把结果同步回模型（状态栏百分比），
+        // 同时更新 appliedZoom，避免下一次 SwiftUI 刷新把缩放拽回去
+        scroll.onWheelZoom = { [weak coordinator = context.coordinator] value in
+            guard let coordinator else { return }
+            coordinator.appliedZoom = value
+            coordinator.model.setZoom(value)
+        }
+
         // 图片交互回调
         textView.onImageDoubleClick = { [weak model] attachment in
             guard let model else { return }

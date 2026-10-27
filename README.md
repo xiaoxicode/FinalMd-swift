@@ -190,19 +190,33 @@ node scripts/gen-i18n.js ../FinalMd Sources/FinalMd/I18n/Dictionaries.swift
 缩放走 `NSScrollView.magnification`，不改字号。
 因为序列化完全依赖块类型与字体 trait（而非绝对字号），缩放、换字号都不会影响 Markdown 输出。
 
+缩放方式（三种，等价，范围 60%–200%）：
+
+| 操作 | 说明 |
+|---|---|
+| **⌘ 或 ⌃ + 滚轮** | 鼠标也能缩放；以指针位置为锚点（`setMagnification(_:centeredAt:)`），一格约 10% |
+| 触控板双指捏合 | `NSScrollView` 自带，结束后回写状态栏百分比 |
+| 菜单「视图 → 放大/缩小/重置」、⌘+ / ⌘- / ⌘0 | 命令走 `AppModel.setZoom` |
+
+实现要点：`MDEditorScrollView.scrollWheel(with:)` 里识别 ⌘/⌃ 拦截滚轮，
+触控板用 `scrollingDeltaY`、传统滚轮用 `deltaY` 归一到「一格 10%」并夹住单帧增量；
+缩放后同步 `Coordinator.appliedZoom` 再写模型，避免下一次 SwiftUI 刷新把缩放拽回去。
+
 ---
 
 ## 验证情况
 
 | 项目 | 结果 |
 |---|---|
-| Markdown 双向转换冒烟测试 | ✅ **89 项全部通过**（`./scripts/run-smoke.sh`） |
+| Markdown 双向转换冒烟测试 | ✅ **106 项全部通过**（`./scripts/run-smoke.sh`） |
 | 全套视图代码类型校验 | ✅ **Build complete，0 error / 0 warning**（`./scripts/verify.sh`） |
 | 完整 `swift build` + 打包 | ⚠️ 本机未装 Xcode，SwiftUI 宏插件缺失，**未能执行** |
 
 冒烟测试覆盖：六级标题、粗斜体/删除线/行内代码/下划线/链接/嵌套强调、段落、引用、分割线、
 有序与无序列表、围栏代码块（含语言）、表格（含表头）、图片（Base64）、
-字体色与高亮（`<span>` / `<mark>`）、转义，以及一份包含全部块类型的综合文档与欢迎文档的**二次往返稳定性**。
+字体色与高亮（`<span>` / `<mark>`）、转义，以及一份包含全部块类型的综合文档与欢迎文档的**二次往返稳定性**；
+另外还覆盖**滚动容器行为**：各缩放值下页面水平居中、放大后横滑能拖动（含事件穿过文字视图）、
+连续捏合文档宽度稳定，以及 ⌘+滚轮的缩放方向、回调同步、60%–200% 上下限。
 
 > 关于 `verify.sh`：它把源码复制到临时目录，用**重命名**的 property wrapper 顶替
 > `@State` / `@Environment` 等宏（Swift 会优先解析 SwiftUI 的宏，所以同名无效），

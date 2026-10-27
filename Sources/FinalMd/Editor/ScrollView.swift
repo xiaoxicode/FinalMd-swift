@@ -19,9 +19,9 @@ enum EditorScrollFactory {
 
     /// 装配 编辑器滚动视图，返回 (scroll, page)。
     /// EditorView(NSViewRepresentable) 与冒烟测试共用同一份装配逻辑。
-    static func make(textView: NSTextView) -> (scroll: NSScrollView, page: EditorPageView) {
+    static func make(textView: NSTextView) -> (scroll: MDEditorScrollView, page: EditorPageView) {
         let page = EditorPageView(textView: textView)
-        let scroll = NSScrollView(frame: .zero)
+        let scroll = MDEditorScrollView(frame: .zero)
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true      // 放大后要能左右拖动
         scroll.drawsBackground = true
@@ -41,6 +41,41 @@ enum EditorScrollFactory {
         scroll.contentView = clip
         scroll.documentView = page
         return (scroll, page)
+    }
+}
+
+// MARK: - 滚轮缩放
+
+/// 支持「⌘ 或 ⌃ + 滚轮」缩放的滚动视图。
+///
+/// 触控板捏合缩放由 NSScrollView 自带（allowsMagnification），但普通鼠标只有滚轮，
+/// 所以这里补一条：按住 ⌘/⌃ 时滚轮不再滚动页面，而是缩放页面，
+/// 并且以指针位置为锚点（setMagnification(_:centeredAt:)），缩放中心跟随鼠标。
+final class MDEditorScrollView: NSScrollView {
+
+    /// 缩放值变化回调，用来同步状态栏的百分比
+    var onWheelZoom: ((CGFloat) -> Void)?
+
+    override func scrollWheel(with event: NSEvent) {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard mods.contains(.command) || mods.contains(.control) else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        // 精确滚动（触控板/妙控鼠标）用像素增量，传统滚轮按格计数；
+        // 两种都归一到「一格 ≈ 10%」，并把单帧增量夹住，避免一次跳太大。
+        let raw: CGFloat = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 40 : event.deltaY
+        let delta = min(max(raw, -4), 4)
+        let factor = pow(1.1, delta)
+
+        let target = min(max(magnification * factor, minMagnification), maxMagnification)
+        guard abs(target - magnification) > 0.0005 else { return }
+
+        // 锚点：指针位置，在 contentView 坐标系里
+        let anchor = contentView.convert(event.locationInWindow, from: nil)
+        setMagnification(target, centeredAt: anchor)
+        onWheelZoom?(magnification)
     }
 }
 
