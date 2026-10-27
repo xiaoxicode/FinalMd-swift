@@ -85,13 +85,23 @@ jobs:
         run: |
           ZIP="${{ steps.dist.outputs.zip }}"
           # 同一个 tag 重跑时先删掉旧 release（连带旧附件），保证一个版本只挂一份包
+          # 注意：gh 的 --jq 自带 raw 输出，再写 -r 会被当成多余参数报错
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release delete "$GITHUB_REF_NAME" -y
+            gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name' \
+              | grep -E '^FinalMd-macOS-.*\.(zip|zip\.sha256)$' \
+              | grep -v -x -e "$ZIP" -e "$ZIP.sha256" \
+              | while read -r old; do gh release delete-asset "$GITHUB_REF_NAME" "$old" -y; done
           fi
           # 仓库里的 RELEASE_NOTES.md 是面向用户的说明，比自动生成的 commit 列表好读
-          if [ -f RELEASE_NOTES.md ]; then
-            gh release create "$GITHUB_REF_NAME" --title "墨写 $GITHUB_REF_NAME" \
-              --notes-file RELEASE_NOTES.md "$ZIP" "$ZIP.sha256"
+          NOTES=()
+          [ -f RELEASE_NOTES.md ] && NOTES=(--notes-file RELEASE_NOTES.md) || NOTES=(--generate-notes)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$ZIP" "$ZIP.sha256" --clobber
+            [ -f RELEASE_NOTES.md ] && gh release edit "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md || true
           else
-            gh release create "$GITHUB_REF_NAME" --generate-notes "$ZIP" "$ZIP.sha256"
+            # 创建偶尔会因 GitHub 侧抖动报 500（release 可能已建好但附件没挂上），
+            # 这时退回上传模式，避免整个构建被判失败
+            gh release create "$GITHUB_REF_NAME" --title "墨写 $GITHUB_REF_NAME" \
+              "${NOTES[@]}" "$ZIP" "$ZIP.sha256" \
+              || gh release upload "$GITHUB_REF_NAME" "$ZIP" "$ZIP.sha256" --clobber
           fi
