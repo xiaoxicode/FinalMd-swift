@@ -212,6 +212,81 @@ func testLocalization() {
     l10n.setLanguage("zh")
 }
 
+// MARK: 滚动容器缩放 / 居中 / 横向拖动（真实 EditorScrollFactory 类，可执行回归）
+
+func testScrollViewZoom() {
+    MainActor.assumeIsolated {
+        _ = NSApplication.shared          // 滚轮事件处理依赖 App 对象
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+
+        let textView = NSTextView(frame: .zero)
+        let (scroll, page) = EditorScrollFactory.make(textView: textView)
+        // 滚轮事件链路要求视图挂在窗口里（NSScrollView 会检查 event.window 归属）
+        let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 700),
+                           styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        win.contentView = scroll
+        win.orderFrontRegardless()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        scroll.frame = NSRect(x: 0, y: 0, width: 1080, height: 700)
+        scroll.layoutSubtreeIfNeeded()
+        page.needsLayout = true; page.layout(); scroll.layoutSubtreeIfNeeded()
+        let clip = scroll.contentView
+        let docWidth: CGFloat = DocTheme.pageMaxWidth + EditorScrollFactory.outerPadding * 2
+
+        // 文档宽度：页宽 + 对称留白，与缩放无关
+        check("初始文档宽度 = 页宽 + 两侧留白", abs(page.frame.width - docWidth) < 0.5)
+
+        // 缩小 → 页面水平居中（白色区 = 文档内 24..width-24）
+        func pageScreenCenterX() -> CGFloat {
+            (24 + (page.frame.width - 24 - 24) / 2 - clip.bounds.origin.x) * scroll.magnification
+        }
+        for mag in [CGFloat(0.6), 1.0] {
+            scroll.magnification = mag
+            scroll.layoutSubtreeIfNeeded()
+            page.needsLayout = true; page.layout(); scroll.layoutSubtreeIfNeeded()
+            check("mag \(mag) 页面居中（偏差 < 1pt）",
+                  abs(pageScreenCenterX() - 540) < 1.0)
+        }
+
+        // 放大 → 出现水平滚动范围
+        scroll.magnification = 2.0
+        scroll.layoutSubtreeIfNeeded()
+        page.needsLayout = true; page.layout(); scroll.layoutSubtreeIfNeeded()
+        let range = (docWidth - clip.bounds.width)
+        check("mag 2.0 有水平滚动范围", range > 300)
+
+        // NSEvent 双指横滑（发给 scroll view 与发给文字视图都要能拖动）
+        func pan(_ deltaX: CGFloat, to target: NSView) {
+            if let cg = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 2,
+                                wheel1: 0, wheel2: Int32(-deltaX), wheel3: 0),
+               let e = NSEvent(cgEvent: cg) {
+                target.scrollWheel(with: e)
+            }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        }
+        let before = clip.bounds.origin.x
+        pan(-10, to: scroll)
+        let afterScroll = clip.bounds.origin.x
+        check("放大后横滑 scroll view 能拖动", afterScroll < before)
+        pan(-10, to: textView)
+        check("横滑事件穿过文字视图也能拖动", clip.bounds.origin.x < afterScroll)
+        // 往回拖
+        let beforeReverse = clip.bounds.origin.x
+        pan(10, to: scroll)
+        check("反方向拖回", clip.bounds.origin.x > beforeReverse)
+
+        // 连续捏合：文档宽度必须稳定（否则文字会随缩放重排）
+        var widths: Set<Int> = []
+        for step in 0...10 {
+            scroll.magnification = 1.0 + CGFloat(step) * 0.1
+            scroll.layoutSubtreeIfNeeded()
+            page.needsLayout = true; page.layout(); scroll.layoutSubtreeIfNeeded()
+            widths.insert(Int(page.frame.width.rounded()))
+        }
+        check("捏合全程文档宽度稳定", widths.count == 1)
+    }
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -223,6 +298,7 @@ testColors()
 testEscaping()
 testHeroDocument()
 testWelcomeDocument()
+testScrollViewZoom()
 testLocalization()
 
 print("")
