@@ -6,6 +6,8 @@ Electron 版（[xiaoxicode/FinalMd](https://github.com/xiaoxicode/FinalMd)）的
 - 目标平台：**macOS 14+**（仅桌面端）
 - 编辑器内核：**NSTextView + NSAttributedString**（原生富文本，无内嵌浏览器）
 - 语言：Swift 6 / SwiftUI / AppKit / Swift Charts，零第三方依赖
+- 已发布版本：**[Release v1.0.1](https://github.com/xiaoxicode/FinalMd-swift/releases/tag/v1.0.1)**
+  （`FinalMd-macOS-1.0.1-*.zip`，macOS 14+ / arm64）
 
 ---
 
