@@ -89,3 +89,7 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" --generate-notes "$ZIP" "$ZIP.sha256"
           fi
+          # 仓库里的 RELEASE_NOTES.md 是面向用户的说明，比自动生成的 commit 列表好读
+          if [ -f RELEASE_NOTES.md ]; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+          fi
