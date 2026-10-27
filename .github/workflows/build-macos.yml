@@ -84,17 +84,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ZIP="${{ steps.dist.outputs.zip }}"
-          # 先清掉上一轮留下的同名 release 里的旧包，避免一个版本挂着多个 zip
+          # 同一个 tag 重跑时先删掉旧 release（连带旧附件），保证一个版本只挂一份包
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release view "$GITHUB_REF_NAME" --json assets --jq -r '.assets[].name' \
-              | grep -E '^FinalMd-macOS-.*\.(zip|zip\.sha256)$' \
-              | grep -v -x -e "$ZIP" -e "$ZIP.sha256" \
-              | while read -r old; do gh release delete-asset "$GITHUB_REF_NAME" "$old" -y; done
-            gh release upload "$GITHUB_REF_NAME" "$ZIP" "$ZIP.sha256" --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" --generate-notes "$ZIP" "$ZIP.sha256"
+            gh release delete "$GITHUB_REF_NAME" -y
           fi
           # 仓库里的 RELEASE_NOTES.md 是面向用户的说明，比自动生成的 commit 列表好读
           if [ -f RELEASE_NOTES.md ]; then
-            gh release edit "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+            gh release create "$GITHUB_REF_NAME" --title "墨写 $GITHUB_REF_NAME" \
+              --notes-file RELEASE_NOTES.md "$ZIP" "$ZIP.sha256"
+          else
+            gh release create "$GITHUB_REF_NAME" --generate-notes "$ZIP" "$ZIP.sha256"
           fi
