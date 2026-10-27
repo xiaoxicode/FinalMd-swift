@@ -27,18 +27,27 @@ struct EditorView: NSViewRepresentable {
         let page = EditorPageView(textView: textView)
         let scroll = NSScrollView(frame: .zero)
         scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = false
+        scroll.hasHorizontalScroller = true      // 放大后要能左右拖动
         scroll.drawsBackground = true
         scroll.backgroundColor = DocTheme.workspaceBackground
         scroll.allowsMagnification = true
         scroll.minMagnification = 0.6
         scroll.maxMagnification = 2.0
         scroll.autohidesScrollers = true
+
+        // 自定义 clip view：文档比可视区窄时居中，比可视区宽时正常横向滚动。
+        // autoresizesSubviews 必须关掉，否则缩放时文档视图被一起改尺寸、文字重排，
+        // 结果就是「拉了缩放但页面纹丝不动」。
+        let clip = CenteringClipView(frame: .zero)
+        clip.drawsBackground = true
+        clip.backgroundColor = DocTheme.workspaceBackground
+        clip.autoresizesSubviews = false
+        scroll.contentView = clip
         scroll.documentView = page
-        scroll.contentView.autoresizesSubviews = true
 
         context.coordinator.textView = textView
         context.coordinator.pageView = page
+        context.coordinator.observe(scrollView: scroll)
 
         // 图片交互回调
         textView.onImageDoubleClick = { [weak model] attachment in
@@ -68,11 +77,15 @@ struct EditorView: NSViewRepresentable {
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        let target = model.zoom
-        if abs(scrollView.magnification - target) > 0.001 {
-            scrollView.magnification = target
+        let coord = context.coordinator
+        // 只有当 model.zoom 真的变了才往 scroll view 里写。
+        // 否则用户手势缩放会在下一次 SwiftUI 刷新时被硬拉回 model.zoom。
+        if abs(model.zoom - coord.appliedZoom) > 0.001 {
+            scrollView.magnification = model.zoom
+            coord.appliedZoom = model.zoom
         }
-        context.coordinator.pageView?.needsLayout = true
+        coord.pageView?.needsLayout = true
+        coord.pageView?.layout()
     }
 
     // MARK: Coordinator
@@ -81,10 +94,31 @@ struct EditorView: NSViewRepresentable {
         let model: AppModel
         weak var textView: NSTextView?
         weak var pageView: EditorPageView?
+        /// 最近一次由代码写进 scroll view 的缩放值，用来区分「模型变了」和「用户捏合了」
+        var appliedZoom: Double = 1
 
         init(model: AppModel) {
             self.model = model
             super.init()
+        }
+
+        deinit {
+            NotificationCenter.default.removeObserver(self)
+        }
+
+        func observe(scrollView: NSScrollView) {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(magnifyDidEnd(_:)),
+                name: NSScrollView.didEndLiveMagnifyNotification,
+                object: scrollView)
+        }
+
+        /// 捏合/智能缩放结束后把结果回写给模型，状态栏的百分比才会跟着动
+        @objc @MainActor private func magnifyDidEnd(_ note: Notification) {
+            guard let scrollView = note.object as? NSScrollView else { return }
+            appliedZoom = scrollView.magnification
+            model.setZoom(scrollView.magnification)
         }
 
         func textDidChange(_ notification: Notification) {
@@ -268,8 +302,9 @@ final class EditorPageView: NSView {
     init(textView: NSTextView) {
         self.textView = textView
         super.init(frame: .zero)
-        autoresizingMask = [.width]
-        autoresizesSubviews = true
+        // 尺寸完全交给 layout() 计算，不让 AppKit 的 autoresizing 插手
+        autoresizingMask = []
+        autoresizesSubviews = false
         textView.drawsBackground = false
         addSubview(textView)
     }
@@ -283,9 +318,13 @@ final class EditorPageView: NSView {
 
         let inset = DocTheme.pagePadding
         let outerPadding: CGFloat = 24
-        let available = max(bounds.width - outerPadding * 2, 360)
+        // 关键：用 clip view 的 frame（屏幕可视宽度）而不是 bounds。
+        // bounds 会随缩放变化，用它算页宽会导致缩放时页面跟着变窄、文字重排，
+        // 看起来就像完全没缩放；而且文档宽度永远不超过可视宽度，横向也就滚不动。
+        let visible = (superview as? NSClipView)?.frame.width ?? bounds.width
+        let available = max(visible - outerPadding * 2, 360)
         pageWidth = min(available, DocTheme.pageMaxWidth)
-        pageX = max((bounds.width - pageWidth) / 2, 0)
+        pageX = outerPadding + max((available - pageWidth) / 2, 0)
 
         let textW = max(pageWidth - inset.left - inset.right, 200)
         let textX = pageX + inset.left
@@ -298,10 +337,12 @@ final class EditorPageView: NSView {
         }
 
         let needed = inset.top + textView.frame.height + inset.bottom
-        let visible = (superview as? NSClipView)?.bounds.height ?? 0
+        let visibleH = (superview as? NSClipView)?.bounds.height ?? 0
         var f = frame
-        f.size.height = max(needed, visible)
-        f.size.width = max(bounds.width, pageWidth + outerPadding)
+        f.size.height = max(needed, visibleH)
+        // 文档宽度固定为「页面 + 两侧留白」，缩放时不随之变化：
+        // 放大后文档比可视区宽 → 出现横向滚动；缩小时由 CenteringClipView 居中。
+        f.size.width = pageWidth + outerPadding * 2
         if f != frame { frame = f }
         needsDisplay = true
     }
@@ -318,6 +359,31 @@ final class EditorPageView: NSView {
         let path = NSBezierPath(rect: pageRect.insetBy(dx: 0.5, dy: 0.5))
         path.lineWidth = 1
         path.stroke()
+    }
+}
+
+// MARK: - 居中的裁剪视图
+
+/// 文档视图比可视区窄时把它水平居中（此时 NSScrollView 默认只能贴在左边），
+/// 比可视区宽时交给父类正常滚动 —— 放大后因此能左右拖动。
+final class CenteringClipView: NSClipView {
+
+    override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
+        var rect = super.constrainBoundsRect(proposedBounds)
+        guard let doc = documentView else { return rect }
+        let docWidth = doc.frame.width
+        if docWidth < rect.width {
+            rect.origin.x = (docWidth - rect.width) / 2
+        }
+        return rect
+    }
+
+    /// 窗口尺寸变化时要让页面重新排版（页宽依赖屏幕可视宽度）
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        guard let doc = documentView else { return }
+        doc.needsLayout = true
+        doc.layout()
     }
 }
 

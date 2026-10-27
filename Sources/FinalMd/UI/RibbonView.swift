@@ -24,8 +24,12 @@ struct RibbonGroup<Content: View>: View {
         HStack(spacing: 1) { content }
             .padding(.horizontal, 6)
             .background(alignment: .trailing) {
+                // 分组之间是「竖」分隔线。这里不能用 Divider()——
+                // Divider 会把宽度撑满整个容器，画出来是一条压在按钮上的横线。
                 if showsDivider {
-                    Divider().frame(height: 18)
+                    Rectangle()
+                        .fill(Color(nsColor: .separatorColor))
+                        .frame(width: 1, height: 18)
                 }
             }
     }
