@@ -182,14 +182,19 @@ func testHeroDocument() {
     check("综合文档保留分割线", first.contains("---"))
 }
 
+// 欢迎文档在 7 种语言下各有一份，逐份验证往返稳定与结构完整。
+// 注意：不能用 Localizer() 的默认语言来测——那取决于 CI/本机的系统语言，结果不稳定。
 func testWelcomeDocument() {
-    let l10n = Localizer()
-    let welcome = l10n.t("welcome")
-    let first = roundTrip(welcome)
-    let second = roundTrip(first)
-    equal("欢迎文档往返稳定", second, first)
-    check("欢迎文档有 H1", first.contains("# 欢迎使用"))
-    check("欢迎文档有列表", first.contains("- 输入"))
+    for code in ["zh", "en", "ja", "ko", "fr", "de", "es"] {
+        let welcome = Localizer.translate(code, "welcome")
+        check("欢迎文档[\(code)]非空", !welcome.isEmpty)
+        let first = roundTrip(welcome)
+        let second = roundTrip(first)
+        equal("欢迎文档[\(code)]往返稳定", second, first)
+        check("欢迎文档[\(code)]有 H1", first.hasPrefix("# "))
+        check("欢迎文档[\(code)]有列表", first.contains("\n- "))
+        check("欢迎文档[\(code)]有引用", first.contains("\n> "))
+    }
 }
 
 func testLocalization() {

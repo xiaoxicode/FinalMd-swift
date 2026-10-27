@@ -24,7 +24,7 @@ cd FinalMdSwift
 在没有 Xcode 的机器上仍可运行的两项检查：
 
 ```bash
-./scripts/run-smoke.sh   # Markdown 双向转换冒烟测试（57 项）—— 直接跑，不需要 Xcode
+./scripts/run-smoke.sh   # Markdown 双向转换冒烟测试（89 项）—— 直接跑，不需要 Xcode
 ./scripts/verify.sh      # 整套视图代码的类型校验（用宏桩顶替 @State 等）
 ```
 
@@ -55,7 +55,7 @@ git tag v1.0.1 && git push --tags          # 或打 tag：构建完自动发 Rel
 
 | 步骤 | 说明 |
 |---|---|
-| 冒烟测试 | 先跑 57 项 Markdown 往返断言，不过就不往下走 |
+| 冒烟测试 | 先跑 89 项 Markdown 往返断言，不过就不往下走 |
 | 编译 + 组装 | `swift build -c release` → `build/墨写.app`，ad-hoc 签名 |
 | bundle 校验 | 检查可执行文件、Info.plist、图标、版本与最低系统版本 |
 | Developer ID 签名 + 公证（可选） | 配了证书 secrets 才执行，`scripts/sign_and_notarize.sh` |
@@ -141,7 +141,7 @@ FinalMdSwift/
 | `renderer/styles.css` | `Markdown/Typography.swift` + SwiftUI 修饰符 | 字号/行高/配色逐项对齐 |
 | `shared/i18n/*.js`（7 语言） | `I18n/Dictionaries.swift` + `Localizer.swift` | 词典由脚本从 JS 原文件生成 |
 | `updater.js`（electron-updater） | `Util/UpdateChecker.swift` | 查 GitHub Release tag，引导浏览器下载 |
-| `scripts/smoke.js`（64 项） | `scripts/smoke.swift`（57 项） | 聚焦 Markdown 往返一致性 |
+| `scripts/smoke.js`（64 项） | `scripts/smoke.swift`（89 项） | 聚焦 Markdown 往返一致性，含 7 语言欢迎文档 |
 
 ### 重新生成本地化词典
 
@@ -196,7 +196,7 @@ node scripts/gen-i18n.js ../FinalMd Sources/FinalMd/I18n/Dictionaries.swift
 
 | 项目 | 结果 |
 |---|---|
-| Markdown 双向转换冒烟测试 | ✅ **57 项全部通过**（`./scripts/run-smoke.sh`） |
+| Markdown 双向转换冒烟测试 | ✅ **89 项全部通过**（`./scripts/run-smoke.sh`） |
 | 全套视图代码类型校验 | ✅ **Build complete，0 error / 0 warning**（`./scripts/verify.sh`） |
 | 完整 `swift build` + 打包 | ⚠️ 本机未装 Xcode，SwiftUI 宏插件缺失，**未能执行** |
 
