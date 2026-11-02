@@ -41,6 +41,15 @@ enum PDFExporter {
         editor?.suppressesLineRuling = true
         defer { editor?.suppressesLineRuling = rulingBefore }
 
+        // PDF 是「纸」，不跟随界面的深色外观：正文属性里存的是动态色，
+        // 导出期间把视图外观强制成浅色，深色模式下的浅色文字才不会变成白纸上的一片白。
+        let appearanceBefore = view.appearance
+        if view.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua {
+            view.appearance = NSAppearance(named: .aqua)
+            view.layoutSubtreeIfNeeded()
+        }
+        defer { view.appearance = appearanceBefore }
+
         let contentWidth = pageSize.width - margin * 2
         let contentHeight = pageSize.height - margin * 2
         let total = max(view.frame.height, contentHeight)

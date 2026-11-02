@@ -255,20 +255,20 @@ enum InlineParser {
             case "span":
                 let style = Self.styleValue(of: "style", in: tagText)
                 if let c = Self.cssColor(style, key: "color"), let color = NSColor(hex: c) {
-                    innerAttrs[.foregroundColor] = color
+                    innerAttrs[.foregroundColor] = DocTheme.displayTextColor(color)
                     innerAttrs[.mdTextColor] = color
                 }
                 if let c = Self.cssColor(style, key: "background-color"), let color = NSColor(hex: c) {
-                    innerAttrs[.backgroundColor] = color
+                    innerAttrs[.backgroundColor] = DocTheme.displayHighlight(color)
                     innerAttrs[.mdHighlight] = color
                 }
             case "mark":
                 let style = Self.styleValue(of: "style", in: tagText)
                 if let c = Self.cssColor(style, key: "background-color"), let color = NSColor(hex: c) {
-                    innerAttrs[.backgroundColor] = color
+                    innerAttrs[.backgroundColor] = DocTheme.displayHighlight(color)
                     innerAttrs[.mdHighlight] = color
                 } else {
-                    innerAttrs[.backgroundColor] = DocTheme.defaultHighlight
+                    innerAttrs[.backgroundColor] = DocTheme.displayHighlight(DocTheme.defaultHighlight)
                     innerAttrs[.mdHighlight] = DocTheme.defaultHighlight
                 }
             case "u":
@@ -397,7 +397,7 @@ func codeAttributes(_ base: [NSAttributedString.Key: Any]) -> [NSAttributedStrin
     a[.font] = DocTheme.monospacedFont(size: size * 0.88)
     a[.mdInlineCode] = true
     a[.backgroundColor] = DocTheme.codeBackground
-    a[.foregroundColor] = NSColor(calibratedRed: 0.753, green: 0.204, blue: 0.114, alpha: 1)
+    a[.foregroundColor] = DocTheme.inlineCodeText
     return a
 }
 

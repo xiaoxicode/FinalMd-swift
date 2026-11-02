@@ -111,6 +111,16 @@ struct AppCommands: Commands {
                 set: { _ in model.perform(.lineRuling) }
             ))
             .keyboardShortcut("l", modifiers: [.command, .shift])
+            Divider()
+            Menu(l10n.t("menu.view.appearance")) {
+                ForEach(AppearanceMode.allCases) { mode in
+                    Button {
+                        model.appearanceMode = mode
+                    } label: {
+                        Text((model.appearanceMode == mode ? "✓ " : "    ") + l10n.t(mode.labelKey))
+                    }
+                }
+            }
         }
 
         // MARK: 语言

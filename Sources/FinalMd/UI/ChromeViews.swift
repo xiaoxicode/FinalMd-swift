@@ -37,7 +37,7 @@ struct TitleBarView: View {
                 .padding(.vertical, 2)
                 .background(
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(model.isDirty ? Color.accentColor.opacity(0.12) : Color.gray.opacity(0.10))
+                        .fill(model.isDirty ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.07))
                 )
                 .foregroundStyle(model.isDirty ? Color.accentColor : Color.secondary)
         }
@@ -142,9 +142,9 @@ struct ToastView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 7))
             .overlay(
                 RoundedRectangle(cornerRadius: 7)
-                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.14), radius: 8, y: 3)
+            .shadow(color: .black.opacity(0.28), radius: 8, y: 3)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 }

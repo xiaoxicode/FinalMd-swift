@@ -16,6 +16,27 @@ struct DocStats: Equatable {
     var lines = 1
 }
 
+/// 界面外观：跟随系统 / 强制浅色 / 强制深色
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    /// 菜单文案的 i18n key
+    var labelKey: String { "appearance.\(rawValue)" }
+
+    /// 对应的 AppKit 外观；nil 表示交还给系统
+    var appearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
 /// 工具栏回显状态
 struct ToolbarState: Equatable {
     var isBold = false
@@ -100,6 +121,18 @@ final class AppModel: ObservableObject {
         (UserDefaults.standard.object(forKey: AppModel.lineRulingKey) as? Bool) ?? false
 
     static let lineRulingKey = "finalmd.lineRuling"
+
+    /// 界面外观。默认跟随系统；想固定成深色写字的人可以在这里盖一层。
+    /// 和横线一样属于「本机偏好」，不进文档，所以存 UserDefaults。
+    @Published var appearanceMode: AppearanceMode = .system {
+        didSet {
+            guard oldValue != appearanceMode else { return }
+            UserDefaults.standard.set(appearanceMode.rawValue, forKey: Self.appearanceKey)
+            applyAppearance()
+        }
+    }
+
+    static let appearanceKey = "finalmd.appearance"
     @Published var toastMessage: String?
     @Published var activeDialog: DialogKind?
     @Published var findVisible = false
@@ -119,7 +152,13 @@ final class AppModel: ObservableObject {
 
     init(l10n: Localizer) {
         self.l10n = l10n
+        // 恢复上次选择的外观（跟随系统时没有这个键）
+        if let saved = UserDefaults.standard.string(forKey: Self.appearanceKey),
+           let mode = AppearanceMode(rawValue: saved) {
+            appearanceMode = mode
+        }
         AppModel.shared = self
+        applyAppearance()
     }
 
     /// 供 AppDelegate 在退出确认时取用（单窗口应用）
@@ -529,5 +568,14 @@ final class AppModel: ObservableObject {
     func applyLineRuling() {
         guard let tv = textView as? MDEditorTextView else { return }
         tv.showsLineRuling = showLineRuling
+    }
+
+    // MARK: - 外观（浅色 / 深色）
+
+    /// 把外观模式落到 NSApplication 上。
+    /// .system 交给系统（nil），另外两个强制覆盖 —— 覆盖只影响本应用，不碰系统设置。
+    func applyAppearance() {
+        guard let app = NSApp else { return }
+        app.appearance = appearanceMode.appearance
     }
 }

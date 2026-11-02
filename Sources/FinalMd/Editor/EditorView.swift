@@ -161,6 +161,8 @@ final class MDEditorTextView: NSTextView {
         drawsBackground = false
         font = DocTheme.bodyFont
         textColor = DocTheme.text
+        // 插入点跟随正文色：深色纸面上默认的黑色光标几乎看不见
+        insertionPointColor = DocTheme.text
         typingAttributes = EditorStyle.defaultTyping
 
         isVerticallyResizable = true
@@ -228,6 +230,15 @@ final class MDEditorTextView: NSTextView {
         super.draw(dirtyRect)
         guard showsLineRuling, !suppressesLineRuling else { return }
         drawLineRuling(in: dirtyRect)
+    }
+
+    /// 浅色 ↔ 深色切换后重绘正文与横线。
+    /// TextKit 的排版结果与外观无关，属性里存的又是动态色，
+    /// 所以不需要重新解析文档，重绘一遍就会按新外观取色。
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        insertionPointColor = DocTheme.text
+        needsDisplay = true
     }
 
     // MARK: 回车换行（Word 行为）

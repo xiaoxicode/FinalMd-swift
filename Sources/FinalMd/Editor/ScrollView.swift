@@ -143,13 +143,21 @@ final class EditorPageView: NSView {
         bounds.fill()
 
         let pageRect = NSRect(x: pageX, y: 0, width: pageWidth, height: bounds.height)
-        NSColor.white.setFill()
+        DocTheme.pageBackground.setFill()
         pageRect.fill()
 
         DocTheme.borderSoft.setStroke()
         let path = NSBezierPath(rect: pageRect.insetBy(dx: 0.5, dy: 0.5))
         path.lineWidth = 1
         path.stroke()
+    }
+
+    /// 系统外观切换（浅色 ↔ 深色）后重画纸张与四周工作区。
+    /// 颜色本身是动态色，这里只需要让视图重绘一次，不必重建文档。
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+        textView.needsDisplay = true
     }
 }
 

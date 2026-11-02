@@ -336,7 +336,7 @@ enum MarkdownParser {
 
                 let isHeader = hasHeader && r == 0
                 if isHeader {
-                    block.backgroundColor = NSColor(calibratedRed: 0.961, green: 0.965, blue: 0.976, alpha: 1)
+                    block.backgroundColor = DocTheme.tableHeaderBackground
                 }
 
                 let style = NSMutableParagraphStyle()
@@ -390,7 +390,7 @@ enum MarkdownParser {
 
                 let isHeader = hasHeader && r == 0
                 if isHeader {
-                    block.backgroundColor = NSColor(calibratedRed: 0.961, green: 0.965, blue: 0.976, alpha: 1)
+                    block.backgroundColor = DocTheme.tableHeaderBackground
                 }
 
                 let style = NSMutableParagraphStyle()

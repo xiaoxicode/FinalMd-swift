@@ -207,8 +207,11 @@ func testLocalization() {
     check("占位符替换", l10n.t("style.heading", ["n": "3"]).contains("3"))
     check("缺失 key 回落 key 本身", Localizer.translate("en", "no.such.key") == "no.such.key")
     check("语言数量 7", I18nDictionary.supportedLanguages.count == 7)
-    check("每种语言都有 215 个 key",
-          I18nDictionary.supportedLanguages.allSatisfy { I18nDictionary.table[$0.code]?.count == 215 })
+    // 不写死数量：新增文案时不必改这里，但任何一种语言漏翻都会被这条断言抓到
+    let baseKeyCount = I18nDictionary.table["zh"]?.count ?? 0
+    check("各语言 key 数量一致（\(baseKeyCount) 个）",
+          baseKeyCount > 200
+          && I18nDictionary.supportedLanguages.allSatisfy { I18nDictionary.table[$0.code]?.count == baseKeyCount })
     l10n.setLanguage("zh")
 }
 

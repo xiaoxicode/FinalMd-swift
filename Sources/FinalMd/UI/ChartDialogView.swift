@@ -46,7 +46,7 @@ struct ChartDialogView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
-                                .stroke(config.type == type ? Color.accentColor : Color.gray.opacity(0.25),
+                                .stroke(config.type == type ? Color.accentColor : Color.primary.opacity(0.18),
                                         lineWidth: 1)
                         )
                     }
@@ -121,13 +121,14 @@ struct ChartDialogView: View {
                 }
             }
 
-            // 实时预览
+            // 实时预览。画布恒为白底 —— 它就是要插进文档的那张图，
+            // 预览必须和导出结果一致，所以这里不跟随深色外观。
             ChartCanvas(config: config)
                 .frame(width: 460, height: 254)
                 .background(Color.white)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+                        .stroke(Color.primary.opacity(0.18), lineWidth: 1)
                 )
                 .cornerRadius(6)
 

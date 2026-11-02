@@ -304,7 +304,7 @@ struct ColorPopover: View {
                         RoundedRectangle(cornerRadius: 3)
                             .fill(Color(nsColor: color))
                             .frame(width: 20, height: 20)
-                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.black.opacity(0.12)))
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.primary.opacity(0.18)))
                     }
                     .buttonStyle(.plain)
                 }

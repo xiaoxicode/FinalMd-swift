@@ -206,7 +206,8 @@ extension NSTextView {
         performEdit { storage, ranges in
             for r in ranges {
                 if let color {
-                    storage.addAttribute(.foregroundColor, value: color, range: r)
+                    // 文档里存原色，屏幕上显示按当前外观调整过的动态色
+                    storage.addAttribute(.foregroundColor, value: DocTheme.displayTextColor(color), range: r)
                     storage.addAttribute(.mdTextColor, value: color, range: r)
                 } else {
                     storage.addAttribute(.foregroundColor, value: DocTheme.text, range: r)
@@ -220,7 +221,7 @@ extension NSTextView {
         performEdit { storage, ranges in
             for r in ranges {
                 if let color {
-                    storage.addAttribute(.backgroundColor, value: color, range: r)
+                    storage.addAttribute(.backgroundColor, value: DocTheme.displayHighlight(color), range: r)
                     storage.addAttribute(.mdHighlight, value: color, range: r)
                 } else {
                     storage.removeAttribute(.backgroundColor, range: r)

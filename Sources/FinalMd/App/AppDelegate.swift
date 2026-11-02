@@ -44,5 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        // 启动时再应用一次外观：AppModel 初始化时 NSApp 可能还没就绪
+        AppModel.shared?.applyAppearance()
     }
 }
