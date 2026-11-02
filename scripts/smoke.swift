@@ -207,8 +207,8 @@ func testLocalization() {
     check("占位符替换", l10n.t("style.heading", ["n": "3"]).contains("3"))
     check("缺失 key 回落 key 本身", Localizer.translate("en", "no.such.key") == "no.such.key")
     check("语言数量 7", I18nDictionary.supportedLanguages.count == 7)
-    check("每种语言都有 213 个 key",
-          I18nDictionary.supportedLanguages.allSatisfy { I18nDictionary.table[$0.code]?.count == 213 })
+    check("每种语言都有 215 个 key",
+          I18nDictionary.supportedLanguages.allSatisfy { I18nDictionary.table[$0.code]?.count == 215 })
     l10n.setLanguage("zh")
 }
 

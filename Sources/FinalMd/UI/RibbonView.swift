@@ -128,6 +128,8 @@ struct RibbonView: View {
                 icon("chart.bar", "tb.chart", .chart)
                 icon("list.bullet.indent", "tb.toc", .toc)
                 icon("magnifyingglass", "tb.find", .find)
+                icon("line.horizontal.3", "tb.lineRuling", .lineRuling,
+                     active: model.showLineRuling)
             }
             Spacer(minLength: 0)
         }

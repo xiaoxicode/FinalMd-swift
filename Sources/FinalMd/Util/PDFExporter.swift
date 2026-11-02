@@ -34,6 +34,13 @@ enum PDFExporter {
     /// 把视图内容分页渲染成 PDF 数据
     static func makePDF(view: NSView) -> Data {
         view.layoutSubtreeIfNeeded()
+
+        // 文档横线是编辑时的辅助线，导出 PDF 时临时关掉，成品里不出现
+        let editor = view as? MDEditorTextView
+        let rulingBefore = editor?.suppressesLineRuling ?? false
+        editor?.suppressesLineRuling = true
+        defer { editor?.suppressesLineRuling = rulingBefore }
+
         let contentWidth = pageSize.width - margin * 2
         let contentHeight = pageSize.height - margin * 2
         let total = max(view.frame.height, contentHeight)

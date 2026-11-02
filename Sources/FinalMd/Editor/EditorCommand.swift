@@ -23,7 +23,7 @@ enum EditorCommand: Equatable {
     // 插入
     case link, table, image, chart, toc
     // 视图
-    case zoomIn, zoomOut, zoomReset
+    case zoomIn, zoomOut, zoomReset, lineRuling
 }
 
 extension AppModel {
@@ -80,9 +80,11 @@ extension AppModel {
         case .zoomIn: setZoom(zoom + 0.1)
         case .zoomOut: setZoom(zoom - 0.1)
         case .zoomReset: setZoom(1)
+        case .lineRuling: toggleLineRuling()
         }
 
-        if command != .find {
+        // 横线开关 / 查找面板只改视图状态，不该把文档标脏
+        if command != .find, command != .lineRuling {
             markDirty()
             refreshToolbar()
         }

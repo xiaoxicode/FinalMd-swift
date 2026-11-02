@@ -93,6 +93,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var toolbar = ToolbarState()
 
     @Published var zoom: Double = 1
+
+    /// 文档横线（作业本行线）开关。只是编辑区的显示辅助，不写进文档内容，
+    /// 所以用 UserDefaults 记住偏好，而不是当成文档状态。
+    @Published var showLineRuling: Bool =
+        (UserDefaults.standard.object(forKey: AppModel.lineRulingKey) as? Bool) ?? false
+
+    static let lineRulingKey = "finalmd.lineRuling"
     @Published var toastMessage: String?
     @Published var activeDialog: DialogKind?
     @Published var findVisible = false
@@ -217,6 +224,9 @@ final class AppModel: ObservableObject {
         storage.endEditing()
         tv.didChangeText()
         tv.setSelectedRange(NSRange(location: 0, length: 0))
+        // 换文档后必须重算输入属性：否则新建/打开后敲的第一个字会沿用上一篇的样式
+        // （典型症状：新建文档一开口就是标题）。空文档会落到正文。
+        tv.refreshTypingAttributes()
         markDirty(false)
         refreshAll()
     }
@@ -504,5 +514,20 @@ final class AppModel: ObservableObject {
 
     func setZoom(_ value: Double) {
         zoom = min(max(value, 0.6), 2.0)
+    }
+
+    // MARK: - 文档横线
+
+    /// 开 / 关文档横线（作业本行线），并记住这次选择
+    func toggleLineRuling() {
+        showLineRuling.toggle()
+        UserDefaults.standard.set(showLineRuling, forKey: Self.lineRulingKey)
+        applyLineRuling()
+    }
+
+    /// 把开关状态推给编辑器视图（视图就绪时、切换时都调用一次）
+    func applyLineRuling() {
+        guard let tv = textView as? MDEditorTextView else { return }
+        tv.showsLineRuling = showLineRuling
     }
 }

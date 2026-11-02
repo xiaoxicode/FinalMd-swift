@@ -16,6 +16,52 @@ enum BlockStyle: Hashable {
     case code
 }
 
+// MARK: - 输入属性（typingAttributes）
+
+/// 根据块样式构造一份完整的 typingAttributes。
+/// 空文档 / 空段落上没有字符可取属性时用它，保证「接下来敲的字」就是该样式（Word 行为）。
+enum EditorStyle {
+
+    /// 默认输入属性：正文。新建文档 / 清空文档后从这里开始写，而不是残留上一个文档的样式。
+    static var defaultTyping: [NSAttributedString.Key: Any] {
+        typing(for: .paragraph)
+    }
+
+    static func typing(for style: BlockStyle) -> [NSAttributedString.Key: Any] {
+        let type: MDBlockType
+        switch style {
+        case .paragraph: type = .paragraph
+        case .heading(let n): type = MDBlockType(headingLevel: n)
+        case .quote: type = .quote
+        case .code: type = .code
+        }
+
+        var attrs: [NSAttributedString.Key: Any] = [:]
+        let ps = DocTheme.paragraphStyle(for: type)
+        switch type {
+        case .code:
+            attrs[.font] = DocTheme.monospacedFont(size: DocTheme.codeFontSize)
+            ps.textBlocks = [DocTheme.codeTextBlock]
+            attrs[.foregroundColor] = DocTheme.text
+        case .quote:
+            attrs[.font] = DocTheme.bodyFont
+            ps.textBlocks = [DocTheme.quoteTextBlock]
+            attrs[.foregroundColor] = DocTheme.textDim
+        case .paragraph:
+            attrs[.font] = DocTheme.bodyFont
+            attrs[.foregroundColor] = DocTheme.text
+        default:
+            let size = DocTheme.headingFontSize(type.headingLevel ?? 1)
+            attrs[.font] = DocTheme.documentFont(size: size, weight: .bold)
+            attrs[.mdStructuralBold] = true   // 排版加粗不是用户敲的 **，序列化时不输出
+            attrs[.foregroundColor] = type.headingLevel == 6 ? DocTheme.textDim : DocTheme.text
+        }
+        attrs[.paragraphStyle] = ps
+        attrs[.mdBlockType] = type.rawValue
+        return attrs
+    }
+}
+
 extension NSTextView {
 
     // MARK: - 基础编辑封装（带撤销）
@@ -34,20 +80,26 @@ extension NSTextView {
         needsDisplay = true
     }
 
-    /// 需要作用的段落范围（光标时取整个段落）
+    /// 需要作用的段落范围（光标时取整个段落）。
+    /// 段落范围保留结尾的 \n：段落级属性（段落样式 / 块类型）必须写到段落终结符上，
+    /// 回车换行才能继承上一行的模式，修改显示模式后接着输入才会跟随新模式（Word 行为）。
     func targetRanges() -> [NSRange] {
         let sel = selectedRange()
         let s = string as NSString
         guard s.length > 0 else { return [NSRange(location: 0, length: 0)] }
 
         if sel.length == 0 {
-            var r = s.paragraphRange(for: sel)
-            if r.length > 0, s.character(at: NSMaxRange(r) - 1) == 0x0A { r.length -= 1 }
-            return [r]
+            return [s.paragraphRange(for: sel)]
         }
         var out: [NSRange] = []
         s.enumerateSubstrings(in: sel, options: [.byParagraphs]) { _, subRange, _, _ in
-            out.append(subRange)
+            var r = subRange
+            // 段落枚举不包含段末的换行符（选区正好停在行尾时尤其如此）。
+            // 段落级属性必须落到 \n 上，否则回车换行没东西可继承，新行就会掉回正文。
+            if NSMaxRange(r) < s.length, s.character(at: NSMaxRange(r)) == 0x0A {
+                r.length += 1
+            }
+            out.append(r)
         }
         return out.isEmpty ? [sel] : out
     }
@@ -111,8 +163,12 @@ extension NSTextView {
                                          value: NSFont(descriptor: nd, size: font.pointSize) ?? font,
                                          range: range)
                 }
-                // 结构性加粗已被用户接管，去掉标记
-                storage.removeAttribute(.mdStructuralBold, range: r)
+                // 结构性加粗已被用户接管，去掉标记。
+                // 注意只有「加粗」开关才清标记：切换斜体不该把结构性加粗标记抹掉，
+                // 否则「标题改回正文」时无法准确剥掉排版加粗，正文会莫名残留粗体。
+                if trait == .bold {
+                    storage.removeAttribute(.mdStructuralBold, range: r)
+                }
             }
         }
     }
@@ -203,85 +259,132 @@ extension NSTextView {
     // MARK: - 块级样式
 
     func applyBlockStyle(_ style: BlockStyle) {
-        performEdit { storage, ranges in
-            for r in ranges {
-                let oldRaw = storage.attribute(.mdBlockType, at: r.location, effectiveRange: nil) as? String
-                let oldType = MDBlockType(rawValue: oldRaw ?? "p") ?? .paragraph
+        // 空文档、或插入点落在文末空行时，没有任何字符能承载段落属性：
+        // 这时只调整「接下来输入的样式」，直接去改 storage 会越界崩溃。
+        if targetRanges().contains(where: { $0.length > 0 }) {
+            performEdit { storage, ranges in
+                for r in ranges where r.length > 0 {
+                    let oldRaw = storage.attribute(.mdBlockType, at: r.location, effectiveRange: nil) as? String
+                    let oldType = MDBlockType(rawValue: oldRaw ?? "p") ?? .paragraph
 
-                let newType: MDBlockType
-                switch style {
-                case .paragraph: newType = .paragraph
-                case .heading(let n): newType = MDBlockType(headingLevel: n)
-                case .quote: newType = .quote
-                case .code: newType = .code
-                }
-
-                let size: CGFloat
-                switch newType {
-                case .code: size = DocTheme.codeFontSize
-                case .paragraph, .quote: size = DocTheme.bodyFontSize
-                default: size = DocTheme.headingFontSize(newType.headingLevel ?? 1)
-                }
-
-                let keepAlignment = (storage.attribute(.paragraphStyle, at: r.location, effectiveRange: nil)
-                    as? NSParagraphStyle)?.alignment ?? .natural
-
-                let rangesSnapshot: [NSRange] = {
-                    var list: [NSRange] = []
-                    storage.enumerateAttribute(.font, in: r, options: []) { _, range, _ in list.append(range) }
-                    return list.isEmpty ? [r] : list
-                }()
-
-                for fr in rangesSnapshot {
-                    if newType == .code {
-                        storage.addAttribute(.font, value: DocTheme.monospacedFont(size: DocTheme.codeFontSize), range: fr)
-                        continue
+                    let newType: MDBlockType
+                    switch style {
+                    case .paragraph: newType = .paragraph
+                    case .heading(let n): newType = MDBlockType(headingLevel: n)
+                    case .quote: newType = .quote
+                    case .code: newType = .code
                     }
-                    let font = storage.attribute(.font, at: fr.location, effectiveRange: nil) as? NSFont ?? DocTheme.bodyFont
-                    var d = font.fontDescriptor
-                    var traits = d.symbolicTraits
 
-                    if newType.headingLevel != nil {
-                        if !traits.contains(.bold) {
-                            traits.insert(.bold)
-                            storage.addAttribute(.mdStructuralBold, value: true, range: fr)
+                    let size: CGFloat
+                    switch newType {
+                    case .code: size = DocTheme.codeFontSize
+                    case .paragraph, .quote: size = DocTheme.bodyFontSize
+                    default: size = DocTheme.headingFontSize(newType.headingLevel ?? 1)
+                    }
+
+                    let keepAlignment = (storage.attribute(.paragraphStyle, at: r.location, effectiveRange: nil)
+                        as? NSParagraphStyle)?.alignment ?? .natural
+
+                    let rangesSnapshot: [NSRange] = {
+                        var list: [NSRange] = []
+                        storage.enumerateAttribute(.font, in: r, options: []) { _, range, _ in list.append(range) }
+                        return list.isEmpty ? [r] : list
+                    }()
+
+                    for fr in rangesSnapshot {
+                        if newType == .code {
+                            storage.addAttribute(.font, value: DocTheme.monospacedFont(size: DocTheme.codeFontSize), range: fr)
+                            // 结构性加粗标记随块样式一起清除
+                            if (storage.attribute(.mdStructuralBold, at: fr.location, effectiveRange: nil) as? Bool) == true {
+                                storage.removeAttribute(.mdStructuralBold, range: fr)
+                            }
+                            continue
                         }
-                    } else if oldType.headingLevel != nil,
-                              (storage.attribute(.mdStructuralBold, at: fr.location, effectiveRange: nil) as? Bool) == true {
-                        traits.remove(.bold)
-                        storage.removeAttribute(.mdStructuralBold, range: fr)
+                        let font = storage.attribute(.font, at: fr.location, effectiveRange: nil) as? NSFont ?? DocTheme.bodyFont
+                        var d = font.fontDescriptor
+                        var traits = d.symbolicTraits
+
+                        if newType.headingLevel != nil {
+                            if !traits.contains(.bold) {
+                                traits.insert(.bold)
+                                // 原本不是粗体、现在为排版加粗 → 打结构性标记；
+                                // 用户自己加粗的文字不打标记，标题改回正文时保留用户粗体
+                                storage.addAttribute(.mdStructuralBold, value: true, range: fr)
+                            }
+                        } else if (storage.attribute(.mdStructuralBold, at: fr.location, effectiveRange: nil) as? Bool) == true {
+                            // 从标题等带结构性加粗的样式切走：精确剥掉排版加粗，
+                            // 用户显式设置的粗体（无标记）不受影响
+                            traits.remove(.bold)
+                            storage.removeAttribute(.mdStructuralBold, range: fr)
+                        }
+
+                        d = d.withSymbolicTraits(traits)
+                        let newFont = NSFont(descriptor: d.withSize(size), size: size) ?? font
+                        storage.addAttribute(.font, value: newFont, range: fr)
                     }
 
-                    d = d.withSymbolicTraits(traits)
-                    let newFont = NSFont(descriptor: d.withSize(size), size: size) ?? font
-                    storage.addAttribute(.font, value: newFont, range: fr)
-                }
+                    // 段落样式
+                    let ps = DocTheme.paragraphStyle(for: newType, alignment: keepAlignment)
+                    switch newType {
+                    case .quote: ps.textBlocks = [DocTheme.quoteTextBlock]
+                    case .code: ps.textBlocks = [DocTheme.codeTextBlock]
+                    default: ps.textBlocks = []
+                    }
+                    storage.addAttribute(.paragraphStyle, value: ps, range: r)
+                    storage.addAttribute(.mdBlockType, value: newType.rawValue, range: r)
 
-                // 段落样式
-                let ps = DocTheme.paragraphStyle(for: newType, alignment: keepAlignment)
-                switch newType {
-                case .quote: ps.textBlocks = [DocTheme.quoteTextBlock]
-                case .code: ps.textBlocks = [DocTheme.codeTextBlock]
-                default: ps.textBlocks = []
-                }
-                storage.addAttribute(.paragraphStyle, value: ps, range: r)
-                storage.addAttribute(.mdBlockType, value: newType.rawValue, range: r)
-
-                if newType == .code {
-                    storage.removeAttribute(.mdListItem, range: r)
-                }
-                if newType == .quote {
-                    storage.addAttribute(.foregroundColor, value: DocTheme.textDim, range: r)
-                } else if oldType == .quote {
-                    storage.addAttribute(.foregroundColor, value: DocTheme.text, range: r)
+                    if newType == .code {
+                        storage.removeAttribute(.mdListItem, range: r)
+                    }
+                    if newType == .quote {
+                        storage.addAttribute(.foregroundColor, value: DocTheme.textDim, range: r)
+                    } else if oldType == .quote {
+                        storage.addAttribute(.foregroundColor, value: DocTheme.text, range: r)
+                    }
                 }
             }
         }
+        // 模式改完后同步输入属性：接着这行继续敲字，新字要和这行保持同一模式（Word 行为）。
+        refreshTypingAttributes(fallbackStyle: style)
     }
+
+    /// 块样式 / 对齐等修改后，把 typingAttributes 同步为光标处的当前样式，
+    /// 保证改完模式紧接着输入的文字跟随新模式（Word 行为）。
+    /// 空文档或空段落没有字符可取时，用 fallbackStyle（或默认正文）构造。
+    func refreshTypingAttributes(fallbackStyle: BlockStyle? = nil) {
+        guard let storage = textStorage, storage.length > 0 else {
+            typingAttributes = fallbackStyle.map { EditorStyle.typing(for: $0) } ?? EditorStyle.defaultTyping
+            return
+        }
+        let s = storage.string as NSString
+        let sel = selectedRange()
+        let para = s.paragraphRange(for: NSRange(location: min(sel.location, s.length), length: 0))
+        guard para.length > 0 else {
+            typingAttributes = fallbackStyle.map { EditorStyle.typing(for: $0) } ?? EditorStyle.defaultTyping
+            return
+        }
+        // 段落级属性取自本段开头；行内属性（字体/颜色等）取自光标前一个字符，
+        // 与 Word「接着当前输入点的格式继续写」一致。
+        var attrs = storage.attributes(at: para.location, effectiveRange: nil)
+        let loc = min(max(sel.location, para.location), NSMaxRange(para) - 1)
+        if loc > para.location {
+            let before = storage.attributes(at: loc - 1, effectiveRange: nil)
+            for key in Self.inlineTypingKeys {
+                if let v = before[key] { attrs[key] = v } else { attrs.removeValue(forKey: key) }
+            }
+        }
+        typingAttributes = attrs
+    }
+
+    /// 行内属性键：typingAttributes 同步时跟随光标前字符，不取段落头
+    static let inlineTypingKeys: [NSAttributedString.Key] = [
+        .font, .foregroundColor, .backgroundColor, .underlineStyle, .strikethroughStyle,
+        .link, .mdInlineCode, .mdTextColor, .mdHighlight,
+    ]
 
     func setAlignment(_ alignment: NSTextAlignment) {
         performEdit { storage, ranges in
-            for r in ranges {
+            for r in ranges where r.length > 0 {
                 let base = storage.attribute(.paragraphStyle, at: r.location, effectiveRange: nil) as? NSParagraphStyle
                 let ps = (base?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
                 ps.alignment = alignment
@@ -297,8 +400,8 @@ extension NSTextView {
             for r in ranges.reversed() {
                 let loc = r.location
                 var len = r.length
-                // 剥掉旧的项目符号
-                if storage.attribute(.mdListItem, at: loc, effectiveRange: nil) != nil {
+                // 剥掉旧的项目符号（文末空行长度为 0，没有字符可读，直接跳到插入）
+                if len > 0, storage.attribute(.mdListItem, at: loc, effectiveRange: nil) != nil {
                     let s = storage.string as NSString
                     let head = s.substring(with: NSRange(location: loc, length: min(8, len)))
                     if let sp = head.firstIndex(of: " ") {
@@ -309,7 +412,7 @@ extension NSTextView {
                     storage.removeAttribute(.mdListItem, range: NSRange(location: loc, length: len))
                 }
                 let marker = ordered ? "1. " : "- "
-                let attrs = storage.attributes(at: max(loc - 1, 0), effectiveRange: nil)
+                let attrs = storage.attributes(at: max(min(loc - 1, storage.length - 1), 0), effectiveRange: nil)
                 storage.insert(NSAttributedString(string: marker, attributes: attrs), at: loc)
                 len += (marker as NSString).length
                 let full = NSRange(location: loc, length: len)
@@ -321,7 +424,7 @@ extension NSTextView {
 
     func removeList() {
         performEdit { storage, ranges in
-            for r in ranges.reversed() {
+            for r in ranges.reversed() where r.length > 0 {
                 guard storage.attribute(.mdListItem, at: r.location, effectiveRange: nil) != nil else { continue }
                 let s = storage.string as NSString
                 let head = s.substring(with: NSRange(location: r.location, length: min(8, r.length)))
@@ -347,7 +450,9 @@ extension NSTextView {
     func indentParagraphs() {
         performEdit { storage, ranges in
             for r in ranges.reversed() {
-                let attrs = storage.attributes(at: r.location, effectiveRange: nil)
+                // 文末空行（长度 0、位置等于文档长度）取不到属性，退回末字符的属性
+                let probe = min(max(r.length > 0 ? r.location : r.location - 1, 0), max(storage.length - 1, 0))
+                let attrs = storage.attributes(at: probe, effectiveRange: nil)
                 storage.insert(NSAttributedString(string: Self.indentUnit, attributes: attrs), at: r.location)
             }
         }

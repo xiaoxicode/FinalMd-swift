@@ -105,6 +105,12 @@ struct AppCommands: Commands {
                 .keyboardShortcut("-", modifiers: .command)
             Button(l10n.t("menu.view.zoomReset")) { model.perform(.zoomReset) }
                 .keyboardShortcut("0", modifiers: [.command, .shift])
+            Divider()
+            Toggle(l10n.t("menu.view.lineRuling"), isOn: Binding(
+                get: { model.showLineRuling },
+                set: { _ in model.perform(.lineRuling) }
+            ))
+            .keyboardShortcut("l", modifiers: [.command, .shift])
         }
 
         // MARK: 语言

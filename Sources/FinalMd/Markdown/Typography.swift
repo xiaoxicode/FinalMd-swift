@@ -43,6 +43,15 @@ enum DocTheme {
     /// 正文行高倍数（line-height:1.8）
     static let bodyLineHeight: CGFloat = 1.8
 
+    // MARK: 文档横线（作业本行线）
+
+    /// 横线颜色：淡蓝灰，接近作业本的印刷行线，不抢正文
+    static let ruledLine = NSColor(srgbRed: 0.796, green: 0.855, blue: 0.918, alpha: 1)   // #cbdaea
+    /// 横线粗细
+    static let ruledLineWidth: CGFloat = 1
+    /// 横线相对行底的上移量：留一点缝，避免正好压住下伸部（g、p 的尾巴）
+    static let ruledLineInset: CGFloat = 1.5
+
     /// 标题字号（对应 h1:1.9em … h6:.95em）
     static func headingFontSize(_ level: Int) -> CGFloat {
         switch level {
