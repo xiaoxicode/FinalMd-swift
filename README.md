@@ -59,14 +59,37 @@ git tag v1.0.1 && git push --tags          # 或打 tag：构建完自动发 Rel
 |---|---|
 | 冒烟测试 | 先跑 89 项 Markdown 往返断言，不过就不往下走 |
 | 编译 + 组装 | `swift build -c release` → `build/FinalMd.app`，ad-hoc 签名 |
-| bundle 校验 | 检查可执行文件、Info.plist、图标、版本、最低系统版本，以及中英文 `InfoPlist.strings` 与英文回退 |
+| bundle 校验 | 检查可执行文件、Info.plist、图标、版本、最低系统版本、中英文 `InfoPlist.strings` 与英文回退，并做 `codesign --verify` 签名自检 |
 | Developer ID 签名 + 公证（可选） | 配了证书 secrets 才执行，`scripts/sign_and_notarize.sh` |
 | 打包上传 | 生成 `FinalMd-macOS-<版本>-<commit>.zip` + `.sha256`，作为 artifact 保留 30 天 |
 | 发布 Release | 仅 `v*` tag 触发，自动挂 zip 到 Release |
 
-### 分发前建议配置签名
+### 首次打开提示「已损坏 / 无法验证开发者」
 
-ad-hoc 签名的 `.app` 下载到别的 Mac 上会被 Gatekeeper 拦（右键「打开」可绕过）。
+`make_app.sh` 和未配置证书的 CI 产物都是 **ad-hoc 签名**（`Signature=adhoc`，无 Team ID）。
+本机编译出来的 `build/FinalMd.app` 可以直接双击；但只要经过**下载 / 网盘 / 压缩包**传递，
+macOS 会给它加上 `com.apple.quarantine` 隔离属性，Gatekeeper 于是拦截，提示「已损坏，无法打开」
+或「无法验证开发者」。**这不是编译失败**，代码签名本身是有效的。
+
+先确认签名没坏（若确实无效，请重新解压或重新下载）：
+
+```bash
+codesign --verify --deep --strict /path/to/FinalMd.app
+xattr -l /path/to/FinalMd.app | grep quarantine
+```
+
+解除隔离属性后即可打开：
+
+```bash
+xattr -dr com.apple.quarantine /path/to/FinalMd.app
+open /path/to/FinalMd.app
+```
+
+也可以右键 →「打开」，或到「系统设置 → 隐私与安全性」点「仍要打开」。
+要让别人下载后**直接**能打开，只能走下面的 Developer ID 签名 + 公证。
+
+### 分发前配置签名（根治）
+
 正式分发请在仓库 Settings → Secrets 里加：
 
 | Secret | 内容 |
@@ -231,12 +254,18 @@ node scripts/gen-i18n.js ../FinalMd Sources/FinalMd/I18n/Dictionaries.swift
 > 切换系统语言后 Finder / Dock 可能缓存旧名字，重新登录，或执行一次
 > `lsregister -f /Applications/FinalMd.app && killall Finder` 刷新；已运行的进程要重启才会更新菜单栏名称。
 
-### 6. 插入点随字号缩放
+### 6. 插入点随字号缩放，并与文字齐平
 
 AppKit 默认按视图的 `font`（固定 16pt 正文）计算插入点高度，切到 H1（30.4pt）或代码块（14pt）时光标仍一样高。
-`DocTheme.caretSize(for:)` 按字体的 `ascender - descender + leading` 算出高度与宽度，
-`MDEditorTextView.drawInsertionPoint(in:color:turnedOn:)` 据此重算矩形，并在
-`typingAttributes` 变化后调用 `updateInsertionPointStateAndRestartTimer(true)` 立即重绘。
+`DocTheme.caretSize(for:)` 按字体的 `ascender - descender + leading` 算出高度与宽度。
+
+纵向位置不能按「行片段中线」算：正文用了 `lineHeightMultiple = 1.8`，TextKit 把多出来的行距
+加在**行片段顶部**，字形其实沉在底部（16pt 正文实测行片段 `0..32.4`、基线却在 `29.4`），
+按中线居中会把光标画到文字上方约 7pt，看起来就是「偏上、没和文字齐平」。
+因此 `MDEditorTextView` 通过 `layoutManager` 找到光标所在行的**基线**，
+再由 `DocTheme.caretRect(baselineY:x:font:)` 以基线为锚反推矩形：
+顶部 ≈ `baseline - ascender`，底部 ≈ `baseline - descender`，与字身上下边缘对齐。
+`typingAttributes` 变化后调用 `updateInsertionPointStateAndRestartTimer(true)` 立即重绘；
 缩放（magnification）由 `NSScrollView` 的坐标系变换负责，光标会随之等比变化。
 
 ---
@@ -245,16 +274,19 @@ AppKit 默认按视图的 `font`（固定 16pt 正文）计算插入点高度，
 
 | 项目 | 结果 |
 |---|---|
-| Markdown 双向转换冒烟测试 | ✅ **117 项全部通过**（`./scripts/run-smoke.sh`） |
-| 全套视图代码类型校验 | ✅ **Build complete，0 error / 0 warning**（`./scripts/verify.sh`） |
-| 完整 `swift build` + 打包 | ⚠️ 本机未装 Xcode，SwiftUI 宏插件缺失，**未能执行** |
+| Markdown 双向转换冒烟测试 | ✅ **129 项全部通过**（`./scripts/run-smoke.sh`） |
+| 全套视图代码类型校验 | ✅ **Build complete，0 error**（`./scripts/verify.sh`） |
+| 完整 `swift build` + 打包 | ✅ 本机完整 Xcode 工具链 release 编译 + bundle 自检通过（`./scripts/make_app.sh`） |
+| 签名 / 启动 | ✅ `codesign --verify --deep --strict` 通过，`open -a` 实测可启动 |
+| GitHub Actions | ✅ `Build macOS App` 全流程通过（含 bundle 签名自检） |
 
 冒烟测试覆盖：六级标题、粗斜体/删除线/行内代码/下划线/链接/嵌套强调、段落、引用、分割线、
 有序与无序列表、围栏代码块（含语言）、表格（含表头）、图片（Base64）、
 字体色与高亮（`<span>` / `<mark>`）、转义，以及一份包含全部块类型的综合文档与欢迎文档的**二次往返稳定性**；
 另外还覆盖**滚动容器行为**：各缩放值下页面水平居中、放大后横滑能拖动（含事件穿过文字视图）、
 连续捏合文档宽度稳定，以及 ⌘+滚轮的缩放方向、回调同步、60%–200% 上下限；
-还有插入点尺寸：H1 / 正文 / 代码块字号的单调性、与字号的比例关系、六级标题逐级递减。
+还有插入点尺寸与位置：H1 / 正文 / 代码块字号的单调性、与字号的比例关系、六级标题逐级递减，
+以及按基线纵向对齐（顶边 / 底边贴合字身、修复行高造成的偏上、整行下移时等量跟随）。
 
 > 关于 `verify.sh`：它把源码复制到临时目录，用**重命名**的 property wrapper 顶替
 > `@State` / `@Environment` 等宏（Swift 会优先解析 SwiftUI 的宏，所以同名无效），
@@ -278,6 +310,7 @@ AppKit 默认按视图的 `font`（固定 16pt 正文）计算插入点高度，
 - 文字对齐、字体颜色、高亮依赖 HTML 标签，在纯 Markdown 阅读器中可能失效（与原版一致）
 - 图片全部内嵌 Base64，`.md` 体积偏大（换取单文件带走）
 - 标题内部的 `**加粗**` 无法在 Markdown 中区分（结构上标题已自带字重），与多数所见即所得编辑器一致
+- 未配置 Developer ID 时产物为 ad-hoc 签名，经下载传递后会被 Gatekeeper 拦截，需先解除隔离属性（见「首次打开提示已损坏」）
 
 ## 许可
 

@@ -71,10 +71,21 @@ plutil -lint "$APP/Contents/Info.plist" >/dev/null
 iconv -f UTF-16 -t UTF-8 "$APP/Contents/Resources/zh-Hans.lproj/InfoPlist.strings" | grep -q '"CFBundleDisplayName" = "墨写"'
 iconv -f UTF-16 -t UTF-8 "$APP/Contents/Resources/en.lproj/InfoPlist.strings" | grep -q '"CFBundleDisplayName" = "FinalMd"'
 
-# ad-hoc 签名：本机可直接运行；正式分发请换成 Developer ID 并做公证
-codesign --force --deep --sign - "$APP" 2>/dev/null || echo "（跳过签名）"
+# 清掉从源文件继承来的扩展属性（com.apple.quarantine / provenance 等）。
+# 带隔离属性的 bundle 即使签名有效，Gatekeeper 也会拦截首次打开，提示「已损坏」。
+xattr -cr "$APP" 2>/dev/null || true
+
+# ad-hoc 签名：本机可直接运行；正式分发请换成 Developer ID 并做公证。
+# 签名失败必须让构建失败——静默产出的未签名 bundle 在 macOS 上一定打不开。
+if ! codesign --force --deep --sign - "$APP"; then
+  echo "❌ ad-hoc 签名失败，产物无法在 macOS 上打开" >&2
+  exit 1
+fi
+codesign --verify --deep --strict "$APP" >/dev/null || { echo "❌ 签名自检失败" >&2; exit 1; }
 
 echo "✅ 完成：${APP}（中文系统显示「墨写」／其他语言显示 FinalMd）"
+echo "ℹ️  ad-hoc 签名仅供本机使用；经下载 / 压缩分发后被 Gatekeeper 拦截时，执行："
+echo "   xattr -dr com.apple.quarantine \"$APP\""
 
 if [[ "${1:-}" == "--run" ]]; then
   open "$APP"

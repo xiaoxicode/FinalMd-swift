@@ -187,14 +187,49 @@ final class MDEditorTextView: NSTextView {
         return font ?? DocTheme.bodyFont
     }
 
+    /// 光标所在行的基线 y（视图坐标系）。
+    ///
+    /// `lineHeightMultiple` 会把额外行距堆在行片段顶部，所以「行片段中线」并不是文字中线，
+    /// 只有基线能准确定位字身。这里用系统传入矩形的纵向位置找到所属行片段，
+    /// 再取该行首个字形的基线；落在段间距等空白处时，退而取纵向最近的一行。
+    private func caretBaselineY(containing rect: NSRect) -> CGFloat? {
+        guard let lm = layoutManager, lm.numberOfGlyphs > 0 else { return nil }
+        let origin = textContainerOrigin
+        let probeY = rect.midY - origin.y
+        var nearestBaseline: CGFloat?
+        var nearestDistance = CGFloat.greatestFiniteMagnitude
+        var index = 0
+        while index < lm.numberOfGlyphs {
+            var glyphRange = NSRange()
+            let fragment = lm.lineFragmentRect(forGlyphAt: index, effectiveRange: &glyphRange)
+            let baseline = fragment.minY + lm.location(forGlyphAt: index).y + origin.y
+            let distance = abs(probeY - fragment.midY)
+            if distance < nearestDistance {
+                nearestDistance = distance
+                nearestBaseline = baseline
+            }
+            if probeY >= fragment.minY && probeY < fragment.maxY { return baseline }
+            let next = NSMaxRange(glyphRange)
+            index = next > index ? next : index + 1
+        }
+        return nearestBaseline
+    }
+
     /// AppKit 算出的插入点矩形用的是视图固定字体（configure 里设的 16pt 正文），
-    /// 标题 / 代码块换字号后光标不会跟着变。这里按光标处字体的度量重算矩形：
-    /// 保留系统给出的行片段中线，只改高度和宽度，光标不会上下跳位。
+    /// 标题 / 代码块换字号后光标不会跟着变；而正文 1.8 倍行高又把文字压到行片段底部。
+    /// 因此这里按「光标处字体 + 该行基线」重算矩形：高度随字号变化，上下边缘与文字齐平。
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
-        let size = DocTheme.caretSize(for: caretFont())
-        var r = rect
-        r.origin.y = rect.midY - size.height / 2
-        r.size.height = size.height
+        let font = caretFont()
+        let size = DocTheme.caretSize(for: font)
+        var r: NSRect
+        if let baseline = caretBaselineY(containing: rect) {
+            r = DocTheme.caretRect(baselineY: baseline, x: rect.minX, font: font)
+        } else {
+            // 页面尚未完成排版（空文档 / 首帧）时退回系统矩形，保持 minY 不动，
+            // 只按字号调整高度，避免光标浮到文字上方。
+            r = rect
+            r.size.height = size.height
+        }
         r.size.width = max(rect.width, size.width)
         // 仍交给 AppKit 绘制：闪烁与 turnedOn=false 时的擦除逻辑都保持系统行为，
         // 且每次亮/灭用的都是同一个重算后的矩形，不会留下残影。

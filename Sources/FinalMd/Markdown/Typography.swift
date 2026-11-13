@@ -159,6 +159,27 @@ enum DocTheme {
         let width = min(max((font.pointSize / bodyFontSize).rounded(), 1), 2)
         return (height, width)
     }
+
+    /// 由「基线」反推插入点矩形，让光标上下边缘与文字齐平。
+    ///
+    /// 正文段落用了 `lineHeightMultiple = 1.8`，TextKit 把多出来的行距加在**行片段顶部**，
+    /// 字形其实沉在行片段底部（实测 16pt 正文：行片段 y=0..32.4，基线却在 y=29.4）。
+    /// 若按行片段中线居中画光标，光标会浮在文字上方约 7pt，看起来「偏上、没和文字齐平」。
+    /// 这里改为以基线为锚：顶部 ≈ `baseline - ascender`，底部 ≈ `baseline - descender`，
+    /// 再把 `caretSize` 比字体行盒多出的一点余量上下均分，兼顾不同字号与中英文字体。
+    /// - Parameters:
+    ///   - baselineY: 光标所在行的基线 y（视图坐标系）
+    ///   - x: 插入点水平位置（视图坐标系）
+    ///   - font: 光标处有效字体
+    static func caretRect(baselineY: CGFloat, x: CGFloat, font: NSFont) -> NSRect {
+        let size = caretSize(for: font)
+        let lineBox = font.ascender - font.descender + font.leading
+        let overshoot = (size.height - lineBox) / 2
+        return NSRect(x: x,
+                      y: baselineY - font.ascender - overshoot,
+                      width: size.width,
+                      height: size.height)
+    }
 }
 
 // MARK: - 内容色在深色下的显示映射

@@ -384,6 +384,49 @@ func testCaretSizing() {
     }
 }
 
+// MARK: - 插入点纵向对齐（不能浮在文字上方）
+
+func testCaretAlignment() {
+    // 实测：16pt 正文 + lineHeightMultiple 1.8，行片段 y=0..32.4，基线 y=29.4。
+    // 多出来的行距全加在行片段顶部，所以按「行片段中线」居中会把光标画到文字上方。
+    let body = DocTheme.bodyFont
+    let bodyBaseline: CGFloat = 29.4
+    let fragmentMidY: CGFloat = 16.2
+    let textTop = bodyBaseline - body.ascender
+    let textBottom = bodyBaseline - body.descender
+    let size = DocTheme.caretSize(for: body)
+
+    let fixed = DocTheme.caretRect(baselineY: bodyBaseline, x: 72, font: body)
+    check("正文光标顶边与文字顶边齐平", abs(fixed.minY - textTop) < 1)
+    check("正文光标底边与文字底边齐平", abs(fixed.maxY - textBottom) < 1)
+    check("正文光标高度仍按字号计算", abs(fixed.height - size.height) < 0.001)
+    check("正文光标宽度仍按字号计算", abs(fixed.width - size.width) < 0.001)
+    check("正文光标保持插入点 x", fixed.minX == 72)
+
+    let oldTop = fragmentMidY - size.height / 2
+    check("修复后正文光标不再偏上", fixed.minY - oldTop > 3)
+
+    // 标题 30.4pt + lineHeightMultiple 1.35：行片段 0..40.5，基线 36.5
+    let h1 = DocTheme.documentFont(size: DocTheme.headingFontSize(1), weight: .bold)
+    let h1Baseline: CGFloat = 36.5
+    let h1MidY: CGFloat = 20.25
+    let h1Size = DocTheme.caretSize(for: h1)
+    let h1Fixed = DocTheme.caretRect(baselineY: h1Baseline, x: 0, font: h1)
+    check("标题光标顶边与文字顶边齐平", abs(h1Fixed.minY - (h1Baseline - h1.ascender)) < 1)
+    check("标题光标底边与文字底边齐平", abs(h1Fixed.maxY - (h1Baseline - h1.descender)) < 1)
+    check("修复后标题光标不再偏上", h1Fixed.minY - (h1MidY - h1Size.height / 2) > 3)
+
+    // 换到下一行时，光标应随基线等量下移（段落间距 / 多行场景）
+    let shifted = DocTheme.caretRect(baselineY: bodyBaseline + 42.4, x: 0, font: body)
+    check("光标跟随所在行基线整体下移", abs((shifted.minY - fixed.minY) - 42.4) < 0.001)
+
+    // 小字号（代码块）也应贴住同一基线的字身，而不是悬在行片段中间
+    let code = DocTheme.monospacedFont(size: DocTheme.codeFontSize)
+    let codeRect = DocTheme.caretRect(baselineY: bodyBaseline, x: 0, font: code)
+    check("代码块光标顶部不高于正文字身顶部", codeRect.minY > textTop)
+    check("代码块光标底部贴近同一基线", abs(codeRect.maxY - textBottom) < 3)
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -399,6 +442,7 @@ testScrollViewZoom()
 testWheelZoom()
 testLocalization()
 testCaretSizing()
+testCaretAlignment()
 
 print("")
 if failureDetails.isEmpty {
