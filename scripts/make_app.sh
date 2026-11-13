@@ -66,7 +66,9 @@ for LPROJ in "$SRC"/Resources/*.lproj; do
   done
 done
 
-# 自检：plist 合法，且中英文的显示名确实写进去了
+# 自检：plist / entitlements 合法，且中英文的显示名确实写进去了
+ENTITLEMENTS="$SRC/Resources/FinalMd.entitlements"
+plutil -lint "$ENTITLEMENTS" >/dev/null
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
 iconv -f UTF-16 -t UTF-8 "$APP/Contents/Resources/zh-Hans.lproj/InfoPlist.strings" | grep -q '"CFBundleDisplayName" = "墨写"'
 iconv -f UTF-16 -t UTF-8 "$APP/Contents/Resources/en.lproj/InfoPlist.strings" | grep -q '"CFBundleDisplayName" = "FinalMd"'
@@ -77,7 +79,9 @@ xattr -cr "$APP" 2>/dev/null || true
 
 # ad-hoc 签名：本机可直接运行；正式分发请换成 Developer ID 并做公证。
 # 签名失败必须让构建失败——静默产出的未签名 bundle 在 macOS 上一定打不开。
-if ! codesign --force --deep --sign - "$APP"; then
+# entitlements 必须一起签进去：公证版启用 hardened runtime 后，
+# 没有 com.apple.security.network.client 会导致自定义大模型请求直接失败。
+if ! codesign --force --deep --sign - --entitlements "$ENTITLEMENTS" "$APP"; then
   echo "❌ ad-hoc 签名失败，产物无法在 macOS 上打开" >&2
   exit 1
 fi

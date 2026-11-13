@@ -561,6 +561,119 @@ func testInlineStyleOnTextView() {
     equal("真实视图：块样式仍作用于整段", runs(g, .mdBlockType), "0:11")
 }
 
+// MARK: - 自定义大模型协议
+
+func testAIProtocol() {
+    // 端点归一化
+    let endpoint = { (raw: String) -> String in
+        AIEndpoint.normalize(raw)?.absoluteString ?? "<nil>"
+    }
+    equal("AI 端点：/v1 自动补路径", endpoint("https://api.openai.com/v1"),
+          "https://api.openai.com/v1/chat/completions")
+    equal("AI 端点：尾部斜杠", endpoint("https://api.openai.com/v1/"),
+          "https://api.openai.com/v1/chat/completions")
+    equal("AI 端点：完整路径不重复追加", endpoint("https://api.openai.com/v1/chat/completions"),
+          "https://api.openai.com/v1/chat/completions")
+    equal("AI 端点：裸域名补 https", endpoint("api.deepseek.com"),
+          "https://api.deepseek.com/v1/chat/completions")
+    equal("AI 端点：本机 http 保留", endpoint("http://127.0.0.1:11434/v1"),
+          "http://127.0.0.1:11434/v1/chat/completions")
+    equal("AI 端点：自建网关前缀", endpoint("https://gw.example.com/api"),
+          "https://gw.example.com/api/v1/chat/completions")
+    equal("AI 端点：空串无效", endpoint(""), "<nil>")
+    equal("AI 端点：无 host 无效", endpoint("not a url"), "<nil>")
+    equal("AI 端点：非 http 协议无效", endpoint("ftp://example.com"), "<nil>")
+
+    // 请求构造
+    let url = AIEndpoint.normalize("https://api.openai.com/v1")!
+    let cfg = AIRequestConfig(model: "gpt-4o-mini", temperature: 0.3, timeout: 60,
+                              systemPrompt: "SYS", apiKey: "sk-test", endpoint: url)
+    let req = try? AIProtocol.makeRequest(cfg, instruction: "润色", content: "原文")
+    check("AI 请求：构造成功", req != nil)
+    if let req {
+        equal("AI 请求：POST", req.httpMethod ?? "", "POST")
+        equal("AI 请求：Content-Type", req.value(forHTTPHeaderField: "Content-Type") ?? "", "application/json")
+        equal("AI 请求：Authorization", req.value(forHTTPHeaderField: "Authorization") ?? "", "Bearer sk-test")
+        let body = (try? JSONSerialization.jsonObject(with: req.httpBody ?? Data())) as? [String: Any]
+        equal("AI 请求：model", body?["model"] as? String ?? "", "gpt-4o-mini")
+        check("AI 请求：非流式", (body?["stream"] as? Bool) == false)
+        let messages = body?["messages"] as? [[String: Any]] ?? []
+        check("AI 请求：system + user 两条消息", messages.count == 2)
+        equal("AI 请求：第一条是 system", messages.first?["role"] as? String ?? "", "system")
+        equal("AI 请求：第二条是 user", messages.last?["role"] as? String ?? "", "user")
+        equal("AI 请求：指令与正文分隔", messages.last?["content"] as? String ?? "", "润色\n\n---\n\n原文")
+    }
+    let noKey = AIRequestConfig(model: "m", temperature: 0, timeout: 10,
+                                systemPrompt: "", apiKey: "", endpoint: url)
+    check("AI 请求：空密钥不带 Authorization",
+          (try? AIProtocol.makeRequest(noKey, instruction: "x", content: "y"))?
+            .value(forHTTPHeaderField: "Authorization") == nil)
+    let noModel = AIRequestConfig(model: " ", temperature: 0, timeout: 10,
+                                  systemPrompt: "", apiKey: "", endpoint: url)
+    var threwMissingModel = false
+    do { _ = try AIProtocol.makeRequest(noModel, instruction: "x", content: "y") }
+    catch AIProtocolError.missingModel { threwMissingModel = true }
+    catch {}
+    check("AI 请求：空模型名被拦下", threwMissingModel)
+
+    // 响应解析（含各家网关的返回形态）
+    func parse(_ json: String) -> String {
+        (try? AIProtocol.parseContent(from: Data(json.utf8))) ?? "<throw>"
+    }
+    equal("AI 响应：标准 choices", parse(#"{"choices":[{"message":{"content":"你好"}}]}"#), "你好")
+    equal("AI 响应：分段数组 content",
+          parse(#"{"choices":[{"message":{"content":[{"type":"text","text":"A"},{"text":"B"}]}}]}"#), "AB")
+    equal("AI 响应：顶层 content", parse(#"{"content":"顶层"}"#), "顶层")
+    equal("AI 响应：旧式 choices.text", parse(#"{"choices":[{"text":"旧式"}]}"#), "旧式")
+    var threwAPI = false
+    do { _ = try AIProtocol.parseContent(from: Data(#"{"error":{"message":"key invalid"}}"#.utf8)) }
+    catch AIProtocolError.api(let msg) { threwAPI = msg == "key invalid" }
+    catch {}
+    check("AI 响应：服务端 error 抛出带原文", threwAPI)
+    var threwInvalid = false
+    do { _ = try AIProtocol.parseContent(from: Data("not json".utf8)) }
+    catch AIProtocolError.invalidJSON { threwInvalid = true }
+    catch {}
+    check("AI 响应：非法 JSON 被识别", threwInvalid)
+    check("AI 响应：缺 content 被识别", parse(#"{"choices":[{}]}"#) == "<throw>")
+
+    // 结果清理
+    equal("AI 结果：剥掉 markdown 围栏",
+          AIProtocol.sanitize("```markdown\n# 标题\n正文\n```\n"), "# 标题\n正文")
+    equal("AI 结果：普通文本原样保留", AIProtocol.sanitize("  # 标题\n\n```\ncode\n```  "),
+          "# 标题\n\n```\ncode\n```")
+    equal("AI 结果：去首尾空白", AIProtocol.sanitize("\n\n正文\n\n"), "正文")
+
+    // HTTP 状态分类
+    check("AI 状态：200 成功", AIStatusKind.classify(200) == .ok)
+    check("AI 状态：401 鉴权失败", AIStatusKind.classify(401) == .unauthorized)
+    check("AI 状态：403 鉴权失败", AIStatusKind.classify(403) == .unauthorized)
+    check("AI 状态：404 端点错误", AIStatusKind.classify(404) == .notFound)
+    check("AI 状态：429 限流", AIStatusKind.classify(429) == .rateLimited)
+    check("AI 状态：503 服务端错误", AIStatusKind.classify(503) == .serverError)
+    check("AI 状态：302 其它", AIStatusKind.classify(302) == .other(302))
+
+    // 预设与文案
+    check("AI 预设：7 项含 agent", AIPresets.ids.count == 7 && AIPresets.ids.contains("agent"))
+    check("AI 预设：custom 指令为空",
+          AIPresets.instruction(for: "custom") { Localizer.translate("en", $0) }.isEmpty)
+    let agent = AIPresets.instruction(for: "agent") { Localizer.translate("zh", $0) }
+    check("AI 预设：agent 指令含验收标准与防臆造", agent.contains("验收标准") && agent.contains("不编造"))
+    let polish = AIPresets.instruction(for: "polish") { Localizer.translate("en", $0) }
+    check("AI 预设：英文润色指令非空", !polish.isEmpty)
+    let zhPresets: [AIPreset] = AIPresets.all { Localizer.translate("zh", $0) }
+    let titlesOK: Bool = zhPresets.allSatisfy { !$0.title.isEmpty && $0.title != $0.id }
+    check("AI 预设：中英标题都齐", titlesOK)
+    let zhKeys: Set<String> = Set(I18nExtras.table["zh"]?.keys.map { String($0) } ?? [])
+    let enKeys: Set<String> = Set(I18nExtras.table["en"]?.keys.map { String($0) } ?? [])
+    check("AI 文案：zh / en 词条一一对应", zhKeys == enKeys)
+    equal("AI 文案：中文", Localizer.translate("zh", "ai.menu"), "AI 助手")
+    equal("AI 文案：英文", Localizer.translate("en", "ai.menu"), "AI Assistant")
+    equal("AI 文案：其它语言回退英文", Localizer.translate("ja", "ai.menu"), "AI Assistant")
+    check("AI 文案：既有词条未受影响", Localizer.translate("zh", "common.save") == "保存")
+    equal("AI 文案：变量替换仍生效", Localizer.translate("en", "ai.err.http", [:]), "Request failed")
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -579,6 +692,7 @@ testCaretSizing()
 testCaretAlignment()
 testInlineSelection()
 testInlineStyleOnTextView()
+testAIProtocol()
 
 print("")
 if failureDetails.isEmpty {

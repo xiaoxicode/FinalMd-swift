@@ -28,10 +28,19 @@
     <string>public.app-category.productivity</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <!-- 关掉最后一个窗口后进程要留在 Dock 里（AppDelegate 已实现 reopen）。
+         开着自动终止会让系统在无窗口时悄悄结束进程，未保存的文档会丢。 -->
     <key>NSSupportsAutomaticTermination</key>
-    <true/>
+    <false/>
     <key>NSSupportsSuddenTermination</key>
     <false/>
+    <!-- 自定义大模型可能指向本机的 Ollama / LM Studio（http://127.0.0.1:...）。
+         只放开本地网络，不开放任意 http，远端服务仍要求 https。 -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026 Cliff</string>
     <key>NSPrincipalClass</key>
@@ -69,8 +78,7 @@
         </dict>
     </array>
 
-    <!-- 允许读取用户选中的文件（沙箱关闭时非必需，保留以备后续开启） -->
-    <key>com.apple.security.files.user-selected.read-write</key>
-    <true/>
+    <!-- 权限声明在 Resources/FinalMd.entitlements，签名时由 codesign --entitlements 写入。
+         Info.plist 里写 entitlement 键是无效的，别再往这里加。 -->
 </dict>
 </plist>

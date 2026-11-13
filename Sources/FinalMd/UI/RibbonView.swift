@@ -41,6 +41,7 @@ struct RibbonView: View {
 
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var l10n: Localizer
+    @EnvironmentObject var ai: AIController
 
     @State private var colorPopover = false
     @State private var highlightPopover = false
@@ -130,6 +131,14 @@ struct RibbonView: View {
                 icon("magnifyingglass", "tb.find", .find)
                 icon("line.horizontal.3", "tb.lineRuling", .lineRuling,
                      active: model.showLineRuling)
+                Button { ai.openCommand() } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 13))
+                        .frame(width: 27, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(ai.t("ai.tb.help"))
             }
             Spacer(minLength: 0)
         }

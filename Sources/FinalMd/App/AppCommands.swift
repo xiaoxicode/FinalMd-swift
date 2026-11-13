@@ -13,6 +13,7 @@ struct AppCommands: Commands {
 
     @ObservedObject var model: AppModel
     @ObservedObject var l10n: Localizer
+    @ObservedObject var ai: AIController
 
     var body: some Commands {
         // MARK: 文件
@@ -121,6 +122,21 @@ struct AppCommands: Commands {
                     }
                 }
             }
+        }
+
+        // MARK: AI 助手
+        CommandMenu(ai.t("ai.menu")) {
+            Button(ai.t("ai.command.menu")) { ai.openCommand() }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+            Divider()
+            Button(ai.t("ai.quick.polish")) {
+                ai.openCommand(preset: "polish", autoRun: true)
+            }
+            Button(ai.t("ai.quick.agent")) {
+                ai.openCommand(preset: "agent", autoRun: true)
+            }
+            Divider()
+            Button(ai.t("ai.settings.menu")) { ai.openSettings() }
         }
 
         // MARK: 语言

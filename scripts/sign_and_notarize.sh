@@ -56,6 +56,7 @@ echo "  签名身份：$IDENTITY"
 
 echo "→ 签名（hardened runtime）…"
 codesign --force --deep --timestamp --options runtime \
+  --entitlements "$SRC/Resources/FinalMd.entitlements" \
   --sign "$IDENTITY" --keychain "$KEYCHAIN_PATH" "$APP"
 codesign --verify --verbose=2 "$APP"
 

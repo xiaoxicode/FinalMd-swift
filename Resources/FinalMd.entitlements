@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- hardened runtime 下访问自定义大模型接口必需；缺了会在公证版里静默断网 -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- 打开 / 保存用户选中的 .md、图片、导出文件 -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+</dict>
+</plist>

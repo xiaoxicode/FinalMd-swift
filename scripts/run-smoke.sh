@@ -23,7 +23,10 @@ fi
 
 FILES=(
   "$SRC/Sources/FinalMd/I18n/Dictionaries.swift"
+  "$SRC/Sources/FinalMd/I18n/I18nExtras.swift"
   "$SRC/Sources/FinalMd/I18n/Localizer.swift"
+  "$SRC/Sources/FinalMd/AI/AIProtocol.swift"
+  "$SRC/Sources/FinalMd/AI/AIPresets.swift"
   "$SRC/Sources/FinalMd/Markdown/AttributedKeys.swift"
   "$SRC/Sources/FinalMd/Markdown/Typography.swift"
   "$SRC/Sources/FinalMd/Markdown/InlineParser.swift"

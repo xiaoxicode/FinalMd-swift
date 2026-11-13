@@ -52,6 +52,9 @@ jobs:
           echo "最低系统：$(plutil -extract LSMinimumSystemVersion raw -o - "$APP/Contents/Info.plist")"
           # 签名必须真的有效：CI 上 codesign 失败若被静默吞掉，产出的 app 在 macOS 上会提示「已损坏」
           codesign --verify --deep --strict "$APP" || { echo "❌ 签名无效，app 无法打开"; exit 1; }
+          # 网络权限必须真的签进 bundle，否则公证版里自定义大模型请求会失败
+          codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q "com.apple.security.network.client" || {
+            echo "❌ 缺少 network.client entitlement"; exit 1; }
           codesign -dv "$APP" 2>&1 | head -3 || true
           du -sh "$APP"
 
