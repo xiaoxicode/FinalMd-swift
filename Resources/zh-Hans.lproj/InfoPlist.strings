@@ -1,0 +1,4 @@
+/* 应用显示名（简体中文）
+   Finder、Dock、菜单栏与窗口标题都取这里的名字。 */
+"CFBundleName" = "墨写";
+"CFBundleDisplayName" = "墨写";

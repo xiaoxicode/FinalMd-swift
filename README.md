@@ -15,7 +15,7 @@ Electron 版（[xiaoxicode/FinalMd](https://github.com/xiaoxicode/FinalMd)）的
 
 ```bash
 cd FinalMdSwift
-./scripts/make_app.sh --run     # 编译并打包成 build/墨写.app 后打开
+./scripts/make_app.sh --run     # 编译并打包成 build/FinalMd.app 后打开
 ```
 
 > ⚠️ **完整编译需要安装 Xcode（15+）**。
@@ -58,8 +58,8 @@ git tag v1.0.1 && git push --tags          # 或打 tag：构建完自动发 Rel
 | 步骤 | 说明 |
 |---|---|
 | 冒烟测试 | 先跑 89 项 Markdown 往返断言，不过就不往下走 |
-| 编译 + 组装 | `swift build -c release` → `build/墨写.app`，ad-hoc 签名 |
-| bundle 校验 | 检查可执行文件、Info.plist、图标、版本与最低系统版本 |
+| 编译 + 组装 | `swift build -c release` → `build/FinalMd.app`，ad-hoc 签名 |
+| bundle 校验 | 检查可执行文件、Info.plist、图标、版本、最低系统版本，以及中英文 `InfoPlist.strings` 与英文回退 |
 | Developer ID 签名 + 公证（可选） | 配了证书 secrets 才执行，`scripts/sign_and_notarize.sh` |
 | 打包上传 | 生成 `FinalMd-macOS-<版本>-<commit>.zip` + `.sha256`，作为 artifact 保留 30 天 |
 | 发布 Release | 仅 `v*` tag 触发，自动挂 zip 到 Release |
@@ -122,7 +122,13 @@ FinalMdSwift/
 │       ├── PDFExporter.swift         分页导出 PDF
 │       ├── ImageEmbed.swift          Base64 内嵌 + 超 380KB 自动压缩
 │       └── UpdateChecker.swift       查 GitHub Release（替代 electron-updater）
-├── Resources/                        Info.plist + 应用图标
+├── Resources/                        Info.plist + 应用图标 + 本地化显示名
+│   ├── Info.plist                    默认（英文）名为 FinalMd，开发语言 en
+│   ├── en.lproj/InfoPlist.strings    英文 / 其他语言：FinalMd
+│   ├── zh.lproj/InfoPlist.strings    中文（通用）：墨写
+│   ├── zh-Hans.lproj/InfoPlist.strings  简体中文：墨写
+│   ├── zh-Hant.lproj/InfoPlist.strings  繁体中文：墨写
+│   └── AppIcon.icns
 └── scripts/                          make_app.sh / run-smoke.sh / verify.sh / gen-i18n.js
 ```
 
@@ -204,13 +210,42 @@ node scripts/gen-i18n.js ../FinalMd Sources/FinalMd/I18n/Dictionaries.swift
 触控板用 `scrollingDeltaY`、传统滚轮用 `deltaY` 归一到「一格 10%」并夹住单帧增量；
 缩放后同步 `Coordinator.appliedZoom` 再写模型，避免下一次 SwiftUI 刷新把缩放拽回去。
 
+### 5. 应用名称跟随系统语言
+
+磁盘上的 bundle 固定叫 `FinalMd.app`（ASCII，任何语言下都一样）；**显示名**交给系统按语言选：
+
+| 系统语言 | Finder / Dock / 菜单栏 / 窗口标题 |
+|---|---|
+| 简体中文、繁体中文、`zh-*` | 墨写 |
+| 英文及其他语言（含不支持的语言） | FinalMd |
+
+1. `Resources/Info.plist` 里 `CFBundleName` / `CFBundleDisplayName` 写默认英文 `FinalMd`，
+   `CFBundleDevelopmentRegion` 设为 `en` —— 系统语言没有匹配的 `.lproj` 时一定回退到英文，而不是中文。
+2. 中文名只放在 `zh` / `zh-Hans` / `zh-Hant` 三个 `.lproj/InfoPlist.strings` 里，同时覆盖
+   `CFBundleName`（菜单栏的「关于/隐藏/退出 XXX」）与 `CFBundleDisplayName`（Finder / Dock / 窗口标题）。
+3. `scripts/make_app.sh` 把 `.lproj` 复制进 `Contents/Resources/`，并把仓库里的 UTF-8 源码转成
+   `InfoPlist.strings` 所需的 UTF-16（带 BOM），否则中文名会乱码。
+4. 应用内界面文案仍由 `Localizer` 独立管理（7 语言，可在「语言」菜单手动切换）；**显示名只看系统语言**，
+   与界面语言设置无关 —— 这也是 macOS 对 bundle 名称的标准行为。
+
+> 切换系统语言后 Finder / Dock 可能缓存旧名字，重新登录，或执行一次
+> `lsregister -f /Applications/FinalMd.app && killall Finder` 刷新；已运行的进程要重启才会更新菜单栏名称。
+
+### 6. 插入点随字号缩放
+
+AppKit 默认按视图的 `font`（固定 16pt 正文）计算插入点高度，切到 H1（30.4pt）或代码块（14pt）时光标仍一样高。
+`DocTheme.caretSize(for:)` 按字体的 `ascender - descender + leading` 算出高度与宽度，
+`MDEditorTextView.drawInsertionPoint(in:color:turnedOn:)` 据此重算矩形，并在
+`typingAttributes` 变化后调用 `updateInsertionPointStateAndRestartTimer(true)` 立即重绘。
+缩放（magnification）由 `NSScrollView` 的坐标系变换负责，光标会随之等比变化。
+
 ---
 
 ## 验证情况
 
 | 项目 | 结果 |
 |---|---|
-| Markdown 双向转换冒烟测试 | ✅ **106 项全部通过**（`./scripts/run-smoke.sh`） |
+| Markdown 双向转换冒烟测试 | ✅ **117 项全部通过**（`./scripts/run-smoke.sh`） |
 | 全套视图代码类型校验 | ✅ **Build complete，0 error / 0 warning**（`./scripts/verify.sh`） |
 | 完整 `swift build` + 打包 | ⚠️ 本机未装 Xcode，SwiftUI 宏插件缺失，**未能执行** |
 
@@ -218,7 +253,8 @@ node scripts/gen-i18n.js ../FinalMd Sources/FinalMd/I18n/Dictionaries.swift
 有序与无序列表、围栏代码块（含语言）、表格（含表头）、图片（Base64）、
 字体色与高亮（`<span>` / `<mark>`）、转义，以及一份包含全部块类型的综合文档与欢迎文档的**二次往返稳定性**；
 另外还覆盖**滚动容器行为**：各缩放值下页面水平居中、放大后横滑能拖动（含事件穿过文字视图）、
-连续捏合文档宽度稳定，以及 ⌘+滚轮的缩放方向、回调同步、60%–200% 上下限。
+连续捏合文档宽度稳定，以及 ⌘+滚轮的缩放方向、回调同步、60%–200% 上下限；
+还有插入点尺寸：H1 / 正文 / 代码块字号的单调性、与字号的比例关系、六级标题逐级递减。
 
 > 关于 `verify.sh`：它把源码复制到临时目录，用**重命名**的 property wrapper 顶替
 > `@State` / `@Environment` 等宏（Swift 会优先解析 SwiftUI 的宏，所以同名无效），

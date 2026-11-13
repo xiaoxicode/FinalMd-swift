@@ -2,14 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- 名称默认值 = 英文。系统语言为中文时由 zh*.lproj/InfoPlist.strings 覆盖成「墨写」；
+         其他语言（含英文与未支持的语言）回退到这里，即 FinalMd。 -->
     <key>CFBundleName</key>
-    <string>墨写</string>
+    <string>FinalMd</string>
     <key>CFBundleDisplayName</key>
-    <string>墨写</string>
+    <string>FinalMd</string>
     <key>CFBundleIdentifier</key>
     <string>cn.moxie.markdown</string>
     <key>CFBundleExecutable</key>
-    <string>墨写</string>
+    <string>FinalMd</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>
@@ -34,12 +36,16 @@
     <string>Copyright © 2026 Cliff</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <!-- 回退语言必须是英文：ja/ko/fr/de/es 等界面语言由应用内 Localizer 提供，
+         bundle 没有对应的 .lproj 时会回退到开发语言，从而显示 FinalMd。 -->
     <key>CFBundleDevelopmentRegion</key>
-    <string>zh-Hans</string>
+    <string>en</string>
     <key>CFBundleLocalizations</key>
     <array>
-        <string>zh-Hans</string>
         <string>en</string>
+        <string>zh</string>
+        <string>zh-Hans</string>
+        <string>zh-Hant</string>
         <string>ja</string>
         <string>ko</string>
         <string>fr</string>
@@ -47,7 +53,7 @@
         <string>es</string>
     </array>
 
-    <!-- 关联 .md / .markdown，Finder 里双击可用墨写打开 -->
+    <!-- 关联 .md / .markdown，Finder 里双击可用 FinalMd / 墨写 打开 -->
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

@@ -353,6 +353,8 @@ extension NSTextView {
     /// 保证改完模式紧接着输入的文字跟随新模式（Word 行为）。
     /// 空文档或空段落没有字符可取时，用 fallbackStyle（或默认正文）构造。
     func refreshTypingAttributes(fallbackStyle: BlockStyle? = nil) {
+        // 切换标题/代码块会换字号，插入点要立刻跟着重算，不等下一次闪烁
+        defer { updateInsertionPointStateAndRestartTimer(true) }
         guard let storage = textStorage, storage.length > 0 else {
             typingAttributes = fallbackStyle.map { EditorStyle.typing(for: $0) } ?? EditorStyle.defaultTyping
             return

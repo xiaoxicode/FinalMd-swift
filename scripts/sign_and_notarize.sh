@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 用 Developer ID 给 墨写.app 签名并送 Apple 公证。
+# 用 Developer ID 给 FinalMd.app 签名并送 Apple 公证。
 # 只在 CI 里配置了证书类 secrets 时才会被调用（见 .github/workflows/build-macos.yml）。
 #
 # 需要的环境变量：
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$SRC/build/墨写.app"
+APP="$SRC/build/FinalMd.app"
 TMP="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 
 need() { [[ -n "${!1:-}" ]] || { echo "⚠️ 缺少 $1，跳过签名与公证"; exit 0; }; }

@@ -1,0 +1,6 @@
+/* 应用显示名（英文 / 默认）
+   Info.plist 里已是 FinalMd；这里再显式声明一次，保证系统语言为英文或
+   未支持的语言时，CFBundle 的本地化选择也落在 FinalMd 上。
+   仓库内存 UTF-8，scripts/make_app.sh 打包时转成 macOS 要求的 UTF-16。 */
+"CFBundleName" = "FinalMd";
+"CFBundleDisplayName" = "FinalMd";

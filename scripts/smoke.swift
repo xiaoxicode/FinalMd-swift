@@ -356,6 +356,34 @@ func testWheelZoom() {
     }
 }
 
+// MARK: - 插入点（光标）尺寸随字号缩放
+
+func testCaretSizing() {
+    let body = DocTheme.bodyFont
+    let h1 = DocTheme.documentFont(size: DocTheme.headingFontSize(1), weight: .bold)
+    let code = DocTheme.monospacedFont(size: DocTheme.codeFontSize)
+
+    let bodySize = DocTheme.caretSize(for: body)
+    let h1Size = DocTheme.caretSize(for: h1)
+    let codeSize = DocTheme.caretSize(for: code)
+
+    check("H1 光标明显高于正文光标", h1Size.height > bodySize.height * 1.5)
+    check("代码块光标矮于正文光标", codeSize.height < bodySize.height)
+    check("光标高度与字号基本成比例",
+          abs(h1Size.height / bodySize.height - h1.pointSize / body.pointSize) < 0.15)
+    check("H1 光标比正文更粗", h1Size.width > bodySize.width)
+    check("正文光标宽度为 1pt", bodySize.width == 1)
+
+    // 六级标题字号逐级递减，光标高度也必须逐级递减（不能卡在固定值）
+    var previous = CGFloat.greatestFiniteMagnitude
+    for level in 1...6 {
+        let font = DocTheme.documentFont(size: DocTheme.headingFontSize(level), weight: .bold)
+        let height = DocTheme.caretSize(for: font).height
+        check("H\(level) 光标高度不超过上一级", height <= previous + 0.001)
+        previous = height
+    }
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -370,6 +398,7 @@ testWelcomeDocument()
 testScrollViewZoom()
 testWheelZoom()
 testLocalization()
+testCaretSizing()
 
 print("")
 if failureDetails.isEmpty {

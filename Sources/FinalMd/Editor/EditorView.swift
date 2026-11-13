@@ -174,6 +174,33 @@ final class MDEditorTextView: NSTextView {
         textContainer?.lineFragmentPadding = 0
     }
 
+    // MARK: 插入点（光标）随字号缩放
+
+    /// 光标处的有效字体。优先取 typingAttributes —— 空段落、刚切换块样式时，
+    /// 只有它带着新字号；再退回插入点前一字符的字体，最后是视图默认字体。
+    private func caretFont() -> NSFont {
+        if let f = typingAttributes[.font] as? NSFont { return f }
+        if let storage = textStorage, storage.length > 0 {
+            let loc = min(max(selectedRange().location - 1, 0), storage.length - 1)
+            if let f = storage.attribute(.font, at: loc, effectiveRange: nil) as? NSFont { return f }
+        }
+        return font ?? DocTheme.bodyFont
+    }
+
+    /// AppKit 算出的插入点矩形用的是视图固定字体（configure 里设的 16pt 正文），
+    /// 标题 / 代码块换字号后光标不会跟着变。这里按光标处字体的度量重算矩形：
+    /// 保留系统给出的行片段中线，只改高度和宽度，光标不会上下跳位。
+    override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
+        let size = DocTheme.caretSize(for: caretFont())
+        var r = rect
+        r.origin.y = rect.midY - size.height / 2
+        r.size.height = size.height
+        r.size.width = max(rect.width, size.width)
+        // 仍交给 AppKit 绘制：闪烁与 turnedOn=false 时的擦除逻辑都保持系统行为，
+        // 且每次亮/灭用的都是同一个重算后的矩形，不会留下残影。
+        super.drawInsertionPoint(in: r, color: color, turnedOn: flag)
+    }
+
     // MARK: 文档横线（作业本行线）
 
     /// 是否显示文档横线。由 AppModel 推送，切换后立即重绘。
@@ -239,6 +266,7 @@ final class MDEditorTextView: NSTextView {
         super.viewDidChangeEffectiveAppearance()
         insertionPointColor = DocTheme.text
         needsDisplay = true
+        updateInsertionPointStateAndRestartTimer(true)
     }
 
     // MARK: 回车换行（Word 行为）
@@ -386,6 +414,9 @@ final class MDEditorTextView: NSTextView {
     /// 由 Coordinator 的 textViewDidChangeSelection 调起 —— AppKit 没有可覆写的
     /// didChangeSelection，选区的变化只能从代理回调里拿到。
     func syncTypingAttributesFromCaret() {
+        // 光标所在段落的字号可能变了，立刻按新字体重画插入点，
+        // 否则要等下一次闪烁周期才更新（defer 覆盖下面所有提前返回的路径）。
+        defer { updateInsertionPointStateAndRestartTimer(true) }
         guard !isInsertingNewline else { return }
         guard let storage = textStorage else { return }
         if storage.length == 0 {

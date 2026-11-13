@@ -143,6 +143,22 @@ enum DocTheme {
 
     /// 段落默认字体（正文）
     static var bodyFont: NSFont { documentFont(size: bodyFontSize) }
+
+    // MARK: 插入点（光标）尺寸
+
+    /// 光标尺寸跟随字体。AppKit 默认按视图的 `font`（固定 16pt 正文）算插入点高度，
+    /// 于是切到 H1（30.4pt）/ 代码块（14.08pt）时光标仍是正文字号的高度。
+    /// 这里按字体的实际行盒（ascender - descender + leading）换算，由
+    /// `MDEditorTextView.drawInsertionPoint(in:color:turnedOn:)` 在绘制时套用。
+    /// 缩放（magnification）由 NSScrollView 的坐标系变换负责，此处无需乘倍率。
+    /// - Returns: `(height, width)`，单位 pt，均为视图坐标系下的值。
+    static func caretSize(for font: NSFont) -> (height: CGFloat, width: CGFloat) {
+        let lineBox = font.ascender - font.descender + font.leading
+        let height = max(lineBox * 1.04, font.pointSize * 1.15)
+        // 正文 1pt，大字号最多 2pt，避免光标在标题里细得像根发丝
+        let width = min(max((font.pointSize / bodyFontSize).rounded(), 1), 2)
+        return (height, width)
+    }
 }
 
 // MARK: - 内容色在深色下的显示映射
