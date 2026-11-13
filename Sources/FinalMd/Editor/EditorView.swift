@@ -133,7 +133,7 @@ struct EditorView: NSViewRepresentable {
 
 // MARK: - 文本视图
 
-final class MDEditorTextView: NSTextView {
+final class MDEditorTextView: NSTextView, InlineTypingMemory {
 
     var onImageDoubleClick: ((MDImageAttachment) -> Void)?
     var onDropImageFiles: (([URL]) -> Void)?
@@ -143,6 +143,28 @@ final class MDEditorTextView: NSTextView {
     /// 若不拦住，syncTypingAttributesFromCaret 会用插入点前一个字符的属性
     /// 覆盖 insertNewline 里刚合并好的块级属性，导致新行丢模式。
     private var isInsertingNewline = false
+
+    /// 无选区时通过工具栏设置的行内样式（荧光笔 / 加粗 …）。
+    /// 记下设置时的插入点：光标未移动期间，防止 didChangeSelection 把
+    /// typingAttributes 重算掉；光标一移动即作废，样式不会被带到别处。
+    private var pendingInlineTyping: (location: Int, attrs: [NSAttributedString.Key: Any])?
+
+    func rememberInlineTyping(_ attrs: [NSAttributedString.Key: Any]) {
+        pendingInlineTyping = (selectedRange().location, attrs)
+    }
+
+    func clearPendingInlineTyping() {
+        pendingInlineTyping = nil
+    }
+
+    private func validPendingInlineTyping() -> [NSAttributedString.Key: Any]? {
+        let sel = selectedRange()
+        guard let p = pendingInlineTyping, p.location == sel.location, sel.length == 0 else {
+            pendingInlineTyping = nil
+            return nil
+        }
+        return p.attrs
+    }
 
     func configure() {
         isRichText = true
@@ -452,6 +474,8 @@ final class MDEditorTextView: NSTextView {
         // 光标所在段落的字号可能变了，立刻按新字体重画插入点，
         // 否则要等下一次闪烁周期才更新（defer 覆盖下面所有提前返回的路径）。
         defer { updateInsertionPointStateAndRestartTimer(true) }
+        // 光标没动时，保留用户刚通过工具栏打开的行内样式（见 performInlineStyle）。
+        defer { if let p = validPendingInlineTyping() { typingAttributes = p } }
         guard !isInsertingNewline else { return }
         guard let storage = textStorage else { return }
         if storage.length == 0 {

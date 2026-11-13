@@ -26,7 +26,7 @@ cd FinalMdSwift
 在没有 Xcode 的机器上仍可运行的两项检查：
 
 ```bash
-./scripts/run-smoke.sh   # Markdown 双向转换冒烟测试（89 项）—— 直接跑，不需要 Xcode
+./scripts/run-smoke.sh   # Markdown 双向转换 + 编辑器行为冒烟测试（158 项）—— 直接跑，不需要 Xcode
 ./scripts/verify.sh      # 整套视图代码的类型校验（用宏桩顶替 @State 等）
 ```
 
@@ -57,7 +57,7 @@ git tag v1.0.1 && git push --tags          # 或打 tag：构建完自动发 Rel
 
 | 步骤 | 说明 |
 |---|---|
-| 冒烟测试 | 先跑 89 项 Markdown 往返断言，不过就不往下走 |
+| 冒烟测试 | 先跑 158 项断言（Markdown 往返 + 真实 `NSTextView` 行内样式范围），不过就不往下走 |
 | 编译 + 组装 | `swift build -c release` → `build/FinalMd.app`，ad-hoc 签名 |
 | bundle 校验 | 检查可执行文件、Info.plist、图标、版本、最低系统版本、中英文 `InfoPlist.strings` 与英文回退，并做 `codesign --verify` 签名自检 |
 | Developer ID 签名 + 公证（可选） | 配了证书 secrets 才执行，`scripts/sign_and_notarize.sh` |
@@ -268,13 +268,29 @@ AppKit 默认按视图的 `font`（固定 16pt 正文）计算插入点高度，
 `typingAttributes` 变化后调用 `updateInsertionPointStateAndRestartTimer(true)` 立即重绘；
 缩放（magnification）由 `NSScrollView` 的坐标系变换负责，光标会随之等比变化。
 
+### 7. 行内样式只作用于选中的字符
+
+凸显 / 字体色 / 加粗 / 斜体 / 下划线 / 删除线 / 行内代码 / 清除格式这些**行内**样式，
+与标题 / 列表 / 对齐这些**块级**样式对范围的要求正好相反：
+
+- 块级样式要把属性写到整段（含段落终结符 `\n`），回车才能继承模式，走 `performEdit` + `targetRanges()`；
+- 行内样式必须严格限定在用户选中的字符里，走 `performInlineStyle` + `InlineSelection.slices()`。
+
+旧实现让两者共用 `performEdit`，于是出现两种误伤：选区一直拖到行尾时，`targetRanges()`
+会补上 `\n`，AppKit 把段落终结符上的 `backgroundColor` 渲染成**行尾一整块色块**，
+序列化时 `<span>` 还会跨到下一行；没有选区（纯光标）时更是直接把**整段**涂色。
+`InlineSelection.slices()` 按段落终结符、软换行与图片附件占位符切分选区，只返回有可见字身的字符段。
+无选区时不改动任何已有文字，只把样式写进 `typingAttributes`，让「先点荧光笔再打字」仍然生效；
+`InlineTypingMemory` 协议记住开启时的插入点，避免弹面板切焦点触发的 `didChangeSelection` 把样式冲掉，
+光标一移动即作废。
+
 ---
 
 ## 验证情况
 
 | 项目 | 结果 |
 |---|---|
-| Markdown 双向转换冒烟测试 | ✅ **129 项全部通过**（`./scripts/run-smoke.sh`） |
+| Markdown 双向转换冒烟测试 | ✅ **158 项全部通过**（`./scripts/run-smoke.sh`） |
 | 全套视图代码类型校验 | ✅ **Build complete，0 error**（`./scripts/verify.sh`） |
 | 完整 `swift build` + 打包 | ✅ 本机完整 Xcode 工具链 release 编译 + bundle 自检通过（`./scripts/make_app.sh`） |
 | 签名 / 启动 | ✅ `codesign --verify --deep --strict` 通过，`open -a` 实测可启动 |
@@ -286,7 +302,10 @@ AppKit 默认按视图的 `font`（固定 16pt 正文）计算插入点高度，
 另外还覆盖**滚动容器行为**：各缩放值下页面水平居中、放大后横滑能拖动（含事件穿过文字视图）、
 连续捏合文档宽度稳定，以及 ⌘+滚轮的缩放方向、回调同步、60%–200% 上下限；
 还有插入点尺寸与位置：H1 / 正文 / 代码块字号的单调性、与字号的比例关系、六级标题逐级递减，
-以及按基线纵向对齐（顶边 / 底边贴合字身、修复行高造成的偏上、整行下移时等量跟随）。
+以及按基线纵向对齐（顶边 / 底边贴合字身、修复行高造成的偏上、整行下移时等量跟随）；
+最后覆盖**行内样式作用范围**：部分选区 / 跨行 / 到行尾 / 全篇 / 空选区 / 越界 / 附件的精确切片，
+凸显与 `<span>` 只包住选中字符、换行符不携带背景色，以及在真实 `NSTextView` 上设置选区后
+直接调用 `setHighlight` / `setTextColor` / `toggleUnderline` / `applyBlockStyle` 的属性落点。
 
 > 关于 `verify.sh`：它把源码复制到临时目录，用**重命名**的 property wrapper 顶替
 > `@State` / `@Environment` 等宏（Swift 会优先解析 SwiftUI 的宏，所以同名无效），

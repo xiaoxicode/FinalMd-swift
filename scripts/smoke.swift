@@ -427,6 +427,140 @@ func testCaretAlignment() {
     check("代码块光标底部贴近同一基线", abs(codeRect.maxY - textBottom) < 3)
 }
 
+// MARK: - 行内样式作用范围（凸显标记回归）
+
+/// 把 [NSRange] 压成 "起点:长度,起点:长度"，便于断言
+func rangesDesc(_ rs: [NSRange]) -> String {
+    rs.map { "\($0.location):\($0.length)" }.joined(separator: ",")
+}
+
+func testInlineSelection() {
+    // 索引： 0-9 = ABCDEFGHIJ，10 = \n，11-20 = 0123456789，21 = \n，22-24 = 末尾行
+    let s = "ABCDEFGHIJ\n0123456789\n末尾行" as NSString
+
+    // 核心回归：只选中间 3 个字，前后没选的字绝不能被标记
+    equal("部分选区只切出选中字符", rangesDesc(InlineSelection.slices(NSRange(location: 2, length: 3), in: s)), "2:3")
+    equal("整行全选不含段落终结符", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: 10), in: s)), "0:10")
+
+    // 段落终结符不能承载 backgroundColor，否则 AppKit 会在行尾画出色块
+    equal("跨行选区按行切分并跳过换行符", rangesDesc(InlineSelection.slices(NSRange(location: 8, length: 6), in: s)), "8:2,11:3")
+    equal("全篇选区逐行切分", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: s.length), in: s)), "0:10,11:10,22:3")
+    equal("只选中换行符时没有作用范围", rangesDesc(InlineSelection.slices(NSRange(location: 10, length: 1), in: s)), "")
+    equal("选区以行尾换行结束时不带换行符", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: 3), in: "AB\n" as NSString)), "0:2")
+
+    equal("空选区不改动任何文字", rangesDesc(InlineSelection.slices(NSRange(location: 5, length: 0), in: s)), "")
+    equal("越界选区裁剪到文档末尾", rangesDesc(InlineSelection.slices(NSRange(location: 20, length: 50), in: s)), "20:1,22:3")
+
+    // 附件 / 软换行没有可见字身，也不该被高亮
+    equal("图片附件占位符被跳过", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: 3), in: "A\u{FFFC}B" as NSString)), "0:1,2:1")
+    equal("软换行被跳过", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: 5), in: "AB\u{2028}CD" as NSString)), "0:2,3:2")
+
+    // 端到端：给选中的 3 个字符打上凸显，检查属性与 Markdown 输出都只覆盖选区
+    let attr = NSMutableAttributedString(attributedString: MarkdownParser.parse("ABCDEFGHIJ\n"))
+    let color = NSColor(hex: "#fff3a3")!
+    for r in InlineSelection.slices(NSRange(location: 2, length: 3), in: attr.string as NSString) {
+        attr.addAttribute(.backgroundColor, value: color, range: r)
+        attr.addAttribute(.mdHighlight, value: color, range: r)
+    }
+    check("选中的 3 个字符都带凸显", (2...4).allSatisfy {
+        attr.attribute(.mdHighlight, at: $0, effectiveRange: nil) != nil
+    })
+    check("选区之前的字符没有凸显", attr.attribute(.mdHighlight, at: 1, effectiveRange: nil) == nil)
+    check("选区之后的字符没有凸显", attr.attribute(.mdHighlight, at: 5, effectiveRange: nil) == nil)
+    check("这一行行尾没有凸显", attr.attribute(.mdHighlight, at: 9, effectiveRange: nil) == nil)
+
+    let md = MarkdownSerializer.markdown(from: attr)
+    let span = "<span style=\"background-color:#fff3a3\">"
+    check("序列化后 span 只包住选中文字", md.contains("AB\(span)CDE</span>FGHIJ"))
+    check("整行只出现一对凸显 span", md.components(separatedBy: span).count - 1 == 1)
+
+    // 回归：选区正好到行尾时，旧逻辑会把 \n 一起涂上背景色，
+    // 于是 AppKit 在行尾画出色块，<span> 还会跨到下一行。
+    let lineEnd = NSMutableAttributedString(attributedString: MarkdownParser.parse("ABCDEF\nSECOND\n"))
+    let nl = (lineEnd.string as NSString).range(of: "\n").location
+    for r in InlineSelection.slices(NSRange(location: 2, length: 4), in: lineEnd.string as NSString) {
+        lineEnd.addAttribute(.mdHighlight, value: color, range: r)
+    }
+    check("选区到行尾时换行符没有凸显", lineEnd.attribute(.mdHighlight, at: nl, effectiveRange: nil) == nil)
+    check("选区到行尾时 span 在换行前闭合", MarkdownSerializer.markdown(from: lineEnd).contains("CDEF</span>"))
+
+    // 跨行选区：两行各自只标记选中的部分，换行符与未选字符都不带属性
+    let multi = NSMutableAttributedString(attributedString: MarkdownParser.parse("ABC\nDEF\n"))
+    let slices = InlineSelection.slices(NSRange(location: 1, length: 5), in: multi.string as NSString)
+    equal("跨行选区切成两段", rangesDesc(slices), "1:2,4:2")
+    for r in slices { multi.addAttribute(.mdHighlight, value: color, range: r) }
+    check("跨行选区的换行符没有凸显", multi.attribute(.mdHighlight, at: 3, effectiveRange: nil) == nil)
+    check("第二行未选中的字符没有凸显", multi.attribute(.mdHighlight, at: 6, effectiveRange: nil) == nil)
+}
+
+// MARK: - 真实 NSTextView 上的行内样式（集成验证）
+
+func testInlineStyleOnTextView() {
+    let hl = NSColor(hex: "#fff3a3")!
+
+    func make(_ text: String) -> NSTextView {
+        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 480, height: 320))
+        tv.isEditable = true
+        tv.isRichText = true
+        tv.string = text
+        tv.typingAttributes = EditorStyle.defaultTyping
+        return tv
+    }
+
+    /// 列出带该属性的所有连续段，格式 "起点:长度,…"
+    func runs(_ tv: NSTextView, _ key: NSAttributedString.Key) -> String {
+        guard let st = tv.textStorage else { return "" }
+        var out: [String] = []
+        st.enumerateAttribute(key, in: NSRange(location: 0, length: st.length), options: []) { v, r, _ in
+            if v != nil { out.append("\(r.location):\(r.length)") }
+        }
+        return out.joined(separator: ",")
+    }
+
+    // 选中第一行中间 3 个字符：凸显只应落在 2:3，前后与下一行都不带属性
+    let a = make("ABCDEFGHIJ\nSECOND LINE\n")
+    a.setSelectedRange(NSRange(location: 2, length: 3))
+    a.setHighlight(hl)
+    equal("真实视图：凸显只覆盖选中字符", runs(a, .mdHighlight), "2:3")
+
+    // 选区跨到下一行：按行切分，换行符不带属性
+    let b = make("ABCDEFGHIJ\nSECOND LINE\n")
+    b.setSelectedRange(NSRange(location: 8, length: 8))
+    b.setHighlight(hl)
+    equal("真实视图：跨行凸显跳过换行符", runs(b, .mdHighlight), "8:2,11:5")
+
+    // 同一入口下的其它行内样式也不扩散
+    let c = make("ABCDEFGHIJ\nSECOND LINE\n")
+    c.setSelectedRange(NSRange(location: 2, length: 3))
+    c.setTextColor(NSColor(hex: "#d64545"))
+    equal("真实视图：字体色只覆盖选中字符", runs(c, .mdTextColor), "2:3")
+
+    let d = make("ABCDEFGHIJ\nSECOND LINE\n")
+    d.setSelectedRange(NSRange(location: 2, length: 3))
+    d.toggleUnderline()
+    equal("真实视图：下划线只覆盖选中字符", runs(d, .underlineStyle), "2:3")
+
+    // 清除凸显只作用于当前选区，之前打在别处的凸显要保留
+    let e = make("ABCDEFGHIJ\nSECOND LINE\n")
+    e.setSelectedRange(NSRange(location: 2, length: 3)); e.setHighlight(hl)
+    e.setSelectedRange(NSRange(location: 6, length: 2)); e.setHighlight(hl)
+    e.setSelectedRange(NSRange(location: 2, length: 3)); e.setHighlight(nil)
+    equal("真实视图：清除凸显不影响选区外", runs(e, .mdHighlight), "6:2")
+
+    // 无选区时不涂改任何已有文字，只决定「接下来输入的字」
+    let f = make("ABCDEFGHIJ\n")
+    f.setSelectedRange(NSRange(location: 5, length: 0))
+    f.setHighlight(hl)
+    equal("真实视图：无选区不改动已有文字", runs(f, .mdHighlight), "")
+    check("真实视图：无选区时输入属性带凸显", f.typingAttributes[.mdHighlight] != nil)
+
+    // 块级样式仍走段落级范围，未被本次改动破坏
+    let g = make("ABCDEFGHIJ\nSECOND LINE\n")
+    g.setSelectedRange(NSRange(location: 2, length: 0))
+    g.applyBlockStyle(.heading(1))
+    equal("真实视图：块样式仍作用于整段", runs(g, .mdBlockType), "0:11")
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -443,6 +577,8 @@ testWheelZoom()
 testLocalization()
 testCaretSizing()
 testCaretAlignment()
+testInlineSelection()
+testInlineStyleOnTextView()
 
 print("")
 if failureDetails.isEmpty {
