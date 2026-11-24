@@ -171,6 +171,42 @@ func blockTypes(_ a: NSAttributedString) -> Set<String> {
     return out
 }
 
+/// 逐字保留检查：正则特征扫描只判断「长得像」，会把 `\[1\]:` 之类也算成保留。
+/// 这里直接比对原文里三类透传块的**整行字节**是否出现在序列化输出中，
+/// 作为 CI 的硬阈值，防止 P1 原样透传块以后被改回「解析后重排」。
+func exactPassthrough(_ md: String, _ out: String) -> (total: Int, kept: Int, missed: [String]) {
+    let lines = md.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+    var total = 0
+    var kept = 0
+    var missed: [String] = []
+    func record(_ line: String) {
+        total += 1
+        if out.contains(line) { kept += 1 } else { missed.append(line) }
+    }
+
+    // frontmatter：要求开闭分隔符之间的整块（含内部空行与缩进）原样出现
+    if lines.first?.trimmingCharacters(in: .whitespaces) == "---",
+       let close = lines.dropFirst().firstIndex(where: {
+           let t = $0.trimmingCharacters(in: .whitespaces)
+           return t == "---" || t == "..."
+       }) {
+        total += 1
+        if out.contains(lines[0...close].joined(separator: "\n")) { kept += 1 }
+        else { missed.append("(frontmatter 整块)") }
+    }
+
+    for line in lines {
+        let t = line.trimmingCharacters(in: .whitespaces)
+        if t.hasPrefix("<div") || t.hasPrefix("<table") || t.hasPrefix("<p>")
+            || t.hasPrefix("<!--") || t.hasPrefix("<style") || t.hasPrefix("<script") {
+            record(line)
+        } else if t.range(of: #"^\[[^\]]+\]:\s*\S+"#, options: .regularExpression) != nil {
+            record(line)
+        }
+    }
+    return (total, kept, missed)
+}
+
 func expectedBlocks(_ html: String) -> Set<String> {
     let pairs: [(String, String)] = [
         ("<h1", "h1"), ("<h2", "h2"), ("<h3", "h3"),
@@ -263,6 +299,10 @@ for (i, f) in files.enumerated() {
     r["detected"] = detected
     r["preserved"] = preserved
     r["lost"] = lost
+    let exact = exactPassthrough(md, out1)
+    r["raw_total"] = exact.total
+    r["raw_kept"] = exact.kept
+    r["raw_missed"] = Array(exact.missed.prefix(8))
     fileResults.append(r)
 }
 
@@ -303,6 +343,8 @@ let caseStable = caseResults.filter { ($0["stable"] as? Bool) == true }.count
 let fileConverged = fileResults.filter { ($0["converged"] as? Bool) == true }.count
 let caseConverged = caseResults.filter { ($0["converged"] as? Bool) == true }.count
 let slow = fileResults.filter { ($0["ms"] as? Int ?? 0) > 400 }
+let rawTotal = fileResults.reduce(0) { $0 + ($1["raw_total"] as? Int ?? 0) }
+let rawKept = fileResults.reduce(0) { $0 + ($1["raw_kept"] as? Int ?? 0) }
 let summary: [String: Any] = [
     "files": files.count,
     "spec_cases": caseResults.count,
@@ -312,6 +354,9 @@ let summary: [String: Any] = [
     "case_converged": caseConverged,
     "avg_retention": avg(fileResults.compactMap { $0["retention"] as? Double }),
     "avg_ms": avg(fileResults.compactMap { Double($0["ms"] as? Int ?? 0) }),
+    "raw_blocks_total": rawTotal,
+    "raw_blocks_kept": rawKept,
+    "raw_exact_rate": rawTotal == 0 ? 1.0 : Double(rawKept) / Double(rawTotal),
     "slow_files": slow.map { ["slug": $0["slug"] ?? "?", "path": $0["source_path"] ?? "", "ms": $0["ms"] ?? 0] },
     "generated_at": ISO8601DateFormatter().string(from: Date()),
 ]
@@ -329,4 +374,6 @@ note("")
 note("✅ 文件 \(files.count) 份：一次稳定 \(fileStable) / 收敛 \(fileConverged)")
 note("✅ 规范用例 \(caseResults.count) 条：一次稳定 \(caseStable) / 收敛 \(caseConverged)")
 note(String(format: "   平均可读字符保留率 %.1f%%", (summary["avg_retention"] as? Double ?? 0) * 100))
+note(String(format: "   透传块逐字保留 %d/%d（%.1f%%）", rawKept, rawTotal,
+            (summary["raw_exact_rate"] as? Double ?? 0) * 100))
 note("   结果：\(resultsPath)")

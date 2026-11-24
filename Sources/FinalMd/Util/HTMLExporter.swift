@@ -42,6 +42,10 @@ enum HTMLExporter {
                     body += "<tr>\(cells)</tr>\n"
                 }
                 body += "</table>\n"
+            case .raw(let source, let kind):
+                // 原始 HTML 原样进正文；frontmatter 与引用式链接定义是元数据，
+                // 不渲染成可见内容（否则 YAML 会被当成正文印出来）。
+                if kind == .html { body += source + "\n" }
             }
         }
 

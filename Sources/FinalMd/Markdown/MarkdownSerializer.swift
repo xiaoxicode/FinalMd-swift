@@ -20,6 +20,8 @@ enum DocBlock {
     case listItem(ordered: Bool, level: Int, content: NSAttributedString)
     case image(MDImageAttachment)
     case table(rows: [[NSAttributedString]], hasHeader: Bool)
+    /// 原样透传块：不解析、不转义、不规范化，逐字写回 Markdown。
+    case raw(String, kind: MDRawKind)
 }
 
 enum MarkdownSerializer {
@@ -115,6 +117,13 @@ enum MarkdownSerializer {
                 text = lines.joined(separator: "\n")
                 orderedCounters.removeAll()
                 lastLevel = -1
+
+            case .raw(let source, _):
+                // 整块逐字输出：frontmatter 的换行、HTML 的尖括号、链接定义的方括号
+                // 都不经过 InlineSerializer，也就不会被 escapeMarkdown 改写。
+                text = source
+                orderedCounters.removeAll()
+                lastLevel = -1
             }
 
             // 连续的列表项之间不留空行（紧列表），其余块之间空一行
@@ -157,9 +166,32 @@ enum MarkdownSerializer {
             loc = NSMaxRange(range)
 
             let para = trimTrailing(attr.attributedSubstring(from: range))
-            if para.length == 0 { continue }
+            // 属性要直接从原文档读：空行只有一个 \n，trimTrailing 之后就没字符可取了，
+            // 而空行同样可能是透传块的一部分。
+            let attrs = attr.attributes(at: range.location, effectiveRange: nil)
 
-            let attrs = para.attributes(at: 0, effectiveRange: nil)
+            // 原样透传块：把「连续且同一 ID」的段落按原始行拼回一整块。
+            // 显示的文字本身就是源码——用户若在块内编辑过，编辑结果会原样写出，
+            // 不存在「藏着一份旧源码把用户改动盖掉」的风险。
+            if (attrs[.mdBlockType] as? String) == MDBlockType.raw.rawValue,
+               let rawID = attrs[.mdRawID] as? Int {
+                flushTable()
+                var rawLines: [String] = [para.string]
+                while loc < ns.length {
+                    let next = ns.paragraphRange(for: NSRange(location: loc, length: 0))
+                    if next.length == 0 { break }
+                    let nextAttrs = attr.attributes(at: next.location, effectiveRange: nil)
+                    guard (nextAttrs[.mdBlockType] as? String) == MDBlockType.raw.rawValue,
+                          (nextAttrs[.mdRawID] as? Int) == rawID else { break }
+                    rawLines.append(trimTrailing(attr.attributedSubstring(from: next)).string)
+                    loc = NSMaxRange(next)
+                }
+                let kind = MDRawKind(rawValue: attrs[.mdRawKind] as? String ?? "") ?? .html
+                result.append(.raw(rawLines.joined(separator: "\n"), kind: kind))
+                continue
+            }
+
+            if para.length == 0 { continue }
 
             // 附件（图片 / 分割线）
             if let attachment = attrs[.attachment] {

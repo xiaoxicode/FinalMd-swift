@@ -1,0 +1,79 @@
+name: Markdown 兼容性回归
+
+# 与 build-macos.yml 并列的独立 job：每次 push / PR 都用仓库内已提交的
+# 207 份真实语料 + 1327 条官方规范用例跑解析器往返，并用阈值闸门拦回归。
+# 语料全部来自 git，CI 不需要联网下载，也不需要任何 secrets。
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    name: 207 份语料 + 1327 条规范用例往返测试
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          # 需要 HEAD 里提交的 RESULTS.json 作为「上一版」对比基线
+          fetch-depth: 2
+
+      - name: 显示工具链
+        run: |
+          xcode-select -p
+          xcrun --show-sdk-path
+          swift --version
+          python3 --version
+          sw_vers
+
+      - name: 保存上一版兼容性结果
+        # PR 里 HEAD 是合并提交；取第一个父提交（目标分支）更能代表基线。
+        run: |
+          set -e
+          BASE=""
+          for REV in HEAD^1 HEAD; do
+            if git cat-file -e "$REV:tests/fixtures/RESULTS.json" 2>/dev/null; then
+              BASE="$REV"
+              break
+            fi
+          done
+          if [ -n "$BASE" ]; then
+            git show "$BASE:tests/fixtures/RESULTS.json" > /tmp/finalmd-results-before.json
+            echo "基线来自 $BASE"
+            echo "FINALMD_BASELINE_RESULTS=/tmp/finalmd-results-before.json" >> "$GITHUB_ENV"
+          else
+            echo "仓库里没有上一版 RESULTS.json，跳过逐文件对比"
+          fi
+
+      - name: Markdown 双向转换冒烟测试
+        run: ./scripts/run-smoke.sh
+
+      - name: 编译并运行全量兼容性测试
+        run: ./scripts/run-compat.sh
+
+      - name: 语料完整性与回归阈值
+        # 同时校验：MANIFEST 的 sha256 / 字节数、绝对阈值下限、
+        # 以及相对上一版的逐文件保留率 / 稳定性倒退。
+        run: python3 scripts/check-compat-thresholds.py
+
+      - name: 生成中文兼容性报告
+        run: python3 scripts/gen-compat-report.py
+
+      - name: 上传测试产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdown-compat-${{ github.run_number }}
+          path: |
+            tests/fixtures/RESULTS.json
+            COMPATIBILITY.md
+          if-no-files-found: warn
+          retention-days: 14

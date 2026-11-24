@@ -328,8 +328,9 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
             let loc = min(charRange.location, max(storage.length - 1, 0))
             let attrs = storage.attributes(at: loc, effectiveRange: nil)
 
-            // 代码块自带宽底色和外框，再叠横线只会显脏
-            if let raw = attrs[.mdBlockType] as? String, raw == MDBlockType.code.rawValue { return }
+            // 代码块自带宽底色和外框，透传块是源码视图，再叠横线只会显脏
+            if let raw = attrs[.mdBlockType] as? String,
+               raw == MDBlockType.code.rawValue || raw == MDBlockType.raw.rawValue { return }
             // 图片 / 图表 / 分割线所在的整行不画
             if attrs[.attachment] != nil { return }
 
@@ -386,7 +387,8 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
         // 这里再把 typingAttributes 对齐到回车前那段，保证后续输入继续带块语义
         // 与结构性加粗标记（Word 行为：Enter 后保持原模式）。
         var merged = typingAttributes
-        for key in [NSAttributedString.Key.mdBlockType, .paragraphStyle, .mdListItem, .mdStructuralBold] {
+        for key in [NSAttributedString.Key.mdBlockType, .paragraphStyle, .mdListItem,
+                    .mdStructuralBold, .mdRawID, .mdRawKind] {
             if let v = before[key] { merged[key] = v } else { merged.removeValue(forKey: key) }
         }
         typingAttributes = merged

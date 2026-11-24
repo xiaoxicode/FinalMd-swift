@@ -39,6 +39,22 @@ extension NSAttributedString.Key {
     /// 结构性加粗：标题/表头靠字号+字重呈现，但这层加粗不是用户敲的 **，
     /// 打上标记后才能在「标题改回正文」时准确剥掉，避免把 # 标题 变成 **正文**
     static let mdStructuralBold = NSAttributedString.Key("finalmd.structuralBold")
+    /// 原样透传块的类型（MDRawKind.rawValue）。frontmatter / 原始 HTML / 引用式链接定义
+    /// 这类外部语法 FinalMd 不渲染，但必须逐字保住，不能在保存时被拆行或转义。
+    static let mdRawKind = NSAttributedString.Key("finalmd.rawKind")
+    /// 原样透传块的编号。同一个块的每一行（含空行）共享一个 ID，
+    /// 序列化时按「连续且同 ID」把段落重新拼回一整块，避免相邻透传块粘连。
+    static let mdRawID = NSAttributedString.Key("finalmd.rawID")
+}
+
+// MARK: - 原样透传块类型
+
+/// 透传块在 HTML 导出时的处理方式不同：
+/// frontmatter 与链接定义是元数据（不进正文），原始 HTML 要原样放进 <body>。
+enum MDRawKind: String {
+    case frontmatter
+    case html
+    case definition
 }
 
 // MARK: - 块级类型
@@ -53,6 +69,9 @@ enum MDBlockType: String {
     case heading6 = "h6"
     case quote = "quote"
     case code = "code"
+    /// 原样透传块：YAML/TOML frontmatter、原始 HTML 块、引用式链接定义。
+    /// 解析时按原始行存进 storage，序列化时跳过行内解析与转义，逐字输出。
+    case raw = "raw"
 
     var headingLevel: Int? {
         guard rawValue.hasPrefix("h"), let n = Int(rawValue.dropFirst()) else { return nil }

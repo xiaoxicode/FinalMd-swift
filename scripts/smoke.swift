@@ -857,6 +857,150 @@ func testExternalCorpusRegressions() {
     }
 }
 
+// MARK: - 原样透传块（P1：frontmatter / 原始 HTML / 引用式链接定义）
+
+func testRawPassthroughBlocks() {
+    // 1) YAML frontmatter：整块逐字保留，不能被拆成段落、不能转义方括号
+    let fm = "---\ntitle: 测试文档\ntags:\n  - alpha\n  - beta\ndraft: false\n---\n\n# 标题\n正文 **加粗**\n"
+    let fmHead = "---\ntitle: 测试文档\ntags:\n  - alpha\n  - beta\ndraft: false\n---\n\n"
+    let fmOut = roundTrip(fm)
+    check("frontmatter：整块逐字保留", fmOut.hasPrefix(fmHead))
+    check("frontmatter：YAML 数组不被拆行", fmOut.contains("tags:\n  - alpha\n  - beta"))
+    check("frontmatter：不被防御性转义", !fmOut.contains("\\[") && !fmOut.contains("\\<"))
+    check("frontmatter：后续标题仍在", fmOut.contains("# 标题"))
+    check("frontmatter：往返稳定", stable(fm))
+    let fmDoc = MarkdownParser.parse(fm)
+    check("frontmatter：块类型为 raw",
+          (fmDoc.attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String) == MDBlockType.raw.rawValue)
+    check("frontmatter：子类型标记正确",
+          (fmDoc.attribute(.mdRawKind, at: 0, effectiveRange: nil) as? String) == MDRawKind.frontmatter.rawValue)
+    let fmBlocks = MarkdownSerializer.blocks(from: fmDoc)
+    var fmIsRaw = false
+    if !fmBlocks.isEmpty, case .raw = fmBlocks[0] { fmIsRaw = true }
+    check("frontmatter：序列化器输出一个 raw 块", fmIsRaw)
+
+    // 2) TOML frontmatter（Hugo / Zola 常用）
+    let toml = "+++\ntitle = \"Hello\"\ndate = 2026-01-01\n+++\n\n正文\n"
+    check("TOML frontmatter：整块逐字保留", roundTrip(toml).hasPrefix("+++\ntitle = \"Hello\"\ndate = 2026-01-01\n+++\n"))
+    check("TOML frontmatter：往返稳定", stable(toml))
+
+    // 3) frontmatter 里的空行也是块的一部分
+    let withBlank = "---\ntitle: X\n\ndescription: 说明\n---\n"
+    check("frontmatter：内部空行不丢", roundTrip(withBlank).contains("title: X\n\ndescription: 说明"))
+
+    // 4) 不要把「两条分割线夹一段正文」误判成 frontmatter
+    let twoRules = "---\n\n# 标题\n\n正文\n\n---\n"
+    let ruleOut = roundTrip(twoRules)
+    check("分割线对：不被误判为 frontmatter", ruleOut.components(separatedBy: "---").count - 1 == 2)
+    check("分割线对：标题仍被识别", ruleOut.contains("# 标题"))
+    check("分割线对：首块不是 raw",
+          (MarkdownParser.parse(twoRules).attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
+            != MDBlockType.raw.rawValue)
+
+    // 5) 原始 HTML 块：尖括号与行内写法都不转义
+    let html = "<div align=\"center\">\n  <img src=\"badge.svg\" />\n  <span>保留 **原样**</span>\n</div>\n\n正文\n"
+    let htmlOut = roundTrip(html)
+    check("HTML 块：div 原样保留", htmlOut.contains("<div align=\"center\">"))
+    check("HTML 块：img 原样保留", htmlOut.contains("<img src=\"badge.svg\" />"))
+    check("HTML 块：内容不被 Markdown 转义", htmlOut.contains("<span>保留 **原样**</span>") && !htmlOut.contains("\\<"))
+    check("HTML 块：往返稳定", stable(html))
+    check("HTML 块：子类型标记正确",
+          (MarkdownParser.parse(html).attribute(.mdRawKind, at: 0, effectiveRange: nil) as? String)
+            == MDRawKind.html.rawValue)
+
+    // 6) 多行 HTML 注释吃到 --> 为止
+    let comment = "<!--\n  说明：不要改成 Markdown\n-->\n\n正文\n"
+    check("HTML 注释：整块保留", roundTrip(comment).hasPrefix("<!--\n  说明：不要改成 Markdown\n-->\n"))
+    check("HTML 注释：往返稳定", stable(comment))
+
+    // 7) 独立成行的完整标签（CommonMark type 7，如 README 徽章）
+    let badge = "<img src=\"https://example.com/badge.svg\" alt=\"build\" />\n\n正文\n"
+    check("独立 img 标签：原样保留", roundTrip(badge).contains("<img src=\"https://example.com/badge.svg\" alt=\"build\" />"))
+    check("独立 img 标签：往返稳定", stable(badge))
+    // 但行内标签包着正文时仍走行内解析，不该把整段吞成源码块
+    let inlineTag = "这是 <span style=\"color:#f00\">红色</span> 文字\n"
+    check("行内 HTML 不会误升级为透传块",
+          (MarkdownParser.parse(inlineTag).attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
+            == MDBlockType.paragraph.rawValue)
+
+    // 8) 引用式链接定义 / 脚注定义
+    let defs = "参考 [1] 与 [2]。\n\n[1]: https://example.com \"标题\"\n[2]: /relative/path\n[^note]: 这是一条脚注\n"
+    let defsOut = roundTrip(defs)
+    check("链接定义：方括号不被转义", defsOut.contains("[1]: https://example.com \"标题\"") && !defsOut.contains("\\[1\\]:"))
+    check("链接定义：相对路径保留", defsOut.contains("[2]: /relative/path"))
+    check("脚注定义：原样保留", defsOut.contains("[^note]: 这是一条脚注"))
+    check("链接定义：往返稳定", stable(defs))
+    check("链接定义：子类型标记正确",
+          (MarkdownParser.parse("[1]: https://e.com\n").attribute(.mdRawKind, at: 0, effectiveRange: nil) as? String)
+            == MDRawKind.definition.rawValue)
+    // 定义行的下一行可以是缩进的 title
+    let defTitle = "[a]: https://example.com\n    \"A Title\"\n"
+    check("链接定义：缩进 title 续行保留", roundTrip(defTitle).contains("    \"A Title\""))
+    // 扩展定义：脚注 / 引文 / 缩写冒号后是自由文本，不是 URL
+    let extendedDefs = "[^note]: 这是一条很长的脚注，里面有 **格式** 和空格。\n[#cite]: John Doe. *A Book*. 2006.\n[>abbr]: F O O\n"
+    let extendedOut = roundTrip(extendedDefs)
+    check("脚注定义：自由文本原样保留", extendedOut.contains("[^note]: 这是一条很长的脚注，里面有 **格式** 和空格。"))
+    check("引文定义：自由文本原样保留", extendedOut.contains("[#cite]: John Doe. *A Book*. 2006."))
+    check("缩写定义：自由文本原样保留", extendedOut.contains("[>abbr]: F O O"))
+    check("扩展定义：往返稳定", stable(extendedDefs))
+    // MultiMarkdown：title 之后可带 width / height 属性
+    let mmdDefs = "[foo]: nautilus.png width=\"3in\" height=\"2.4in\"\n[bar]: http://foo.bar/\t\"foo\" width=\"40px\"\n"
+    let mmdOut = roundTrip(mmdDefs)
+    check("MMD 定义：无 title 的属性保留", mmdOut.contains("[foo]: nautilus.png width=\"3in\" height=\"2.4in\""))
+    check("MMD 定义：title 后的属性保留", mmdOut.contains("\"foo\" width=\"40px\""))
+
+    // 9) 相邻透传块靠 blockID 分组，不会被拼成一块
+    let adjacent = "---\ntitle: X\n---\n<div>html</div>\n"
+    let adjacentOut = roundTrip(adjacent)
+    check("相邻透传块：frontmatter 仍在", adjacentOut.contains("title: X"))
+    check("相邻透传块：HTML 仍在", adjacentOut.contains("<div>html</div>"))
+    check("相邻透传块：往返稳定", stable(adjacent))
+
+    // 10) 编辑安全：块内文字被改过之后，写出的是新文字而不是缓存的旧源码
+    var edited = NSMutableAttributedString(attributedString: MarkdownParser.parse("---\ntitle: 旧标题\n---\n\n正文\n"))
+    let oldRange = (edited.string as NSString).range(of: "旧标题")
+    check("编辑安全：找到待替换文字", oldRange.location != NSNotFound)
+    if oldRange.location != NSNotFound {
+        edited.replaceCharacters(in: oldRange, with: "新标题")
+        let editedOut = MarkdownSerializer.markdown(from: edited)
+        check("编辑安全：改动写进结果", editedOut.contains("title: 新标题"))
+        check("编辑安全：旧文字不会复活", !editedOut.contains("旧标题"))
+        check("编辑安全：仍以源码块输出", editedOut.hasPrefix("---\ntitle: 新标题\n---\n"))
+    }
+
+    // 11) 判定不能过宽：规范里这些写法仍然是普通段落
+    let invalidTags = ["<m:abc>", "<a h*#ref=\"hi\">", "<a href='bar'title=title>",
+                       "</a href=\"foo\">", "<a href=\"\\\">\">"]
+    for tag in invalidTags {
+        let doc = MarkdownParser.parse(tag + "\n")
+        check("非法标签不升级为透传块：\(tag)",
+              (doc.attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
+                == MDBlockType.paragraph.rawValue)
+    }
+    check("畸形链接定义仍是普通段落",
+          (MarkdownParser.parse("[foo]: /url \"title\" ok\n").attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
+            == MDBlockType.paragraph.rawValue)
+    // CommonMark type 1：<style> 块结束在闭标签行，后面的正文不能被吞掉
+    let style = "<style>p{color:red;}</style>\n*foo*\n"
+    let styleOut = roundTrip(style)
+    check("type1 HTML 块：整块原样保留", styleOut.contains("<style>p{color:red;}</style>"))
+    check("type1 HTML 块：后续正文不被吞", styleOut.contains("*foo*"))
+    check("type1 HTML 块：往返稳定", stable(style))
+    // 未闭合的 HTML 块吃到 EOF 时，不能把 split 出来的尾部空行也算进块内容，
+    // 否则每往返一次就多出一个空行（CommonMark #175 / GFM #142）
+    let unclosedStyle = "<style\n  type=\"text/css\">\n\nfoo"
+    check("未闭合 HTML 块：不会逐轮增生空行", stable(unclosedStyle))
+    equal("未闭合 HTML 块：输出不额外加空行", roundTrip(unclosedStyle),
+          "<style\n  type=\"text/css\">\n\nfoo\n")
+
+    // 12) HTML 导出：原始 HTML 进正文，元数据不进正文
+    let exportDoc = MarkdownParser.parse("---\ntitle: X\n---\n\n<div class=\"a\">原样</div>\n\n[1]: https://e.com\n")
+    let exported = HTMLExporter.document(from: exportDoc, title: "测试", language: "zh")
+    check("HTML 导出：原始 HTML 原样进正文", exported.contains("<div class=\"a\">原样</div>"))
+    check("HTML 导出：frontmatter 不印成正文", !exported.contains("title: X"))
+    check("HTML 导出：链接定义不印成正文", !exported.contains("[1]: https://e.com"))
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -874,6 +1018,7 @@ testLocalization()
 testEditorModes()
 testEditorFocus()
 testExternalCorpusRegressions()
+testRawPassthroughBlocks()
 testCaretSizing()
 testCaretAlignment()
 testInlineSelection()

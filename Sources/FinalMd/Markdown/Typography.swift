@@ -233,6 +233,14 @@ extension DocTheme {
             ps.headIndent = 14
             ps.firstLineHeadIndent = 14
 
+        case .raw:
+            // 透传块以源码形态展示：等宽由 rawBlock 指定，这里只收紧行距和缩进
+            ps.lineHeightMultiple = 1.35
+            ps.paragraphSpacing = 2
+            ps.paragraphSpacingBefore = 4
+            ps.headIndent = 10
+            ps.firstLineHeadIndent = 10
+
         case .quote:
             ps.lineHeightMultiple = bodyLineHeight
             ps.paragraphSpacing = 10

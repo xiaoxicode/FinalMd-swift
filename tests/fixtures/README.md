@@ -9,11 +9,14 @@
 | `MANIFEST.json` | 每个文件的来源路径、URL、字节数、sha256 与许可证 |
 | `PATHS.json` | 固化的下载路径清单（让脚本不依赖 GitHub API，可复现） |
 | `RESULTS.json` | `run-compat.sh` 生成的结构化测试结果 |
+| `BASELINE.json` | CI 回归阈值；指标提升后用 `check-compat-thresholds.py --update-baseline` 更新 |
 | `sources/<slug>/` | 按来源分组的原始 `.md` 文件 |
 | `specs/` | CommonMark / GFM 规范原文与解析后的结构化用例 |
 
 重新下载：`python3 scripts/fetch-fixtures.py`（已有文件自动复用）。
-运行测试：`./scripts/run-compat.sh`；生成报告：`python3 scripts/gen-compat-report.py`。
+运行测试：`./scripts/run-compat.sh`；回归闸门：`python3 scripts/check-compat-thresholds.py`；
+生成报告：`python3 scripts/gen-compat-report.py`。
+CI：`.github/workflows/compat-macos.yml`（push / PR / 手动触发，语料直接取自 git）。
 
 来源许可证：
 

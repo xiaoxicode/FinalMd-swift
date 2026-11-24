@@ -40,6 +40,7 @@ FILES=(
   "$SRC/Sources/FinalMd/Editor/SourceTextView.swift"
   "$SRC/Sources/FinalMd/Editor/EditorFocus.swift"
   "$SRC/Sources/FinalMd/Util/ImageEmbed.swift"
+  "$SRC/Sources/FinalMd/Util/HTMLExporter.swift"
   "$WORK/main.swift"
 )
 

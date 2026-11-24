@@ -1,0 +1,14 @@
+{
+  "note": "FinalMd 兼容性回归阈值。CI 上由 scripts/check-compat-thresholds.py 读取；指标提升后用 python3 scripts/check-compat-thresholds.py --update-baseline 更新本文件。语料数与规范用例数必须完全相等，其余指标不得低于阈值。",
+  "thresholds": {
+    "files": 207,
+    "spec_cases": 1327,
+    "avg_retention": 0.825,
+    "raw_exact_rate": 0.86,
+    "file_stable": 166,
+    "file_converged": 171,
+    "case_stable": 1285,
+    "case_converged": 1307
+  },
+  "max_retention_drop_per_file": 0.005
+}

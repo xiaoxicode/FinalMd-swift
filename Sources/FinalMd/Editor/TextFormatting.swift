@@ -397,6 +397,12 @@ extension NSTextView {
                     }
                     storage.addAttribute(.paragraphStyle, value: ps, range: r)
                     storage.addAttribute(.mdBlockType, value: newType.rawValue, range: r)
+                    // 用户显式把这行改成正文 / 标题时，它就不再是透传源码块了；
+                    // 清掉残留的块标记，避免序列化器又把它当成 raw 拼回去。
+                    if oldType == .raw {
+                        storage.removeAttribute(.mdRawID, range: r)
+                        storage.removeAttribute(.mdRawKind, range: r)
+                    }
 
                     if newType == .code {
                         storage.removeAttribute(.mdListItem, range: r)
