@@ -1308,6 +1308,114 @@ func testObsidianInteractions() {
           MarkdownSerializer.markdown(from: tv.textStorage ?? parsed), before)
 }
 
+// MARK: - 收尾三项：逐字保留 262/262、Callout 行内强调、任务框点选
+
+func testFinalCompatibilityEdges() {
+    // ── 1) 语法非法但形似引用式链接定义的两行，必须逐字保留 ──
+    let cmarkLine = " [[[[[[[[[[[[[[[[[[[[]: this is not a valid reference"
+    let pandocLine = "  [bar]: /url/ \"Title with \"quotes\" inside\""
+    let edgeMd = cmarkLine + "\n\n" + pandocLine + "\n"
+    let edgeDoc = MarkdownParser.parse(edgeMd)
+    check("非法定义：标记为逐字段落",
+          edgeDoc.attribute(.mdVerbatimLine, at: 0, effectiveRange: nil) as? Bool == true)
+    check("非法定义：块类型仍是段落",
+          edgeDoc.attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String
+            == MDBlockType.paragraph.rawValue)
+    equal("非法定义：两行逐字往返", roundTrip(edgeMd), edgeMd)
+    check("非法定义：不产生方括号转义", !roundTrip(edgeMd).contains("\\["))
+    check("非法定义：往返稳定", stable(edgeMd))
+    equal("非法定义：尾部杂字仍按段落处理",
+          roundTrip("[foo]: /url \"title\" ok\n"), "[foo]: /url \"title\" ok\n")
+    check("合法定义：仍走原样透传块",
+          MarkdownParser.parse("[foo]: /url \"t\"\n")
+            .attribute(.mdRawKind, at: 0, effectiveRange: nil) as? String
+            == MDRawKind.definition.rawValue)
+
+    // ── 2) Callout 内部行真解析行内强调，同时逐字往返 ──
+    let calloutMd = "> [!NOTE] **提示**\n"
+        + "> 这里有 *斜体* 和 `代码` 与 [链接](https://example.com)\n"
+    let calloutDoc = MarkdownParser.parse(calloutMd)
+    let ns = calloutDoc.string as NSString
+    check("Callout：加粗标记已从显示文字里解析掉", !ns.contains("**"))
+    check("Callout：斜体标记已从显示文字里解析掉", !ns.contains("*斜体*"))
+
+    let italic = ns.range(of: "斜体")
+    check("Callout：斜体文字存在", italic.location != NSNotFound)
+    if italic.location != NSNotFound {
+        let font = calloutDoc.attribute(.font, at: italic.location, effectiveRange: nil) as? NSFont
+        check("Callout：斜体带 italic trait",
+              font?.fontDescriptor.symbolicTraits.contains(.italic) == true)
+    }
+    let code = ns.range(of: "代码")
+    check("Callout：行内代码文字存在", code.location != NSNotFound)
+    if code.location != NSNotFound {
+        check("Callout：行内代码有 mdInlineCode",
+              calloutDoc.attribute(.mdInlineCode, at: code.location,
+                                   effectiveRange: nil) as? Bool == true)
+    }
+    let link = ns.range(of: "链接")
+    check("Callout：链接文字存在", link.location != NSNotFound)
+    if link.location != NSNotFound {
+        check("Callout：链接有 .link 属性",
+              calloutDoc.attribute(.link, at: link.location, effectiveRange: nil) != nil)
+    }
+    equal("Callout：行内强调仍逐字往返", roundTrip(calloutMd), calloutMd)
+    check("Callout：行内强调往返稳定", stable(calloutMd))
+
+    // 用户改过内容时按新文字重建，绝不能被旧源码快照盖掉
+    let edited = NSMutableAttributedString(attributedString: calloutDoc)
+    let editedRange = (edited.string as NSString).range(of: "斜体")
+    check("Callout：编辑目标存在", editedRange.location != NSNotFound)
+    if editedRange.location != NSNotFound {
+        edited.replaceCharacters(in: editedRange, with: "重点")
+        let out = MarkdownSerializer.markdown(from: edited)
+        check("Callout：编辑后输出新文字", out.contains("重点"))
+        check("Callout：编辑后不残留旧文字", !out.contains("斜体"))
+        check("Callout：编辑后首行标记不被转义", out.contains("[!NOTE]") && !out.contains("\\[!NOTE\\]"))
+    }
+    // 首行标题被编辑时同样要保住 [!NOTE]
+    let titleEdited = NSMutableAttributedString(attributedString: calloutDoc)
+    let titleRange = (titleEdited.string as NSString).range(of: "提示")
+    if titleRange.location != NSNotFound {
+        titleEdited.replaceCharacters(in: titleRange, with: "新标题")
+        let out = MarkdownSerializer.markdown(from: titleEdited)
+        check("Callout：改标题后仍是合法 Callout",
+              out.contains("[!NOTE] 新标题") && !out.contains("\\[!NOTE\\]"))
+    }
+
+    let calloutHTML = HTMLExporter.document(
+        from: MarkdownParser.parse("> [!NOTE] 标题\n> 请 **备份** 数据\n"),
+        title: "T", language: "zh")
+    check("Callout HTML：加粗解析成 strong", calloutHTML.contains("<strong>备份</strong>"))
+
+    // ── 3) 任务框点选 ──
+    check("任务框：[ ] → [x]", TaskBoxToggle.toggled("[ ]") == "[x]")
+    check("任务框：[x] → [ ]", TaskBoxToggle.toggled("[x]") == "[ ]")
+    check("任务框：[X] → [ ]", TaskBoxToggle.toggled("[X]") == "[ ]")
+    check("任务框：非复选框不切换", TaskBoxToggle.toggled("[abc]") == nil)
+    check("任务框：空 storage 不命中",
+          TaskBoxToggle.boxRange(in: NSAttributedString(), at: 0) == nil)
+
+    let taskDoc = NSMutableAttributedString(
+        attributedString: MarkdownParser.parse("- [ ] 待办\n- [x] 完成\n"))
+    let taskNS = taskDoc.string as NSString
+    let unchecked = taskNS.range(of: "[ ]")
+    check("任务框：待办存在", unchecked.location != NSNotFound)
+    if unchecked.location != NSNotFound {
+        equal("任务框：命中完整三字符范围",
+              NSStringFromRange(TaskBoxToggle.boxRange(in: taskDoc, at: unchecked.location + 1)
+                                  ?? NSRange(location: -1, length: 0)),
+              NSStringFromRange(unchecked))
+        taskDoc.replaceCharacters(in: unchecked, with: "[x]")
+        let out = MarkdownSerializer.markdown(from: taskDoc)
+        check("任务框：勾选后序列化以新文字为准", out.contains("- [x] 待办"))
+        check("任务框：另一项保持勾选", out.contains("- [x] 完成"))
+    }
+    let proseRange = taskNS.range(of: "待办")
+    check("任务框：点在普通文字上不命中",
+          TaskBoxToggle.boxRange(in: taskDoc, at: proseRange.location) == nil)
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -1330,6 +1438,7 @@ testObsidianSyntax()
 testExternalCompatibility()
 testIndentedCodeBlocks()
 testObsidianInteractions()
+testFinalCompatibilityEdges()
 testCaretSizing()
 testCaretAlignment()
 testInlineSelection()

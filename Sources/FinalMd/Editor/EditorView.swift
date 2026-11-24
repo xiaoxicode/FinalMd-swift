@@ -419,6 +419,8 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
                     .mdCalloutID, .mdCalloutKind, .mdCalloutFold] {
             if let v = before[key] { merged[key] = v } else { merged.removeValue(forKey: key) }
         }
+        // 整行快照属于原行，不能跟着回车继承到新段（否则新行会被旧源码盖掉）
+        for key in MDEditorTextView.lineSnapshotKeys { merged.removeValue(forKey: key) }
         typingAttributes = merged
 
         // 非空列表条目 → 新行自动补下一个符号 / 序号
@@ -563,9 +565,10 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
             }
         }
         // 双链 / 任务框是「一整段语法」的属性，绝不能继承到接下来敲的字上，
-        // 否则在链接后面打字会静默生成新的 [[...]]。
+        // 否则在链接后面打字会静默生成新的 [[...]]；整行快照同理。
         attrs.removeValue(forKey: .mdWikiLink)
         attrs.removeValue(forKey: .mdTaskBox)
+        for key in Self.lineSnapshotKeys { attrs.removeValue(forKey: key) }
         typingAttributes = attrs
     }
 
@@ -621,15 +624,20 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
         setSelectedRange(NSRange(location: paraStart, length: 0))
     }
 
-    // MARK: ⌘+点击 Obsidian 交互 / 双击图片 → 回到图表编辑
+    // MARK: ⌘+点击 Obsidian 交互 / 单击任务框 / 双击图片 → 回到图表编辑
+
+    /// 把鼠标事件换算成 storage 里的字符下标（已夹在合法范围内）
+    private func hitCharacterIndex(for event: NSEvent) -> Int? {
+        guard let storage = textStorage, storage.length > 0 else { return nil }
+        let point = convert(event.locationInWindow, from: nil)
+        let index = characterIndexForInsertion(at: point)
+        return min(max(index, 0), storage.length - 1)
+    }
 
     override func mouseDown(with event: NSEvent) {
         // 即刻模式是编辑器，直接单击跳转会和选中文本冲突，所以用 ⌘+点击。
         if event.modifierFlags.contains(.command),
-           let storage = textStorage, storage.length > 0 {
-            let point = convert(event.locationInWindow, from: nil)
-            var index = characterIndexForInsertion(at: point)
-            index = min(max(index, 0), storage.length - 1)
+           let storage = textStorage, let index = hitCharacterIndex(for: event) {
             let attrs = storage.attributes(at: index, effectiveRange: nil)
             if let wiki = attrs[.mdWikiLink] as? MDWikiLink {
                 if wiki.embedded { onEmbedActivated?(wiki) } else { onWikiLinkActivated?(wiki) }
@@ -642,14 +650,42 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
             }
         }
 
+        // 单击任务框直接勾选 / 取消。只有点在 `[ ]` / `[x]` 这 3 个字符上才触发，
+        // 点在任务文字上仍是正常的光标定位；不要求 ⌘，与 Typora / Obsidian 一致。
+        if !event.modifierFlags.contains(.command), event.clickCount == 1,
+           let storage = textStorage, let index = hitCharacterIndex(for: event),
+           let range = TaskBoxToggle.boxRange(in: storage, at: index) {
+            let current = (storage.string as NSString).substring(with: range)
+            // 先让 AppKit 完成窗口激活 / first responder / 选区定位，
+            // 再替换字符；直接 return 跳过 super 会让首次点击拿不到焦点。
+            super.mouseDown(with: event)
+            if let next = TaskBoxToggle.toggled(current) {
+                toggleTaskBox(in: range, to: next)
+            }
+            return
+        }
+
         super.mouseDown(with: event)
-        guard event.clickCount == 2, let storage = textStorage, storage.length > 0 else { return }
-        let point = convert(event.locationInWindow, from: nil)
-        var index = characterIndexForInsertion(at: point)
-        index = min(max(index, 0), storage.length - 1)
-        if let attachment = storage.attribute(.attachment, at: index, effectiveRange: nil) as? MDImageAttachment {
+        guard event.clickCount == 2, let storage = textStorage,
+              let index = hitCharacterIndex(for: event) else { return }
+        if let attachment = storage.attribute(.attachment, at: index,
+                                              effectiveRange: nil) as? MDImageAttachment {
             onImageDoubleClick?(attachment)
         }
+    }
+
+    /// 勾选状态写回 storage：文字变了，序列化器以当前文字为准输出 `[ ]` / `[x]`，
+    /// 不会被解析时缓存的旧标记盖掉。走 shouldChangeTextIn / didChangeText 以支持 ⌘Z。
+    func toggleTaskBox(in range: NSRange, to text: String) {
+        guard let storage = textStorage, NSMaxRange(range) <= storage.length,
+              shouldChangeText(in: range, replacementString: text) else { return }
+        let attrs = storage.attributes(at: range.location, effectiveRange: nil)
+        storage.replaceCharacters(in: range, with: text)
+        let newRange = NSRange(location: range.location, length: (text as NSString).length)
+        storage.addAttributes(attrs, range: newRange)
+        storage.addAttribute(.mdTaskBox, value: text, range: newRange)
+        didChangeText()
+        reapplyFoldVisuals()
     }
 
     // MARK: Callout 折叠（纯视觉，storage 不变）

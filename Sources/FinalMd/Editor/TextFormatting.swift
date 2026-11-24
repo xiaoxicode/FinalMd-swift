@@ -316,9 +316,13 @@ extension NSTextView {
                  .mdHighlight,
                  .mdInlineCode,
                  .mdStructuralBold,
-                 // 清除格式后双链 / 任务框应退化为普通文字，不再按原语法写回
+                 // 清除格式后双链 / 任务框应退化为普通文字，不再按原语法写回；
+                 // 逐字段落 / Callout 的原行快照也要清掉，否则清格式会被旧源码盖回去
                  .mdWikiLink,
-                 .mdTaskBox].forEach { storage.removeAttribute($0, range: r) }
+                 .mdTaskBox,
+                 .mdVerbatimLine,
+                 .mdCalloutSource,
+                 .mdCalloutDisplay].forEach { storage.removeAttribute($0, range: r) }
                 storage.addAttribute(.foregroundColor, value: DocTheme.text, range: r)
             }
         }
@@ -409,7 +413,10 @@ extension NSTextView {
                         storage.removeAttribute(.mdCalloutID, range: r)
                         storage.removeAttribute(.mdCalloutKind, range: r)
                         storage.removeAttribute(.mdCalloutFold, range: r)
+                        storage.removeAttribute(.mdCalloutSource, range: r)
+                        storage.removeAttribute(.mdCalloutDisplay, range: r)
                     }
+                    storage.removeAttribute(.mdVerbatimLine, range: r)
 
                     if newType == .code {
                         storage.removeAttribute(.mdListItem, range: r)
@@ -453,8 +460,15 @@ extension NSTextView {
                 if let v = before[key] { attrs[key] = v } else { attrs.removeValue(forKey: key) }
             }
         }
+        // 原行快照只属于解析出来的那一行，绝不能继承到接下来敲的字上
+        for key in Self.lineSnapshotKeys { attrs.removeValue(forKey: key) }
         typingAttributes = attrs
     }
+
+    /// 逐字保留相关的「整行快照」属性：不参与输入属性继承
+    static let lineSnapshotKeys: [NSAttributedString.Key] = [
+        .mdVerbatimLine, .mdCalloutSource, .mdCalloutDisplay,
+    ]
 
     /// 行内属性键：typingAttributes 同步时跟随光标前字符，不取段落头
     static let inlineTypingKeys: [NSAttributedString.Key] = [

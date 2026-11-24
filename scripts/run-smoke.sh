@@ -34,6 +34,7 @@ FILES=(
   "$SRC/Sources/FinalMd/Markdown/MarkdownSerializer.swift"
   "$SRC/Sources/FinalMd/Markdown/MarkdownCompatibility.swift"
   "$SRC/Sources/FinalMd/Markdown/ObsidianLinks.swift"
+  "$SRC/Sources/FinalMd/Markdown/TaskBoxToggle.swift"
   "$SRC/Sources/FinalMd/Markdown/EditorMode.swift"
   "$SRC/Sources/FinalMd/Model/ChartConfig.swift"
   "$SRC/Sources/FinalMd/Editor/InlineSelection.swift"

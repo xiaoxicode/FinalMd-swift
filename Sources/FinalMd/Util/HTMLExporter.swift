@@ -68,9 +68,14 @@ enum HTMLExporter {
                 if title.isEmpty { title = kind.capitalized }
                 body += "<div class=\"callout\" data-callout=\"\(escape(lower))\""
                     + " data-fold=\"\(escape(fold))\">\n"
-                body += "<div class=\"callout-title\">\(escape(title))</div>\n"
+                // 与即刻模式一致：Callout 内部行的行内强调也要解析成
+                // <strong>/<em>/<code>/<a>，不能把 **粗体** 当字面量印出来。
+                let base: [NSAttributedString.Key: Any] = [.font: DocTheme.bodyFont]
+                body += "<div class=\"callout-title\">"
+                    + InlineSerializer.html(InlineParser.parse(title, base: base))
+                    + "</div>\n"
                 for line in lines.dropFirst() {
-                    body += "<p>\(InlineSerializer.html(NSAttributedString(string: line)))</p>\n"
+                    body += "<p>\(InlineSerializer.html(InlineParser.parse(line, base: base)))</p>\n"
                 }
                 body += "</div>\n"
             }

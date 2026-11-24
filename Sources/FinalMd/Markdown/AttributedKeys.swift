@@ -57,6 +57,15 @@ extension NSAttributedString.Key {
     /// 任务列表复选框 `[ ]` / `[x]`。显示文字就是源码本身，标记它只是为了
     /// 序列化时跳过方括号转义，避免写成 `\[ \]` 后在 Obsidian / GFM 里失效。
     static let mdTaskBox = NSAttributedString.Key("finalmd.taskBox")
+    /// 「长得像引用式链接定义、但语法不合法」的整行。它仍是普通段落（结构识别
+    /// 算 p），但显示与序列化都逐字保留：按普通段落走 InlineSerializer 会把
+    /// `[` `]` 转义成 `\[` `\]`，反而改写原文。
+    static let mdVerbatimLine = NSAttributedString.Key("finalmd.verbatimLine")
+    /// Callout 行的原始源码。行内强调现在会真解析成富文本，另存原行 +
+    /// 解析后显示文字快照：只要显示文字没被改过，序列化仍逐字输出原行。
+    static let mdCalloutSource = NSAttributedString.Key("finalmd.calloutSource")
+    /// Callout 行解析后的显示文字快照，用来判断用户是否编辑过这一行。
+    static let mdCalloutDisplay = NSAttributedString.Key("finalmd.calloutDisplay")
 }
 
 // MARK: - Obsidian 双链

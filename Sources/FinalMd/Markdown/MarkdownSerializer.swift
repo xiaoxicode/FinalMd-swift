@@ -202,18 +202,20 @@ enum MarkdownSerializer {
 
             if para.length == 0, (attrs[.mdBlockType] as? String) != MDBlockType.callout.rawValue { continue }
 
-            // Obsidian Callout：连续且同 ID 的行聚合成一个块，逐行原样写回。
+            // Obsidian Callout：连续且同 ID 的行聚合成一个块，逐行写回。
+            // 行内强调已真解析成富文本，未编辑时靠快照逐字输出原行。
             if (attrs[.mdBlockType] as? String) == MDBlockType.callout.rawValue,
                let calloutID = attrs[.mdCalloutID] as? Int {
                 flushTable()
-                var lines: [String] = [para.string]
+                var lines: [String] = [calloutLine(from: para, attrs: attrs)]
                 while loc < ns.length {
                     let next = ns.paragraphRange(for: NSRange(location: loc, length: 0))
                     if next.length == 0 { break }
                     let nextAttrs = attr.attributes(at: next.location, effectiveRange: nil)
                     guard (nextAttrs[.mdBlockType] as? String) == MDBlockType.callout.rawValue,
                           (nextAttrs[.mdCalloutID] as? Int) == calloutID else { break }
-                    lines.append(trimTrailing(attr.attributedSubstring(from: next)).string)
+                    lines.append(calloutLine(from: trimTrailing(attr.attributedSubstring(from: next)),
+                                             attrs: nextAttrs))
                     loc = NSMaxRange(next)
                 }
                 let kind = attrs[.mdCalloutKind] as? String ?? "NOTE"
@@ -295,6 +297,21 @@ enum MarkdownSerializer {
         return result
     }
 
+    /// Callout 单行：行内强调已解析成富文本，但原行写法（`*斜*` 还是 `_斜_`、
+    /// 折叠标记、双链原语法）必须逐字保住。
+    /// 显示文字与解析快照一致 → 说明用户没编辑过，直接输出原行；
+    /// 不一致 → 用户改过内容，按当前富文本重建，不让旧源码盖掉编辑。
+    private static func calloutLine(from para: NSAttributedString,
+                                    attrs: [NSAttributedString.Key: Any]) -> String {
+        let shown = para.string
+        if let source = attrs[.mdCalloutSource] as? String,
+           let display = attrs[.mdCalloutDisplay] as? String,
+           shown == display {
+            return source
+        }
+        return InlineSerializer.markdown(para)
+    }
+
     private static func trimTrailing(_ s: NSAttributedString) -> NSAttributedString {
         let str = s.string as NSString
         var len = str.length
@@ -340,6 +357,12 @@ enum InlineSerializer {
     // MARK: Markdown
 
     static func markdown(_ attr: NSAttributedString) -> String {
+        // 逐字段落：语法非法但形似引用式链接定义的整行，原样写出，
+        // 不做方括号防御性转义（否则 cmark-gfm / pandoc 语料里的行会被改写）。
+        if attr.length > 0,
+           attr.attribute(.mdVerbatimLine, at: 0, effectiveRange: nil) as? Bool == true {
+            return attr.string
+        }
         var out = ""
         var active: [Mark] = []
 
@@ -560,8 +583,20 @@ enum InlineSerializer {
 
     /// Markdown 特殊字符转义
     private static func escapeMarkdown(_ s: String) -> String {
+        let chars = Array(s)
         var out = ""
-        for ch in s {
+        var p = 0
+        while p < chars.count {
+            // Obsidian Callout 标记 `[!NOTE]` 不是链接语法。Callout 内部行现在会真解析，
+            // 用户编辑标题后按富文本重建时，若把 `[` `]` 转义成 `\[!NOTE\]`，
+            // 下次打开就不认得这是 Callout 了，所以整段原样输出。
+            if chars[p] == "[", p + 1 < chars.count, chars[p + 1] == "!",
+               let close = (p + 2..<chars.count).first(where: { chars[$0] == "]" }) {
+                out.append(contentsOf: chars[p...close])
+                p = close + 1
+                continue
+            }
+            let ch = chars[p]
             switch ch {
             case "\\", "`", "*", "_", "[", "]", "~", "<":
                 out.append("\\")
@@ -569,6 +604,7 @@ enum InlineSerializer {
             default:
                 out.append(ch)
             }
+            p += 1
         }
         return out
     }

@@ -59,6 +59,13 @@ enum MarkdownParser {
                 i = end
                 continue
             }
+            // 语法非法但形似定义的行：规范里属于普通段落，不能吞进透传块，
+            // 但也不能让 InlineSerializer 把方括号防御性转义掉。
+            if isMalformedDefinitionLine(line) {
+                out.append(verbatimLineBlock(line))
+                i += 1
+                continue
+            }
 
             // 缩进代码块（CommonMark 4 空格 / tab）。只在块首识别：段落里出现
             // 缩进行属于 lazy continuation，CommonMark 规定不能打断段落。
@@ -164,7 +171,7 @@ enum MarkdownParser {
                 if t.isEmpty { break }
                 if t.hasPrefix("```") || t.hasPrefix("~~~") || t.hasPrefix("|") || t.hasPrefix(">")
                     || isHorizontalRule(t) || heading(from: t) != nil || listItemInfo(l) != nil
-                    || isReferenceDefinition(l)
+                    || isReferenceDefinition(l) || isMalformedDefinitionLine(l)
                     || htmlBlockEnd(in: lines, from: i, interruptParagraph: false) != nil {
                     break
                 }
@@ -431,6 +438,26 @@ enum MarkdownParser {
         return j
     }
 
+    /// 「长得像引用式链接定义、但语法不合法」的整行。
+    ///
+    /// 例：cmark-gfm 语料里 30 个 `[` 的 `[[[[…[[]: this is not a valid reference`，
+    /// 以及 pandoc 里 title 含未转义双引号的 `  [bar]: /url/ "Title with "quotes" inside"`。
+    /// 按 CommonMark 它们都是普通段落，不能塞进 `.definition` 透传块，否则官方规范
+    /// 用例的结构识别会掉；但按普通段落走 InlineSerializer 又会把 `[` `]` 转义成
+    /// `\[` `\]`，改写原文。这里单独标记为「逐字段落」：块类型仍是 paragraph，
+    /// 显示文字就是原行，序列化时整行原样写出。
+    private static func isMalformedDefinitionLine(_ line: String) -> Bool {
+        guard !isReferenceDefinition(line) else { return false }
+        let leading = line.prefix(while: { $0 == " " }).count
+        guard leading <= 3 else { return false }
+        let t = String(line.dropFirst(leading))
+        guard t.hasPrefix("["), let close = t.firstIndex(of: "]") else { return false }
+        let afterClose = t.index(after: close)
+        guard afterClose < t.endIndex, t[afterClose] == ":" else { return false }
+        let rest = String(t[t.index(after: afterClose)...])
+        return !rest.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     /// 引用式链接定义 / 脚注定义：`[label]: destination "title"`
     /// 必须完整校验 destination 与可选的 title：像 `[foo]: /url "title" ok`
     /// 这种尾部带杂字的写法在规范里是普通段落，不能当成定义吞进透传块。
@@ -669,6 +696,19 @@ enum MarkdownParser {
         return finalized(attributed, with: attrs)
     }
 
+    /// 逐字段落：块类型与外观都跟普通段落一致，但不走 InlineParser /
+    /// InlineSerializer，整行（含前导空格与方括号）原样显示、原样写回。
+    private static func verbatimLineBlock(_ line: String) -> NSAttributedString {
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: DocTheme.bodyFont,
+            .paragraphStyle: DocTheme.paragraphStyle(for: .paragraph),
+            .foregroundColor: DocTheme.text,
+            .mdBlockType: MDBlockType.paragraph.rawValue,
+            .mdVerbatimLine: true,
+        ]
+        return NSAttributedString(string: line + "\n", attributes: attrs)
+    }
+
     private static func headingBlock(_ text: String, level: Int) -> NSAttributedString {
         let type = MDBlockType(headingLevel: level)
         let size = DocTheme.headingFontSize(level)
@@ -697,9 +737,12 @@ enum MarkdownParser {
         return finalized(attributed, with: attrs)
     }
 
-    /// Obsidian Callout：整块按去掉 "> " 后的原始行存进 storage。
-    /// 不走 InlineParser，所以 `[!NOTE]`、折叠标记、内部方括号全部逐字保住；
-    /// 每行共享 ID，序列化时按「连续且同 ID」聚合成一个块重新加上 "> "。
+    /// Obsidian Callout：每行走 InlineParser 做真正的行内解析。
+    /// 与旧实现的区别：旧实现把去掉 "> " 后的原始行整个塞进 storage，
+    /// 所以 `**粗体**`、`*斜体*`、`` `代码` `` 只会当普通字符显示。
+    /// 现在显示的是解析后的富文本，同时记住「原行 + 解析后显示文字」两个快照：
+    /// 只要显示文字没被改过，序列化仍逐字输出原行（保住 12/12 逐字往返）；
+    /// 用户改过文字就按新文字重建，绝不让旧源码盖掉编辑（P1 的教训）。
     private static func calloutBlock(_ lines: [String], kind: String,
                                      fold: String, id: Int) -> NSAttributedString {
         let style = DocTheme.paragraphStyle(for: .callout)
@@ -707,19 +750,42 @@ enum MarkdownParser {
         let titleColor = DocTheme.calloutColor(kind: kind)
         let out = NSMutableAttributedString()
         for (index, line) in lines.enumerated() {
+            let font = index == 0
+                ? DocTheme.documentFont(size: DocTheme.bodyFontSize, weight: .semibold)
+                : DocTheme.bodyFont
+            let color = index == 0 ? titleColor : DocTheme.text
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: index == 0
-                    ? DocTheme.documentFont(size: DocTheme.bodyFontSize, weight: .semibold)
-                    : DocTheme.bodyFont,
+                .font: font,
                 .paragraphStyle: style,
-                .foregroundColor: index == 0 ? titleColor : DocTheme.text,
+                .foregroundColor: color,
                 .mdBlockType: MDBlockType.callout.rawValue,
                 .mdCalloutID: id,
                 .mdCalloutKind: kind,
                 .mdCalloutFold: fold,
             ]
-            out.append(NSAttributedString(string: line, attributes: attrs))
-            out.append(NSAttributedString(string: "\n", attributes: attrs))
+            let parsed = NSMutableAttributedString(
+                attributedString: InlineParser.parse(line, base: attrs))
+            let display = parsed.string
+            // 只补语义标签，不能覆盖 InlineParser 为强调片段单独设的 font /
+            // foregroundColor，否则刚解析出来的粗体、斜体、链接色会被抹平。
+            var tags: [NSAttributedString.Key: Any] = [
+                .mdBlockType: MDBlockType.callout.rawValue,
+                .mdCalloutID: id,
+                .mdCalloutKind: kind,
+                .mdCalloutFold: fold,
+                .mdCalloutSource: line,
+                .mdCalloutDisplay: display,
+            ]
+            if parsed.length > 0 {
+                parsed.addAttributes(tags, range: NSRange(location: 0, length: parsed.length))
+            }
+            out.append(parsed)
+            // 段末 \n 也带全套属性：Callout 的空行只有一个 \n，
+            // blocks(from:) / folding 都是从它身上读属性。
+            tags[.font] = font
+            tags[.paragraphStyle] = style
+            tags[.foregroundColor] = color
+            out.append(NSAttributedString(string: "\n", attributes: tags))
         }
         return out
     }

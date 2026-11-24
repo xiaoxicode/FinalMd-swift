@@ -9,7 +9,7 @@
 | `MANIFEST.json` | 每个文件的来源路径、URL、字节数、sha256 与许可证 |
 | `PATHS.json` | 固化的下载路径清单（让脚本不依赖 GitHub API，可复现） |
 | `RESULTS.json` | `run-compat.sh` 生成的结构化测试结果 |
-| `BASELINE.json` | CI 回归阈值（保留率 / 结构识别率 / 稳定率、四类 Obsidian 扩展语法 100% 硬约束、缩进代码块最低保留率）；指标提升后用 `check-compat-thresholds.py --update-baseline` 更新 |
+| `BASELINE.json` | CI 回归阈值（保留率 / 结构识别率 / 稳定率、四类 Obsidian 扩展语法 100% 硬约束、缩进代码块最低保留率、透传块逐字保留 262/262 = 100%）；指标提升后用 `check-compat-thresholds.py --update-baseline` 更新 |
 | `sources/<slug>/` | 按来源分组的原始 `.md` 文件 |
 | `specs/` | CommonMark / GFM 规范原文与解析后的结构化用例 |
 
