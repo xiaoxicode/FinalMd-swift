@@ -100,7 +100,7 @@ enum MarkdownParser {
                 continue
             }
 
-            // 引用
+            // 引用 / Obsidian Callout
             if trimmed.hasPrefix(">") {
                 var body: [String] = []
                 while i < lines.count, lines[i].trimmingCharacters(in: .whitespaces).hasPrefix(">") {
@@ -110,7 +110,12 @@ enum MarkdownParser {
                     body.append(l)
                     i += 1
                 }
-                out.append(quoteBlock(body.joined(separator: "\n")))
+                if let info = calloutInfo(body.first) {
+                    out.append(calloutBlock(body, kind: info.kind, fold: info.fold, id: nextRawID))
+                    nextRawID += 1
+                } else {
+                    out.append(quoteBlock(body.joined(separator: "\n")))
+                }
                 continue
             }
 
@@ -171,6 +176,31 @@ enum MarkdownParser {
         let set = Set(t)
         guard set.count == 1 else { return false }
         return set == ["-"] || set == ["*"] || set == ["_"]
+    }
+
+    // MARK: - Obsidian Callout 判定
+
+    private struct CalloutInfo {
+        let kind: String
+        let fold: String
+    }
+
+    /// 首行形如 `[!NOTE] 标题` / `[!TIP]- 可折叠` / `[!WARNING]+ 展开`。
+    /// 只认「引用块第一行」，且类型名必须是字母数字；`[!]`、`[!NOTE` 这类
+    /// 不完整的写法仍按普通引用处理，避免误伤 CommonMark 规范用例。
+    private static func calloutInfo(_ line: String?) -> CalloutInfo? {
+        guard let line else { return nil }
+        let t = line.trimmingCharacters(in: .whitespaces)
+        guard t.hasPrefix("[!"), let close = t.firstIndex(of: "]") else { return nil }
+        let name = String(t[t.index(t.startIndex, offsetBy: 2)..<close])
+        guard !name.isEmpty,
+              name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else { return nil }
+        let after = t.index(after: close)
+        var fold = ""
+        if after < t.endIndex, t[after] == "+" || t[after] == "-" {
+            fold = String(t[after])
+        }
+        return CalloutInfo(kind: name.uppercased(), fold: fold)
     }
 
     // MARK: - 原样透传块判定
@@ -621,6 +651,33 @@ enum MarkdownParser {
         let attributed = InlineParser.parse(text, base: attrs)
         attrs[.mdBlockType] = MDBlockType.quote.rawValue
         return finalized(attributed, with: attrs)
+    }
+
+    /// Obsidian Callout：整块按去掉 "> " 后的原始行存进 storage。
+    /// 不走 InlineParser，所以 `[!NOTE]`、折叠标记、内部方括号全部逐字保住；
+    /// 每行共享 ID，序列化时按「连续且同 ID」聚合成一个块重新加上 "> "。
+    private static func calloutBlock(_ lines: [String], kind: String,
+                                     fold: String, id: Int) -> NSAttributedString {
+        let style = DocTheme.paragraphStyle(for: .callout)
+        style.textBlocks = [DocTheme.calloutTextBlock(kind: kind)]
+        let titleColor = DocTheme.calloutColor(kind: kind)
+        let out = NSMutableAttributedString()
+        for (index, line) in lines.enumerated() {
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: index == 0
+                    ? DocTheme.documentFont(size: DocTheme.bodyFontSize, weight: .semibold)
+                    : DocTheme.bodyFont,
+                .paragraphStyle: style,
+                .foregroundColor: index == 0 ? titleColor : DocTheme.text,
+                .mdBlockType: MDBlockType.callout.rawValue,
+                .mdCalloutID: id,
+                .mdCalloutKind: kind,
+                .mdCalloutFold: fold,
+            ]
+            out.append(NSAttributedString(string: line, attributes: attrs))
+            out.append(NSAttributedString(string: "\n", attributes: attrs))
+        }
+        return out
     }
 
     private static func codeBlock(_ text: String, language: String) -> NSAttributedString {

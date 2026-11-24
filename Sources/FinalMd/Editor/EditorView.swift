@@ -328,9 +328,12 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
             let loc = min(charRange.location, max(storage.length - 1, 0))
             let attrs = storage.attributes(at: loc, effectiveRange: nil)
 
-            // 代码块自带宽底色和外框，透传块是源码视图，再叠横线只会显脏
+            // 代码块自带宽底色和外框，透传块 / Callout 是源码视图或色块视图，
+            // 再叠横线只会显脏
             if let raw = attrs[.mdBlockType] as? String,
-               raw == MDBlockType.code.rawValue || raw == MDBlockType.raw.rawValue { return }
+               raw == MDBlockType.code.rawValue
+                || raw == MDBlockType.raw.rawValue
+                || raw == MDBlockType.callout.rawValue { return }
             // 图片 / 图表 / 分割线所在的整行不画
             if attrs[.attachment] != nil { return }
 
@@ -388,7 +391,8 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
         // 与结构性加粗标记（Word 行为：Enter 后保持原模式）。
         var merged = typingAttributes
         for key in [NSAttributedString.Key.mdBlockType, .paragraphStyle, .mdListItem,
-                    .mdStructuralBold, .mdRawID, .mdRawKind] {
+                    .mdStructuralBold, .mdRawID, .mdRawKind,
+                    .mdCalloutID, .mdCalloutKind, .mdCalloutFold] {
             if let v = before[key] { merged[key] = v } else { merged.removeValue(forKey: key) }
         }
         typingAttributes = merged
@@ -534,6 +538,10 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
                 if let v = before[key] { attrs[key] = v } else { attrs.removeValue(forKey: key) }
             }
         }
+        // 双链 / 任务框是「一整段语法」的属性，绝不能继承到接下来敲的字上，
+        // 否则在链接后面打字会静默生成新的 [[...]]。
+        attrs.removeValue(forKey: .mdWikiLink)
+        attrs.removeValue(forKey: .mdTaskBox)
         typingAttributes = attrs
     }
 

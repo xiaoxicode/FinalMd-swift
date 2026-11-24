@@ -15,8 +15,10 @@
 #    python3 scripts/check-compat-thresholds.py
 #    python3 scripts/check-compat-thresholds.py --update-baseline   # 指标提升后抬高基线
 #
+import collections
 import hashlib
 import json
+import math
 import os
 import sys
 
@@ -62,11 +64,16 @@ if not M or not R or not B:
 
 if "--update-baseline" in sys.argv:
     s = R["summary"]
+    B.setdefault("required_features_100",
+                 ["wikilink", "embed", "callout", "task"])
+    # 阈值必须向下取整，四舍五入会把 0.8299 写成 0.83 而当场卡住自己
+    def floor3(v):
+        return math.floor(v * 1000) / 1000
     B["thresholds"] = {
         "files": s["files"],
         "spec_cases": s["spec_cases"],
-        "avg_retention": round(s["avg_retention"], 3),
-        "raw_exact_rate": round(s["raw_exact_rate"], 3),
+        "avg_retention": floor3(s["avg_retention"]),
+        "raw_exact_rate": floor3(s["raw_exact_rate"]),
         "file_stable": s["file_stable"],
         "file_converged": s["file_converged"],
         "case_stable": s["case_stable"],
@@ -134,6 +141,29 @@ for key, minimum in T.items():
         ok(f"{key} = {shown}（下限 {minimum}）")
     else:
         fail(f"{key} 低于阈值：{actual} < {minimum}")
+w("")
+
+w("## 2b. 扩展语法逐字保留（硬约束）")
+# 整体保留率对这些低频语法不敏感：双链 / Callout 只占很小一部分字符，
+# 被改回 \[\[ 也不会让 avg_retention 掉多少，所以必须单独按特征计数守门。
+required = B.get("required_features_100", [])
+detected = collections.Counter()
+preserved = collections.Counter()
+for f in R["files"]:
+    for k in f["detected"]:
+        detected[k] += 1
+    for k in f["preserved"]:
+        preserved[k] += 1
+labels = {x["key"]: x["label"] for x in R.get("features", [])}
+for key in required:
+    d, p = detected[key], preserved[key]
+    name = labels.get(key, key)
+    if d == 0:
+        fail(f"{name}：语料里没有命中样本（{key}）")
+    elif p < d:
+        fail(f"{name} 保留率倒退：{p}/{d}（要求 100%）")
+    else:
+        ok(f"{name}：{p}/{d}，逐字保留 100%")
 w("")
 
 w("## 3. 与上一版逐文件对比")

@@ -841,11 +841,13 @@ func testExternalCorpusRegressions() {
 
     // 2) 链接目标解析失败时没有回滚 pos，方括号里的文字会被整段吞掉。
     //    影响引用式链接 / Obsidian 双链 / 任务复选框 / 数组下标等常见写法。
+    //    双链现在渲染成别名 / 目标名，所以检查「文字还在」用显示文字做 token，
+    //    原语法的逐字往返由 testObsidianSyntax() 严格断言。
     let cases: [(String, String, String)] = [
         ("引用式链接", "[1] [2] [3]\n\n[1]: https://example.com\n", "[1]"),
-        ("Obsidian 双链", "见 [[My Note]] 与 [[Other|别名]]\n", "[[My Note]]"),
+        ("Obsidian 双链", "见 [[My Note]] 与 [[Other|别名]]\n", "My Note"),
         ("任务列表复选框", "- [ ] 待办\n- [x] 完成\n", "[ ]"),
-        ("Obsidian 嵌入", "![[image.png]]\n", "![[image.png]]"),
+        ("Obsidian 嵌入", "![[image.png]]\n", "image.png"),
         ("裸方括号", "数组 [1, 2] 与 [text]\n", "[1, 2]"),
     ]
     for (name, md, token) in cases {
@@ -1001,6 +1003,151 @@ func testRawPassthroughBlocks() {
     check("HTML 导出：链接定义不印成正文", !exported.contains("[1]: https://e.com"))
 }
 
+// MARK: - Obsidian 双链 / 嵌入 / Callout
+
+func testObsidianSyntax() {
+    // ── 1) 双链：属性、显示文字、逐字往返 ──
+    let wikiMd = "见 [[My Note]] 与 [[Other|别名]]\n"
+    let wikiDoc = MarkdownParser.parse(wikiMd)
+    check("双链：显示别名 / 目标名而非源码", wikiDoc.string.contains("My Note") && wikiDoc.string.contains("别名"))
+    check("双链：源码标记不再显示在正文", !wikiDoc.string.contains("[["))
+
+    var links: [MDWikiLink] = []
+    wikiDoc.enumerateAttribute(.mdWikiLink,
+                               in: NSRange(location: 0, length: wikiDoc.length),
+                               options: []) { value, _, _ in
+        if let link = value as? MDWikiLink { links.append(link) }
+    }
+    check("双链：两个链接都带属性", links.count == 2)
+    if links.count == 2 {
+        check("双链：target / display 正确",
+              links[0].target == "My Note" && links[0].display == "My Note" && !links[0].embedded)
+        check("双链：别名解析正确",
+              links[1].target == "Other" && links[1].alias == "别名" && links[1].display == "别名")
+    }
+    equal("双链：整段逐字往返", roundTrip(wikiMd), wikiMd)
+    check("双链：不被防御性转义", !roundTrip(wikiMd).contains("\\[") && !roundTrip(wikiMd).contains("\\]"))
+    check("双链：往返稳定", stable(wikiMd))
+
+    // ── 2) 标题锚点 / 块引用 / 嵌入 / 尺寸 ──
+    let variants: [(String, String)] = [
+        ("标题锚点", "[[Note#章节标题]]\n"),
+        ("块引用锚点", "[[Note#^block-id]]\n"),
+        ("带别名的锚点", "[[folder/Note#章节|显示名]]\n"),
+        ("嵌入笔记", "![[Another Note]]\n"),
+        ("嵌入图片带尺寸", "![[image.png|100]]\n"),
+        ("嵌入带标题", "![[Note#章节|别名]]\n"),
+        ("中文与空格", "[[我的 笔记/子页|显示]]\n"),
+    ]
+    for (name, md) in variants {
+        equal("\(name)：逐字往返", roundTrip(md), md)
+        check("\(name)：往返稳定", stable(md))
+    }
+
+    let mixed = "参考 [[A]]、[[B|别名]]，嵌入 ![[pic.png|200]]，还有裸 [1] 与 `[[code]]`\n"
+    check("双链混排：所有原语法都在", roundTrip(mixed).contains("[[A]]")
+        && roundTrip(mixed).contains("[[B|别名]]") && roundTrip(mixed).contains("![[pic.png|200]]"))
+    check("双链混排：行内代码里不是链接", roundTrip(mixed).contains("`[[code]]`"))
+    check("双链混排：往返稳定", stable(mixed))
+
+    // ── 3) 其它块里的双链 ──
+    equal("标题里的双链", roundTrip("# [[Note]] 标题\n"), "# [[Note]] 标题\n")
+    equal("列表项里的双链", roundTrip("- 见 [[Note|别名]]\n"), "- 见 [[Note|别名]]\n")
+    equal("引用里的双链", roundTrip("> 见 [[Note]]\n"), "> 见 [[Note]]\n")
+
+    // ── 4) 判定不能过宽：不完整的 [[ 仍按字面文本 ──
+    let incomplete = "[[unclosed 与 [[]] 以及 [not wiki]\n"
+    check("不完整双链：不崩溃", MarkdownParser.parse(incomplete).length > 0)
+    check("不完整双链：内容不丢", MarkdownParser.parse(incomplete).string.contains("unclosed"))
+    check("空双链不生成空链接", !(MarkdownParser.parse("[[]]\n")
+        .attribute(.mdWikiLink, at: 0, effectiveRange: nil) is MDWikiLink))
+
+    // ── 5) 编辑安全：改过显示文字就重建，不能用旧源码盖掉用户编辑 ──
+    let editable = NSMutableAttributedString(attributedString: MarkdownParser.parse("见 [[Note|别名]]\n"))
+    var wikiRange: NSRange?
+    editable.enumerateAttribute(.mdWikiLink,
+                                in: NSRange(location: 0, length: editable.length),
+                                options: []) { value, range, _ in
+        if value is MDWikiLink { wikiRange = range }
+    }
+    if let r = wikiRange {
+        editable.replaceCharacters(in: r, with: "新别名")
+        let out = MarkdownSerializer.markdown(from: editable)
+        check("双链：编辑后按新文字重建", out.contains("[[Note|新别名]]"))
+        check("双链：编辑后不残留旧别名", !out.contains("[[Note|别名]]"))
+    } else {
+        check("双链：编辑后按新文字重建", false)
+    }
+
+    // ── 6) HTML 导出 ──
+    let inlineHTML = HTMLExporter.document(from: MarkdownParser.parse(wikiMd), title: "T", language: "zh")
+    check("双链 HTML：internal-link", inlineHTML.contains("class=\"internal-link\""))
+    check("双链 HTML：href 指向目标", inlineHTML.contains("href=\"Other\""))
+    let embedHTML = HTMLExporter.document(from: MarkdownParser.parse("![[pic.png|100]]\n"), title: "T", language: "zh")
+    check("嵌入 HTML：internal-embed", embedHTML.contains("class=\"internal-embed\""))
+    check("嵌入 HTML：data-src", embedHTML.contains("data-src=\"pic.png\""))
+
+    // ── 7) Callout：逐字往返、块属性、类型色 ──
+    let calloutMd = "> [!NOTE] 提示标题\n> 第一行内容\n> 第二行内容\n"
+    let calloutDoc = MarkdownParser.parse(calloutMd)
+    check("Callout：块类型正确",
+          (calloutDoc.attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
+            == MDBlockType.callout.rawValue)
+    check("Callout：类型标记正确",
+          (calloutDoc.attribute(.mdCalloutKind, at: 0, effectiveRange: nil) as? String) == "NOTE")
+    check("Callout：每行共享同一 ID",
+          calloutDoc.attribute(.mdCalloutID, at: 0, effectiveRange: nil) is Int)
+    equal("Callout：多行逐字往返", roundTrip(calloutMd), calloutMd)
+    check("Callout：行间不插空行", !roundTrip(calloutMd).contains(">\n\n>"))
+    check("Callout：标记不被引号 / 转义改写", roundTrip(calloutMd).contains("[!NOTE]"))
+    check("Callout：往返稳定", stable(calloutMd))
+
+    let folds: [(String, String)] = [
+        ("折叠 -", "> [!TIP]- 默认折叠\n> 内容\n"),
+        ("展开 +", "> [!WARNING]+ 默认展开\n> 内容\n"),
+        ("自定义类型", "> [!MY-TYPE] 自定义\n> 内容\n"),
+        ("空标题", "> [!INFO]\n> 内容\n"),
+        ("无内容", "> [!DANGER] 只有标题\n"),
+        ("嵌套双链", "> [!NOTE] 见 [[Note]]\n> 还有 ![[pic.png]]\n"),
+    ]
+    for (name, md) in folds {
+        equal("Callout \(name)：逐字往返", roundTrip(md), md)
+        check("Callout \(name)：往返稳定", stable(md))
+    }
+    check("Callout：折叠标记落到属性",
+          (MarkdownParser.parse("> [!TIP]- 折叠\n> 内容\n")
+            .attribute(.mdCalloutFold, at: 0, effectiveRange: nil) as? String) == "-")
+
+    let calloutMixed = "> [!NOTE] 标题\n> 内容\n\n正文 **加粗**\n"
+    check("Callout：后续正文不被吞", roundTrip(calloutMixed).contains("正文 **加粗**"))
+    check("Callout：混排往返稳定", stable(calloutMixed))
+
+    let quoteLike = "> [!NOTE 缺右括号\n> 仍是普通引用\n"
+    check("不完整 Callout 仍是普通引用",
+          (MarkdownParser.parse(quoteLike).attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
+            == MDBlockType.quote.rawValue)
+    check("空类型 Callout 仍是普通引用",
+          (MarkdownParser.parse("> [!] 空\n").attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
+            == MDBlockType.quote.rawValue)
+
+    // ── 8) 同族方括号语法：任务列表复选框 ──
+    let tasks = "- [ ] 待办\n- [x] 完成\n- [X] 大写勾选\n"
+    equal("任务复选框：逐字往返", roundTrip(tasks), tasks)
+    check("任务复选框：不被转义", !roundTrip(tasks).contains("\\["))
+    check("任务复选框：往返稳定", stable(tasks))
+    check("任务复选框：属性存在",
+          MarkdownParser.parse("- [ ] 待办\n").attribute(.mdTaskBox, at: 2, effectiveRange: nil) is String)
+    let taskHTML = HTMLExporter.document(from: MarkdownParser.parse(tasks), title: "T", language: "zh")
+    check("任务复选框 HTML：checkbox", taskHTML.contains("type=\"checkbox\""))
+    check("任务复选框 HTML：勾选态", taskHTML.contains("checked"))
+
+    let calloutHTML = HTMLExporter.document(
+        from: MarkdownParser.parse("> [!WARNING] 注意安全\n> 请备份\n"), title: "T", language: "zh")
+    check("Callout HTML：data-callout", calloutHTML.contains("data-callout=\"warning\""))
+    check("Callout HTML：标题不印出源码标记", !calloutHTML.contains("[!WARNING]"))
+    check("Callout HTML：内容在", calloutHTML.contains("请备份"))
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -1019,6 +1166,7 @@ testEditorModes()
 testEditorFocus()
 testExternalCorpusRegressions()
 testRawPassthroughBlocks()
+testObsidianSyntax()
 testCaretSizing()
 testCaretAlignment()
 testInlineSelection()

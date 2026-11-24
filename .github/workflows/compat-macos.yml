@@ -61,6 +61,7 @@ jobs:
 
       - name: 语料完整性与回归阈值
         # 同时校验：MANIFEST 的 sha256 / 字节数、绝对阈值下限、
+        # 四类 Obsidian 扩展语法（双链 / 嵌入 / Callout / 任务框）100% 逐字保留，
         # 以及相对上一版的逐文件保留率 / 稳定性倒退。
         run: python3 scripts/check-compat-thresholds.py
 

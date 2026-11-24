@@ -69,6 +69,17 @@ enum InlineParser {
                     continue
                 }
 
+                // Obsidian 嵌入 ![[note]] / ![[image.png|100]]
+                // 必须排在标准图片之前：![[ 里的 "![" 也会被 readDelimited 命中，
+                // 但后面没有 (url)，回滚后会把 ! 当普通字符、[[ 又被当成两个裸方括号。
+                if c == "!", peek(1) == "[", peek(2) == "[" {
+                    flushPlain()
+                    if let wiki = readWikiLink(embedded: true) {
+                        out.append(wiki)
+                        continue
+                    }
+                }
+
                 // 图片 ![alt](src "title")
                 if c == "!", peek(1) == "[" {
                     flushPlain()
@@ -84,6 +95,29 @@ enum InlineParser {
                     plain.append(c)
                     pos += 1
                     continue
+                }
+
+                // GFM / Obsidian 任务列表复选框 [ ] / [x] / [X]
+                // 同属方括号语法：走链接分支回滚后是字面文本，但序列化会被转义成
+                // \[ \]，在其它软件里就不再是复选框了。这里显式标记成原样输出。
+                if c == "[", pos + 2 < chars.count, chars[pos + 2] == "]",
+                   chars[pos + 1] == " " || chars[pos + 1] == "x" || chars[pos + 1] == "X" {
+                    flushPlain()
+                    let token = String(chars[pos...pos + 2])
+                    var attrs = base
+                    attrs[.mdTaskBox] = token
+                    out.append(NSAttributedString(string: token, attributes: attrs))
+                    pos += 3
+                    continue
+                }
+
+                // Obsidian 双链 [[Note]] / [[Note|别名]] / [[Note#标题]]
+                if c == "[", peek(1) == "[" {
+                    flushPlain()
+                    if let wiki = readWikiLink(embedded: false) {
+                        out.append(wiki)
+                        continue
+                    }
                 }
 
                 // 链接 [text](url)
@@ -180,6 +214,47 @@ enum InlineParser {
             let raw = String(chars[start..<end])
             pos = end + close.count
             return raw
+        }
+
+        /// 读取 Obsidian 双链 / 嵌入。失败时**不推进 pos**，让调用方按字面文本继续处理。
+        private mutating func readWikiLink(embedded: Bool) -> NSAttributedString? {
+            let open = embedded ? "![[" : "[["
+            guard matches(open) else { return nil }
+            let start = pos + open.count
+            guard let end = find("]]", from: start) else { return nil }
+            let inner = String(chars[start..<end])
+            guard !inner.isEmpty,
+                  !inner.contains("["), !inner.contains("]"), !inner.contains("\n") else { return nil }
+
+            // target[#heading / #^block] [| alias 或尺寸]
+            let parts = inner.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
+            let targetPart = String(parts[0])
+            let alias = parts.count > 1 ? String(parts[1]) : ""
+            guard !targetPart.isEmpty else { return nil }
+
+            let suffix: String
+            let target: String
+            if let hash = targetPart.firstIndex(of: "#") {
+                target = String(targetPart[targetPart.startIndex..<hash])
+                suffix = String(targetPart[hash...])
+            } else {
+                target = targetPart
+                suffix = ""
+            }
+            guard !target.isEmpty else { return nil }
+
+            let raw = open + inner + "]]"
+            let link = MDWikiLink(raw: raw, target: target, suffix: suffix,
+                                  alias: alias, embedded: embedded)
+            pos = end + 2
+
+            var attrs = base
+            attrs[.mdWikiLink] = link
+            attrs[.foregroundColor] = DocTheme.accent
+            attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+            // 双链不是标准链接，别让 .link 把它序列化成 [text](url)
+            attrs.removeValue(forKey: .link)
+            return NSAttributedString(string: link.display, attributes: attrs)
         }
 
         /// 读取紧随其后的 (url "title")，并把 pos 移到右括号之后

@@ -250,6 +250,15 @@ extension DocTheme {
             ps.firstLineHeadIndent = 20
             ps.tailIndent = -8
 
+        case .callout:
+            // Callout 的每一行都属于同一块，行间不能留 10pt 段间距
+            ps.lineHeightMultiple = bodyLineHeight
+            ps.paragraphSpacing = 0
+            ps.paragraphSpacingBefore = 4
+            ps.headIndent = 20
+            ps.firstLineHeadIndent = 20
+            ps.tailIndent = -8
+
         case .paragraph:
             ps.lineHeightMultiple = bodyLineHeight
             ps.paragraphSpacing = 10
@@ -268,6 +277,40 @@ extension DocTheme {
         let block = NSTextBlock()
         block.setBorderColor(DocTheme.accent, for: .minX)
         block.setWidth(3, type: .absoluteValueType, for: .border, edge: .minX)
+        block.setWidth(12, type: .absoluteValueType, for: .padding, edge: .minX)
+        block.backgroundColor = quoteBackground
+        return block
+    }
+
+    /// Obsidian Callout 的类型色（左侧竖线 + 标题文字）。按 Obsidian 官方
+    /// 内置类型分组，未知类型回落到 NOTE 蓝；浅色 / 深色各一套。
+    static func calloutColor(kind: String) -> NSColor {
+        let c: (CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat)
+        switch kind.uppercased() {
+        case "TIP", "HINT", "SUCCESS", "CHECK", "DONE":
+            c = (0.094, 0.514, 0.404, 0.353, 0.851, 0.665)      // 青绿
+        case "IMPORTANT", "EXAMPLE", "ABSTRACT", "SUMMARY", "TLDR", "INFO":
+            c = (0.478, 0.325, 0.757, 0.702, 0.573, 1.0)         // 紫
+        case "WARNING", "CAUTION", "ATTENTION", "QUESTION", "HELP", "FAQ":
+            c = (0.784, 0.443, 0.078, 1.0, 0.686, 0.337)         // 橙
+        case "DANGER", "ERROR", "BUG", "FAIL", "FAILURE", "MISSING":
+            c = (0.784, 0.216, 0.216, 1.0, 0.443, 0.443)         // 红
+        case "QUOTE", "CITE":
+            c = (0.420, 0.447, 0.502, 0.651, 0.675, 0.725)       // 灰
+        default:  // NOTE / TODO / 自定义类型
+            c = (0.184, 0.435, 0.922, 0.357, 0.576, 1.0)         // 蓝
+        }
+        return pair("callout.\(kind.lowercased())",
+                    NSColor(srgbRed: c.0, green: c.1, blue: c.2, alpha: 1),
+                    NSColor(srgbRed: c.3, green: c.4, blue: c.5, alpha: 1))
+    }
+
+    /// Callout 左侧色条 + 淡底纹（复用引用块底纹，深色下也可辨）
+    static func calloutTextBlock(kind: String) -> NSTextBlock {
+        let block = NSTextBlock()
+        let color = calloutColor(kind: kind)
+        block.setBorderColor(color, for: .minX)
+        block.setWidth(4, type: .absoluteValueType, for: .border, edge: .minX)
         block.setWidth(12, type: .absoluteValueType, for: .padding, edge: .minX)
         block.backgroundColor = quoteBackground
         return block

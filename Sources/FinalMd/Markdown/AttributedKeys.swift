@@ -45,6 +45,50 @@ extension NSAttributedString.Key {
     /// 原样透传块的编号。同一个块的每一行（含空行）共享一个 ID，
     /// 序列化时按「连续且同 ID」把段落重新拼回一整块，避免相邻透传块粘连。
     static let mdRawID = NSAttributedString.Key("finalmd.rawID")
+    /// Obsidian 双链 / 嵌入（MDWikiLink）。属性里记住原始语法与解析时的显示文字，
+    /// 序列化时若显示文字未被改动就逐字输出原语法。
+    static let mdWikiLink = NSAttributedString.Key("finalmd.wikiLink")
+    /// Obsidian Callout 块编号：同一个 Callout 的每一行共享一个 ID
+    static let mdCalloutID = NSAttributedString.Key("finalmd.calloutID")
+    /// Callout 类型（NOTE / TIP / WARNING …，统一大写）
+    static let mdCalloutKind = NSAttributedString.Key("finalmd.calloutKind")
+    /// Callout 折叠标记："+"（默认展开）/ "-"（默认折叠）/ ""（不折叠）
+    static let mdCalloutFold = NSAttributedString.Key("finalmd.calloutFold")
+    /// 任务列表复选框 `[ ]` / `[x]`。显示文字就是源码本身，标记它只是为了
+    /// 序列化时跳过方括号转义，避免写成 `\[ \]` 后在 Obsidian / GFM 里失效。
+    static let mdTaskBox = NSAttributedString.Key("finalmd.taskBox")
+}
+
+// MARK: - Obsidian 双链
+
+/// `[[Note|别名]]` / `[[Note#标题]]` / `![[image.png|100]]` 的原始语法。
+/// 显示文字不是源码本身，所以额外记住解析时的 display：序列化时若当前文字
+/// 与 display 一致就输出 raw；用户改过显示文字就按新文字重建，绝不用旧源码覆盖编辑。
+final class MDWikiLink: NSObject {
+    let raw: String
+    let target: String
+    let suffix: String
+    let alias: String
+    let embedded: Bool
+    let display: String
+
+    init(raw: String, target: String, suffix: String, alias: String, embedded: Bool) {
+        self.raw = raw
+        self.target = target
+        self.suffix = suffix
+        self.alias = alias
+        self.embedded = embedded
+        self.display = alias.isEmpty ? (target + suffix) : alias
+        super.init()
+    }
+
+    /// 显示文字被编辑后，用新文字重建一条等价的双链
+    func rebuilt(display newText: String) -> String {
+        let open = embedded ? "![[" : "[["
+        let base = target + suffix
+        if newText == base, alias.isEmpty { return open + base + "]]" }
+        return open + base + "|" + newText + "]]"
+    }
 }
 
 // MARK: - 原样透传块类型
@@ -72,6 +116,9 @@ enum MDBlockType: String {
     /// 原样透传块：YAML/TOML frontmatter、原始 HTML 块、引用式链接定义。
     /// 解析时按原始行存进 storage，序列化时跳过行内解析与转义，逐字输出。
     case raw = "raw"
+    /// Obsidian Callout：`> [!NOTE] 标题` + 后续 `> 内容`。
+    /// 与 raw 一样按原始行保存并逐字输出，但带类型色与独立段落排版。
+    case callout = "callout"
 
     var headingLevel: Int? {
         guard rawValue.hasPrefix("h"), let n = Int(rawValue.dropFirst()) else { return nil }

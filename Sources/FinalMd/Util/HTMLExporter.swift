@@ -46,6 +46,22 @@ enum HTMLExporter {
                 // 原始 HTML 原样进正文；frontmatter 与引用式链接定义是元数据，
                 // 不渲染成可见内容（否则 YAML 会被当成正文印出来）。
                 if kind == .html { body += source + "\n" }
+            case .callout(let lines, let kind, let fold):
+                let lower = kind.lowercased()
+                var title = lines.first ?? ""
+                if let close = title.firstIndex(of: "]") {
+                    var rest = String(title[title.index(after: close)...])
+                    if rest.hasPrefix("+") || rest.hasPrefix("-") { rest = String(rest.dropFirst()) }
+                    title = rest.trimmingCharacters(in: .whitespaces)
+                }
+                if title.isEmpty { title = kind.capitalized }
+                body += "<div class=\"callout\" data-callout=\"\(escape(lower))\""
+                    + " data-fold=\"\(escape(fold))\">\n"
+                body += "<div class=\"callout-title\">\(escape(title))</div>\n"
+                for line in lines.dropFirst() {
+                    body += "<p>\(InlineSerializer.html(NSAttributedString(string: line)))</p>\n"
+                }
+                body += "</div>\n"
             }
         }
 
@@ -107,5 +123,20 @@ enum HTMLExporter {
         hr{border:none;border-top:1px solid #ddd;margin:1.6em 0;}
         a{color:#2f6feb;}
         mark{background:#fff3a3;}
+        a.internal-link{color:#2f6feb;text-decoration:none;border-bottom:1px dashed #2f6feb;}
+        .internal-embed{display:inline-block;padding:0 .4em;border:1px dashed #c8ced6;border-radius:4px;color:#4b5563;}
+        .callout{border-left:4px solid #2f6feb;background:#f8f9fb;border-radius:0 6px 6px 0;
+          padding:10px 14px;margin:1em 0;color:#24292f;}
+        .callout-title{font-weight:600;margin-bottom:.35em;}
+        .callout p{margin:.25em 0;}
+        .callout[data-callout~="tip"],.callout[data-callout~="success"],.callout[data-callout~="check"],
+        .callout[data-callout~="done"]{border-left-color:#188368;}
+        .callout[data-callout~="important"],.callout[data-callout~="example"],
+        .callout[data-callout~="abstract"],.callout[data-callout~="summary"]{border-left-color:#7a53c1;}
+        .callout[data-callout~="warning"],.callout[data-callout~="caution"],
+        .callout[data-callout~="question"],.callout[data-callout~="help"]{border-left-color:#c87114;}
+        .callout[data-callout~="danger"],.callout[data-callout~="error"],
+        .callout[data-callout~="bug"],.callout[data-callout~="fail"]{border-left-color:#c83737;}
+        .callout[data-callout~="quote"],.callout[data-callout~="cite"]{border-left-color:#6b7280;}
     """
 }

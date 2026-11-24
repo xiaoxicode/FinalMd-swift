@@ -22,6 +22,8 @@ enum DocBlock {
     case table(rows: [[NSAttributedString]], hasHeader: Bool)
     /// 原样透传块：不解析、不转义、不规范化，逐字写回 Markdown。
     case raw(String, kind: MDRawKind)
+    /// Obsidian Callout：lines 是去掉 "> " 前缀后的原始行，写回时逐行加回前缀。
+    case callout(lines: [String], kind: String, fold: String)
 }
 
 enum MarkdownSerializer {
@@ -124,6 +126,13 @@ enum MarkdownSerializer {
                 text = source
                 orderedCounters.removeAll()
                 lastLevel = -1
+
+            case .callout(let lines, _, _):
+                // Callout 多行属于同一个块，必须一次输出，不能像 quote 那样按段落拆成
+                // 多个块再插入空行（那会把 > [!NOTE] 和后续 > 内容拆散）。
+                text = lines.map { $0.isEmpty ? ">" : "> " + $0 }.joined(separator: "\n")
+                orderedCounters.removeAll()
+                lastLevel = -1
             }
 
             // 连续的列表项之间不留空行（紧列表），其余块之间空一行
@@ -188,6 +197,28 @@ enum MarkdownSerializer {
                 }
                 let kind = MDRawKind(rawValue: attrs[.mdRawKind] as? String ?? "") ?? .html
                 result.append(.raw(rawLines.joined(separator: "\n"), kind: kind))
+                continue
+            }
+
+            if para.length == 0, (attrs[.mdBlockType] as? String) != MDBlockType.callout.rawValue { continue }
+
+            // Obsidian Callout：连续且同 ID 的行聚合成一个块，逐行原样写回。
+            if (attrs[.mdBlockType] as? String) == MDBlockType.callout.rawValue,
+               let calloutID = attrs[.mdCalloutID] as? Int {
+                flushTable()
+                var lines: [String] = [para.string]
+                while loc < ns.length {
+                    let next = ns.paragraphRange(for: NSRange(location: loc, length: 0))
+                    if next.length == 0 { break }
+                    let nextAttrs = attr.attributes(at: next.location, effectiveRange: nil)
+                    guard (nextAttrs[.mdBlockType] as? String) == MDBlockType.callout.rawValue,
+                          (nextAttrs[.mdCalloutID] as? Int) == calloutID else { break }
+                    lines.append(trimTrailing(attr.attributedSubstring(from: next)).string)
+                    loc = NSMaxRange(next)
+                }
+                let kind = attrs[.mdCalloutKind] as? String ?? "NOTE"
+                let fold = attrs[.mdCalloutFold] as? String ?? ""
+                result.append(.callout(lines: lines, kind: kind, fold: fold))
                 continue
             }
 
@@ -321,14 +352,38 @@ enum InlineSerializer {
                 return
             }
 
+            // 任务复选框：显示文字就是源码，逐字输出即可；用户勾选成 [x] 时
+            // 以当前文字为准，不能用解析时缓存的 [ ] 覆盖。
+            if let box = attrs[.mdTaskBox] as? String {
+                for mark in active.reversed() { out += closingMarkdown(mark) }
+                active = []
+                let shown = (attr.string as NSString).substring(with: range)
+                out += ["[ ]", "[x]", "[X]"].contains(shown) ? shown : box
+                return
+            }
+
+            // Obsidian 双链 / 嵌入：逐字输出原语法，绝不走 escapeMarkdown。
+            // 用户若改过显示文字，就按新文字重建，避免旧源码盖掉编辑（P1 的教训）。
+            if let wiki = attrs[.mdWikiLink] as? MDWikiLink {
+                for mark in active.reversed() { out += closingMarkdown(mark) }
+                active = []
+                let shown = (attr.string as NSString).substring(with: range)
+                out += shown == wiki.display ? wiki.raw : wiki.rebuilt(display: shown)
+                return
+            }
+
             let raw = (attr.string as NSString).substring(with: range)
-            let text = escapeMarkdown(raw.replacingOccurrences(of: "\u{2028}", with: "  \n"))
+            let isCode = (attrs[.mdInlineCode] as? Bool) ?? false
+            // 代码 span 里反斜杠是字面量，不能按正文规则转义，否则 `[[code]]`
+            // 会变成 `\[\[code\]\]`，每往返一次内容都不一致。
+            let text = isCode
+                ? raw.replacingOccurrences(of: "\u{2028}", with: "  \n")
+                : escapeMarkdown(raw.replacingOccurrences(of: "\u{2028}", with: "  \n"))
             guard !text.isEmpty else { return }
 
             var marks: [Mark] = []
             let font = attrs[.font] as? NSFont
             let traits = font?.fontDescriptor.symbolicTraits ?? []
-            let isCode = (attrs[.mdInlineCode] as? Bool) ?? false
 
             if isCode {
                 marks.append(.code)
@@ -378,6 +433,29 @@ enum InlineSerializer {
                     tag += " title=\"\(escapeHTML(image.mdTitle))\""
                 }
                 out += tag + " />"
+                return
+            }
+
+            if attrs[.mdTaskBox] is String {
+                for mark in active.reversed() { out += closingHTML(mark) }
+                active = []
+                let shown = (attr.string as NSString).substring(with: range)
+                let checked = shown == "[x]" || shown == "[X]"
+                out += "<input type=\"checkbox\" disabled\(checked ? " checked" : "") />"
+                return
+            }
+
+            if let wiki = attrs[.mdWikiLink] as? MDWikiLink {
+                for mark in active.reversed() { out += closingHTML(mark) }
+                active = []
+                let shown = (attr.string as NSString).substring(with: range)
+                if wiki.embedded {
+                    out += "<span class=\"internal-embed\" data-src=\"\(escapeHTML(wiki.target + wiki.suffix))\">"
+                        + escapeHTML(shown) + "</span>"
+                } else {
+                    out += "<a class=\"internal-link\" href=\"\(escapeHTML(wiki.target + wiki.suffix))\">"
+                        + escapeHTML(shown) + "</a>"
+                }
                 return
             }
 

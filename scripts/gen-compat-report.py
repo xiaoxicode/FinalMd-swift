@@ -18,7 +18,7 @@ FILES = R["files"]
 CASES = R["spec_cases"]
 FEATURES = {f["key"]: f["label"] for f in R["features"]}
 
-# 首次运行（修复前）与「只修两个 P0」阶段的实测基线，用于三阶段对比
+# 四个阶段的实测基线，用于对比（数字来自各阶段提交的 RESULTS.json）
 BASELINE = dict(
     retention=0.690,
     obsidian=0.211,
@@ -27,7 +27,12 @@ BASELINE = dict(
     smoke=313,
 )
 STAGE2 = dict(retention=0.806, smoke=325, file_stable=163, case_stable=1283)
-FIXED = dict(retention=S["avg_retention"], smoke=382)
+STAGE3 = dict(
+    retention=0.830, smoke=382, file_stable=166, file_converged=171,
+    case_stable=1285, case_converged=1307,
+    wikilink="4/30", embed="2/7", callout="1/12", task="2/9",
+)
+FIXED = dict(retention=S["avg_retention"], smoke=452)
 
 
 def feature_rate(key):
@@ -70,42 +75,60 @@ w(f"从 {len(M['sources'])} 个主流 Markdown 软件 / 解析器生态与 "
   f"**{S['spec_cases']} 条规范用例**，全部用 FinalMd 自己的 "
   "`MarkdownParser.parse` / `MarkdownSerializer.markdown` 逐份跑通。")
 w("")
-w("| 指标 | ① 首次运行 | ② 修复两个 P0 后 | ③ 加入原样透传块后（本次） |")
-w("|---|---|---|---|")
-w(f"| 解析崩溃 | {BASELINE['crashes']} 处（索引越界） | **0** | **0** |")
+w("| 指标 | ① 首次运行 | ② 修复两个 P0 后 | ③ 原样透传块 + CI | ④ 本次：Obsidian 语法 |")
+w("|---|---|---|---|---|")
+w(f"| 解析崩溃 | {BASELINE['crashes']} 处（索引越界） | **0** | **0** | **0** |")
 w(f"| 平均可读字符保留率 | {pct(BASELINE['retention'])} | {pct(STAGE2['retention'])} | "
-  f"**{pct(FIXED['retention'])}** |")
+  f"{pct(STAGE3['retention'])} | **{pct(FIXED['retention'])}** |")
 w(f"| Obsidian 帮助库保留率 | {pct(BASELINE['obsidian'])} | "
-  f"{pct(avg_for('obsidian'))} | **{pct(avg_for('obsidian'))}** |")
+  f"{pct(avg_for('obsidian'))} | {pct(avg_for('obsidian'))} | "
+  f"**{pct(avg_for('obsidian'))}** |")
 w(f"| cmark-gfm 样本保留率 | {pct(BASELINE['cmark'])} | 87.5% | "
-  f"**{pct(avg_for('cmark-gfm'))}** |")
+  f"{pct(avg_for('cmark-gfm'))} | **{pct(avg_for('cmark-gfm'))}** |")
 w(f"| 文件一次稳定 | — | {ratio(STAGE2['file_stable'], S['files'])} | "
+  f"{ratio(STAGE3['file_stable'], S['files'])} | "
   f"**{ratio(S['file_stable'], S['files'])}** |")
+w(f"| 文件两轮内收敛 | — | — | {ratio(STAGE3['file_converged'], S['files'])} | "
+  f"**{ratio(S['file_converged'], S['files'])}** |")
 w(f"| 规范用例一次稳定 | — | {ratio(STAGE2['case_stable'], S['spec_cases'])} | "
+  f"{ratio(STAGE3['case_stable'], S['spec_cases'])} | "
   f"**{ratio(S['case_stable'], S['spec_cases'])}** |")
+w(f"| 规范用例两轮内收敛 | — | — | {ratio(STAGE3['case_converged'], S['spec_cases'])} | "
+  f"**{ratio(S['case_converged'], S['spec_cases'])}** |")
 rd_p, rd_d, _ = feature_rate("refdef")
 hb_p, hb_d, _ = feature_rate("htmlblock")
+wl_p, wl_d, _ = feature_rate("wikilink")
+em_p, em_d, _ = feature_rate("embed")
+co_p, co_d, _ = feature_rate("callout")
+tk_p, tk_d, _ = feature_rate("task")
 w("| 引用式链接定义（正则口径） | 3/24 | 3/24 | "
-  f"**{ratio(rd_p, rd_d)}** |")
+  f"{ratio(rd_p, rd_d)} | **{ratio(rd_p, rd_d)}** |")
 w("| 原始 HTML 块（正则口径） | 9/23 | 9/23 | "
-  f"**{ratio(hb_p, hb_d)}** |")
+  f"{ratio(hb_p, hb_d)} | **{ratio(hb_p, hb_d)}** |")
+w("| Obsidian 双链 / 嵌入 / Callout / 任务框 | 4/30 / 2/7 / 1/12 / 2/9 | "
+  f"{STAGE3['wikilink']} / {STAGE3['embed']} / {STAGE3['callout']} / {STAGE3['task']} | "
+  f"{STAGE3['wikilink']} / {STAGE3['embed']} / {STAGE3['callout']} / {STAGE3['task']} | "
+  f"**{ratio(wl_p, wl_d)} / {ratio(em_p, em_d)} / {ratio(co_p, co_d)} / {ratio(tk_p, tk_d)}** |")
 w(f"| 透传块逐字保留（整行字节比对） | — | — | "
-  f"**{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} "
+  f"{ratio(227, 262)} | **{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} "
   f"({pct(S['raw_exact_rate'])})** |")
-w(f"| 冒烟测试 | {BASELINE['smoke']} 项 | {STAGE2['smoke']} 项 | **{FIXED['smoke']} 项** |")
+w(f"| 冒烟测试 | {BASELINE['smoke']} 项 | {STAGE2['smoke']} 项 | "
+  f"{STAGE3['smoke']} 项 | **{FIXED['smoke']} 项** |")
 w("")
 w(f"文件往返：一次稳定 {ratio(S['file_stable'], S['files'])}，"
   f"两轮内收敛 {ratio(S['file_converged'], S['files'])}；"
   f"规范用例：一次稳定 {ratio(S['case_stable'], S['spec_cases'])}，"
   f"收敛 {ratio(S['case_converged'], S['spec_cases'])}。"
-  f"逐文件对比本次与上一版结果：**保留率下降的文件 0 份**，"
-  f"提升超过 2 个百分点的 11 份。")
+  "逐文件、逐用例对比本次与上一版结果：**保留率下降 0 份、失去稳定 0 份、"
+  "新增不收敛 0 份**；文件一次稳定 "
+  f"{STAGE3['file_stable']} → {S['file_stable']}，"
+  f"规范用例一次稳定 {STAGE3['case_stable']} → {S['case_stable']}。")
 w("")
 w("**结论**：FinalMd 对常见 Markdown 语法（标题、列表、引用、代码、表格、行内样式、链接）"
-  "兼容性良好。测试过程中先修复了 2 个会造成崩溃 / 数据丢失的真实缺陷，随后落地 P1 "
-  "「原样透传块」：YAML/TOML frontmatter、原始 HTML 块与引用式链接（含脚注 / 引文 / "
-  "缩写）定义在即刻模式下整块逐字保存，不再被拆行或转义。兼容性测试已接入 CI，"
-  "以保留率与逐字保留率作为回归阈值。剩余边界见第 7 节。")
+  "兼容性良好。四个阶段依次修复了 2 个会造成崩溃 / 数据丢失的真实缺陷、落地 P1 "
+  "「原样透传块」（YAML/TOML frontmatter、原始 HTML 块、引用式链接定义逐字保存）、"
+  "把兼容性测试接入 CI，本次再补齐 Obsidian 双链 / 嵌入 / Callout 与任务列表复选框的"
+  "识别与逐字序列化。语法特征矩阵中 **C 类（<60%）已清零**。剩余边界见第 7 节。")
 w("")
 
 # ---------------------------------------------------------------------------
@@ -148,6 +171,9 @@ w(f"4. **语法特征扫描**：对原文与首轮序列化输出各跑 {len(FEA
 w("5. **逐字保留比对**：正则只判断「长得像」，会把 `\\[1\\]:` 也误算成保留。"
   "因此额外抽取原文里 frontmatter 整块、HTML 块起始行、链接定义行，"
   "逐行检查其原始字节是否出现在序列化输出中，作为 CI 的硬阈值。")
+w("6. **扩展语法硬约束**：Obsidian 双链 / 嵌入 / Callout / 任务框按语法特征分别计数，"
+  "要求命中样本 100% 在输出里保留等价写法；这些语法字符占比很小，"
+  "单看整体保留率发现不了倒退。")
 w("")
 w("指标定义：")
 w("")
@@ -212,6 +238,10 @@ def table(title, rows, desc):
     w("")
     w(desc)
     w("")
+    if not rows:
+        w("（本次测试没有落入该档的语法特性。）")
+        w("")
+        return
     w("| 语法特性 | 保留 / 命中样本 | 保留率 |")
     w("|---|---:|---:|")
     for label, p, d, r in sorted(rows, key=lambda x: (x[3], -x[2])):
@@ -223,10 +253,9 @@ table("A. 完整保留（≥95%）", full,
 table("B. 部分降级（60%–95%）", partial,
       "多数场景保留，但在复杂组合（嵌套列表、HTML 混排、特殊标题）下会被规范化改写。")
 table("C. 不兼容 / 会被改写（<60%）", weakf,
-      "引用式链接定义与原始 HTML 块已由 P1 透传块移到 A 类；这里剩下的是 "
-      "Obsidian 专属语法：文字内容多数仍在，但方括号会被防御性转义成 `\\[`。"
-      "注意：`\\[[双链]\\]` / `\\[ \\]` 在其它软件里**不再**被识别为双链或任务复选框，"
-      "因此这类文件建议用**传统模式**编辑，避免即刻模式保存时改写原文件。")
+      "前两个阶段分别由 P0 缺陷修复（方括号吞噬）与 P1 原样透传块（引用式链接定义、"
+      "原始 HTML 块）清零一部分；本次补齐 Obsidian 双链 / 嵌入 / Callout / 任务框后，"
+      "**该档已无残留语法**。")
 w("")
 
 # ---------------------------------------------------------------------------
@@ -258,7 +287,7 @@ w("- **修复**：解析前保存 `pos`，目标解析失败时回滚，再按�
   f"修复后平均保留率 {pct(BASELINE['retention'])} → {pct(STAGE2['retention'])}，"
   f"Obsidian 语料提升到 {pct(avg_for('obsidian'))}。新增 5 组方括号写法的冒烟回归断言。")
 w("")
-w("### 改进 C：原样透传块（P1，本次落地）")
+w("### 改进 C：原样透传块（P1，第三阶段落地）")
 w("")
 w("前面两个修复解决的是「别把内容弄丢」，但即刻模式保存仍会把外部文件重写一遍："
   "YAML frontmatter 被按段落拆行、`<div>` 被行内解析转义成 `\\<div`、"
@@ -293,9 +322,44 @@ w("4. 未闭合 HTML 块吃到文件末尾时，`split` 会多出一个空串；
 w("")
 w(f"效果：引用式链接定义 3/24 → **{ratio(rd_p, rd_d)}**，"
   f"原始 HTML 块 9/23 → **{ratio(hb_p, hb_d)}**，"
-  f"平均保留率 {pct(STAGE2['retention'])} → **{pct(FIXED['retention'])}**，"
+  f"平均保留率 {pct(STAGE2['retention'])} → **{pct(STAGE3['retention'])}**，"
   f"逐字保留 **{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])}**，"
-  f"冒烟测试 {STAGE2['smoke']} → **{FIXED['smoke']} 项**。")
+  f"冒烟测试 {STAGE2['smoke']} → **{STAGE3['smoke']} 项**。")
+w("")
+
+w("### 改进 D：Obsidian 双链 / 嵌入 / Callout / 任务框（P2，本次落地）")
+w("")
+w("透传块解决的是「整块外部语法」，但行内的 Obsidian 写法仍会被 `escapeMarkdown`"
+  "改写成 `\\[\\[Note\\]\\]`、`\\[ \\]`——字符还在，语义却没了："
+  "Obsidian / GFM 不再把它们识别成双链或任务复选框。Callout 则更严重："
+  "普通引用块按段落切分后会在每行之间插入空行，`> [!NOTE]` 与后续 `> 内容` 被拆散。")
+w("")
+w("| 做法 | 说明 |")
+w("|---|---|")
+w("| 行内属性 `MDWikiLink` | 解析 `[[Note]]` / `[[Note|别名]]` / `[[Note#标题]]` / "
+  "`![[pic.png|100]]`，记住 raw、target、suffix、alias 与解析时的显示文字；"
+  "正文显示别名 / 目标名，用强调色下划线区分 |")
+w("| 编辑安全 | 序列化时比对当前显示文字：未改动就逐字输出原语法，"
+  "用户改过就按新文字重建 `[[target|新别名]]`，绝不让缓存的旧源码盖掉编辑 |")
+w("| Callout 块 `MDBlockType.callout` | `> [!NOTE] 标题` 及其后续 `> ` 行按原始行存入 storage，"
+  "每行共享 `.mdCalloutID`，序列化时聚合成一个块一次输出，避免行间插空行 |")
+w("| 渲染与导出 | 按类型（NOTE / TIP / WARNING / DANGER …）给左侧色条与标题色；"
+  "HTML 导出为 `<div class=\"callout\" data-callout=…>`、双链为 "
+  "`<a class=\"internal-link\">`、嵌入为 `<span class=\"internal-embed\">`、"
+  "任务框为 `<input type=\"checkbox\">` |")
+w("| 判定收紧 | `[!NOTE` 缺右括号、`[!]` 空类型仍是普通引用；`[[` 未闭合、"
+  "`[[]]` 空链接不生成链接对象；任务框勾选成 `[x]` 后按当前文字写出 |")
+w("| 顺带修复 | 行内代码 span 内的反斜杠是字面量，原先也被 `escapeMarkdown` 转义，"
+  "导致 `` `[[code]]` `` 往返不稳定；代码 span 现在跳过正文转义规则 |")
+w("")
+w(f"效果：双链 {STAGE3['wikilink']} → **{ratio(wl_p, wl_d)}**，"
+  f"嵌入 {STAGE3['embed']} → **{ratio(em_p, em_d)}**，"
+  f"Callout {STAGE3['callout']} → **{ratio(co_p, co_d)}**，"
+  f"任务框 {STAGE3['task']} → **{ratio(tk_p, tk_d)}**；"
+  f"文件一次稳定 {STAGE3['file_stable']} → **{S['file_stable']}**，"
+  f"收敛 {STAGE3['file_converged']} → **{S['file_converged']}**；"
+  f"冒烟测试 {STAGE3['smoke']} → **{FIXED['smoke']} 项**。"
+  "CI 闸门新增「这四类特征必须 100% 逐字保留」的硬约束。")
 w("")
 
 # ---------------------------------------------------------------------------
@@ -303,8 +367,9 @@ w("## 7. 已知限制与风险边界")
 w("")
 nonconv = [f for f in FILES if not f["converged"]]
 w(f"**不收敛文件**：{len(nonconv)}/{S['files']} 份在第二轮往返后仍会继续变化，"
-  "主要是含多层嵌套列表、缩进代码块、Obsidian 专有语法的文档。"
-  "frontmatter / 原始 HTML / 链接定义已被透传块覆盖，不再是主因。")
+  "主要是含多层嵌套列表、缩进代码块、CriticMarkup / 数学公式混排的文档。"
+  "frontmatter / 原始 HTML / 链接定义已被透传块覆盖，Obsidian 双链与 Callout "
+  "本次也已逐字保留，不再是主因。")
 w("")
 w("| 文件 | 保留率 | 丢失的语法特征 |")
 w("|---|---:|---|")
@@ -318,8 +383,9 @@ w("")
 w("1. **传统模式是安全的**：它把 `.md` 当纯文本逐字节保存，不做任何解析或规范化。"
   "打开外部来源的复杂 Markdown 文件、且需要保持原写法时，请切到传统模式编辑后保存。")
 w("2. **即刻模式仍会规范化**，但范围已收窄：列表符号、段落空行、标题写法会被统一；"
-  "YAML/TOML frontmatter、原始 HTML 块、引用式链接 / 脚注 / 引文定义现在整块逐字保留。"
-  "透传块在编辑器里以等宽源码形态显示，不渲染成对应视觉效果。")
+  "YAML/TOML frontmatter、原始 HTML 块、引用式链接 / 脚注 / 引文定义整块逐字保留，"
+  "Obsidian 双链 / 嵌入 / Callout / 任务框也逐字往返。"
+  "透传块与 Callout 在编辑器里以源码形态显示，不渲染成对应交互效果。")
 w("3. **未编辑就切换模式不损坏文件**：`AppModel.authority` 机制保证"
   "刚打开、两侧都未编辑时切换模式不会重新序列化，保留原文件字节。"
   "改写风险出现在「即刻侧被编辑过再保存 / 切到传统侧」时。")
@@ -328,11 +394,13 @@ w("4. **缩进代码块（4 空格）仍是空白**：FinalMd 目前没有把它
   f"停在 {pct(S['raw_exact_rate'])} 的主因——剩余 "
   f"{S['raw_blocks_total'] - S['raw_blocks_kept']} 行里绝大多数是这类缩进行。"
   "涉及大量缩进代码的外部文件仍建议用传统模式。")
-w("5. **第 5 节 C 类语法**（Obsidian 双链 / Callout / 任务列表复选框）"
-  "按纯文本保留，不会渲染成对应结构，方括号可能被防御性转义。")
-w("6. **规范用例结构识别率 90.39% → 90.34%**（−0.05pp）：两条用例里的链接引用定义"
-  "现在被正确识别为 `raw` 块，而旧版把它当成 `p` 段落凑巧命中了指标。"
-  "内容无损、稳定性无损，属于指标口径差异而非解析倒退。")
+w("5. **「逐字保留」不等于「完整渲染」**：Obsidian 双链不做跨文件跳转、"
+  "`![[]]` 不展开被嵌入笔记的内容、Callout 不做 +/- 折叠交互、任务框不会点击勾选；"
+  "Callout 内部行按源码形态显示，其中的行内强调不解析。"
+  "这些是能力边界，不影响文件在 Obsidian 里重新打开时的正确性。")
+w("6. **规范用例结构识别率 90.39% → 90.34%**（−0.05pp，第三阶段的口径差异，"
+  "本次保持不变 0.9034）：两条用例里的链接引用定义被正确识别为 `raw` 块，"
+  "而旧版把它当成 `p` 段落凑巧命中了指标。内容无损、稳定性无损。")
 w("")
 
 # ---------------------------------------------------------------------------
@@ -342,15 +410,18 @@ w("| 优先级 | 建议 | 状态 | 预期收益 |")
 w("|---|---|---|---|")
 w("| P0 | 修复 `1.` 索引越界与方括号吞噬，并加入冒烟回归 | ✅ 已完成 | 消除崩溃与内容丢失 |")
 w("| P1 | 增加「原样透传块」：frontmatter / 原始 HTML / 链接定义整块保存、逐字输出 | "
-  "✅ 本次完成 | frontmatter 不再拆行、HTML 不再转义 |")
+  "✅ 已完成 | frontmatter 不再拆行、HTML 不再转义 |")
 w("| P1 | 把 `run-compat.sh` 接入 CI，用保留率 / 逐字保留率 / 语料 sha256 做回归阈值 | "
-  "✅ 本次完成 | 防止兼容性倒退 |")
+  "✅ 已完成 | 防止兼容性倒退 |")
+w("| P2 | 支持 Obsidian 双链 / 嵌入 / Callout / 任务列表复选框的识别与逐字序列化，"
+  "并在 CI 闸门里设为 100% 硬约束 | ✅ 本次完成 | C 类特征清零；"
+  f"文件一次稳定 {STAGE3['file_stable']} → {S['file_stable']} |")
 w("| P1 | 打开外部 `.md` 时，若检测到不兼容扩展语法，提示「建议用传统模式编辑」"
   "或默认以传统模式打开 | ⬜ 待做 | 避免用户无意识改写原文件 |")
 w("| P2 | 支持缩进代码块（4 空格） | ⬜ 待做 | 补齐逐字保留率剩下的 "
   f"{S['raw_blocks_total'] - S['raw_blocks_kept']} 行 |")
-w("| P2 | 支持 Obsidian 双链 / Callout / 任务列表复选框的识别与序列化 | "
-  "⬜ 待做 | 覆盖知识库 / 学术写作场景 |")
+w("| P3 | Obsidian 双链跳转、Callout 折叠交互、嵌入内容展开 | ⬜ 待做 | "
+  "从「保真」走向「完整可用」 |")
 w("")
 
 # ---------------------------------------------------------------------------
@@ -362,7 +433,7 @@ w("")
 w("# 1) 下载 / 更新语料（已有文件会复用，不重复请求网络）")
 w("python3 scripts/fetch-fixtures.py")
 w("")
-w("# 2) 现有冒烟测试（含本次透传块的回归断言）")
+w("# 2) 现有冒烟测试（含透传块 / Obsidian 语法的回归断言）")
 w("./scripts/run-smoke.sh")
 w("")
 w("# 3) 编译并运行全部语料的兼容性测试")
@@ -389,6 +460,10 @@ w(f"| `run-compat.sh` | {S['files']} 份文件 + {S['spec_cases']} 条规范用�
 w(f"| 平均可读字符保留率 | {pct(FIXED['retention'])} |")
 w(f"| 透传块逐字保留 | {ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} "
   f"({pct(S['raw_exact_rate'])}) |")
+w(f"| Obsidian 双链 / 嵌入 / Callout / 任务框 | "
+  f"{ratio(wl_p, wl_d)} / {ratio(em_p, em_d)} / {ratio(co_p, co_d)} / {ratio(tk_p, tk_d)}，全部 100% |")
+w("| `check-compat-thresholds.py` | 语料 sha256、绝对阈值、逐文件回归、"
+  "四类扩展语法 100% 硬约束全部通过 |")
 w("| `swift build` / `swift build -c release` | 零警告 |")
 w("| `scripts/make_app.sh` | 重新打包 `build/FinalMd.app` |")
 w("")
@@ -423,7 +498,7 @@ readme = [
     "| `MANIFEST.json` | 每个文件的来源路径、URL、字节数、sha256 与许可证 |",
     "| `PATHS.json` | 固化的下载路径清单（让脚本不依赖 GitHub API，可复现） |",
     "| `RESULTS.json` | `run-compat.sh` 生成的结构化测试结果 |",
-    "| `BASELINE.json` | CI 回归阈值；指标提升后用 `check-compat-thresholds.py --update-baseline` 更新 |",
+    "| `BASELINE.json` | CI 回归阈值（含四类 Obsidian 扩展语法 100% 硬约束）；指标提升后用 `check-compat-thresholds.py --update-baseline` 更新 |",
     "| `sources/<slug>/` | 按来源分组的原始 `.md` 文件 |",
     "| `specs/` | CommonMark / GFM 规范原文与解析后的结构化用例 |",
     "",
