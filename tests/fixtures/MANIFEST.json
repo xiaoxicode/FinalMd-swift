@@ -1,0 +1,1812 @@
+{
+  "generated_at": "2026-11-24T19:30:23+0800",
+  "purpose": "FinalMd Markdown 兼容性测试语料（原文件内容未经修改）",
+  "sources": [
+    {
+      "slug": "obsidian",
+      "name": "Obsidian",
+      "repo": "obsidianmd/obsidian-help",
+      "branch": "master",
+      "license": "CC BY-NC-SA 4.0 (Obsidian Help)",
+      "note": "官方帮助库中的真实笔记文件，含 wikilink / callout / properties / embed",
+      "file_count": 13
+    },
+    {
+      "slug": "typora",
+      "name": "Typora",
+      "repo": "typora/typora-issues",
+      "branch": "master",
+      "license": "Repo content (Typora)",
+      "note": "闭源软件，官方仅有 issue 仓库；语法覆盖由 GFM / Pandoc 语料补齐",
+      "file_count": 1
+    },
+    {
+      "slug": "marktext",
+      "name": "Mark Text",
+      "repo": "marktext/marktext",
+      "branch": "master",
+      "license": "MIT",
+      "note": "官方 e2e / unit 测试用的真实 Markdown 文件",
+      "file_count": 18
+    },
+    {
+      "slug": "zettlr",
+      "name": "Zettlr",
+      "repo": "Zettlr/Zettlr",
+      "branch": "develop",
+      "license": "GPL-3.0",
+      "note": "GUI 测试文档：YAML frontmatter、脚注、链接解析、排序等学术写作场景",
+      "file_count": 10
+    },
+    {
+      "slug": "joplin",
+      "name": "Joplin",
+      "repo": "laurent22/joplin",
+      "branch": "dev",
+      "license": "MIT",
+      "note": "Evernote 导入转换测试用的 Markdown 文件 + 大体积 README",
+      "file_count": 14
+    },
+    {
+      "slug": "stackedit",
+      "name": "StackEdit",
+      "repo": "benweet/stackedit",
+      "branch": "master",
+      "license": "MIT",
+      "note": "应用内置的示例文档（新建文件默认内容）",
+      "file_count": 3
+    },
+    {
+      "slug": "macdown",
+      "name": "MacDown",
+      "repo": "MacDownApp/macdown",
+      "branch": "master",
+      "license": "MIT",
+      "note": "官方 demo.md 与 README",
+      "file_count": 2
+    },
+    {
+      "slug": "logseq",
+      "name": "Logseq",
+      "repo": "logseq/logseq",
+      "branch": "master",
+      "license": "MIT",
+      "note": "图谱解析器导出测试用的真实日记笔记（大纲式 Markdown）",
+      "file_count": 26
+    },
+    {
+      "slug": "vscode",
+      "name": "VS Code",
+      "repo": "microsoft/vscode",
+      "branch": "main",
+      "license": "MIT",
+      "note": "markdown-language-features 扩展的测试工作区与仓库文档",
+      "file_count": 6
+    },
+    {
+      "slug": "quarto",
+      "name": "Quarto",
+      "repo": "quarto-dev/quarto-web",
+      "branch": "main",
+      "license": "MIT",
+      "note": "技术写作 .qmd：YAML、代码单元格、callout、交叉引用",
+      "file_count": 8
+    },
+    {
+      "slug": "pandoc",
+      "name": "Pandoc",
+      "repo": "jgm/pandoc",
+      "branch": "main",
+      "license": "GPL-2.0-or-later",
+      "note": "官方 reader 测试语料（最全的 Markdown 扩展语法覆盖）+ 基准长文",
+      "file_count": 30
+    },
+    {
+      "slug": "multimarkdown",
+      "name": "MultiMarkdown 6",
+      "repo": "fletcher/MultiMarkdown-6",
+      "branch": "develop",
+      "license": "MIT",
+      "note": "MMD6 官方语法测试集（.text）",
+      "file_count": 29
+    },
+    {
+      "slug": "kramdown",
+      "name": "kramdown",
+      "repo": "gettalong/kramdown",
+      "branch": "master",
+      "license": "MIT",
+      "note": "Ruby 解析器官方 testcases",
+      "file_count": 25
+    },
+    {
+      "slug": "cmark-gfm",
+      "name": "GitHub / cmark-gfm",
+      "repo": "github/cmark-gfm",
+      "branch": "master",
+      "license": "BSD-2-Clause",
+      "note": "GFM 参考实现的基准样本文件",
+      "file_count": 25
+    }
+  ],
+  "specs": [
+    {
+      "slug": "commonmark",
+      "name": "CommonMark 0.31.2",
+      "version": "0.31.2",
+      "license": "CC-BY-SA 4.0",
+      "url": "https://cdn.jsdelivr.net/gh/commonmark/commonmark-spec@master/spec.txt",
+      "spec_file": "tests/fixtures/specs/commonmark-0.31.2.spec.txt",
+      "cases_file": "tests/fixtures/specs/commonmark-0.31.2.json",
+      "example_count": 655
+    },
+    {
+      "slug": "gfm",
+      "name": "GFM 0.29",
+      "version": "0.29",
+      "license": "CC-BY-SA 4.0",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/test/spec.txt",
+      "spec_file": "tests/fixtures/specs/gfm-0.29.spec.txt",
+      "cases_file": "tests/fixtures/specs/gfm-0.29.json",
+      "example_count": 672
+    }
+  ],
+  "files": [
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-bq-flat.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/001-block-bq-flat.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-bq-flat.md",
+      "bytes": 246,
+      "sha256": "06989410659fc8039e8b1146ccbd3cacc4a27bcc89e68b7d5e3f6b7f39bef82d"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-bq-nested.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/002-block-bq-nested.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-bq-nested.md",
+      "bytes": 355,
+      "sha256": "44919d8c0809746292f9d321db5ac836408fc9f3bb63f16128049745c3e386cc"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-code.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/003-block-code.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-code.md",
+      "bytes": 73,
+      "sha256": "bedd8bb92b0478d2d6353ffd05ef50ff84ba0d2bbf835544a223bfe2c5631378"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-fences.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/004-block-fences.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-fences.md",
+      "bytes": 72,
+      "sha256": "0b05d11c5f98829c24ef6501560f819e6f9ce7e5dcf4732351827fdfd4b18e4d"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-heading.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/005-block-heading.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-heading.md",
+      "bytes": 123,
+      "sha256": "567d5750aebc8a1cc3ba357c3f2b3bb7fc8ae36aab849b985b7c08b19d8b31e4"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-hr.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/006-block-hr.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-hr.md",
+      "bytes": 74,
+      "sha256": "4841266ca7e2b79b223cb22afc1cc08ce17f9ec05a2a67dbdd12fa10cca3bc28"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-html.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/007-block-html.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-html.md",
+      "bytes": 283,
+      "sha256": "c2317bc0f69e0b5103ccc0aaee2cd1f556dc5140cd313639fd47e03732eb40bd"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-lheading.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/008-block-lheading.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-lheading.md",
+      "bytes": 113,
+      "sha256": "a75c6204e4921281b0ea10fb15489c58f7c253492bac85b8a4ad2fb5ed0bb3ab"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-list-flat.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/009-block-list-flat.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-list-flat.md",
+      "bytes": 525,
+      "sha256": "a6acfd7fb5908db6b68ca835c3dbdb6adeff4d79918db4fbdbcc71219ebb209a"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-list-nested.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/010-block-list-nested.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-list-nested.md",
+      "bytes": 391,
+      "sha256": "0966d4f0381919ad0fbbda1393cec3a6e8d74ecf16903dd08879185b3cd26f06"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-ref-flat.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/011-block-ref-flat.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-ref-flat.md",
+      "bytes": 474,
+      "sha256": "97d79884e2a94d2b0644d4bd5f588ff1a431227fde152699daf28c711342d49d"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/block-ref-nested.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/012-block-ref-nested.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/block-ref-nested.md",
+      "bytes": 257,
+      "sha256": "9997be8f757bfeb8fe85077aa958e011fffc5d9d4656547e346da31f73dce437"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-autolink.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/013-inline-autolink.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-autolink.md",
+      "bytes": 557,
+      "sha256": "4730dc2aa527737ef2d82d325dc2357b1a0ce0492e2ffb654f308c3ee69c64dc"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-backticks.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/014-inline-backticks.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-backticks.md",
+      "bytes": 64,
+      "sha256": "f8118c2e1a20277a932652ae3f1eae33751abce10a0889083010b5a2069b5361"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-em-flat.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/015-inline-em-flat.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-em-flat.md",
+      "bytes": 155,
+      "sha256": "1007068bb558c98a46ae1c3e9830ae39c3ff184cb5b1a346f225313cfa473a5e"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-em-nested.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/016-inline-em-nested.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-em-nested.md",
+      "bytes": 158,
+      "sha256": "047aa1380d3f0a93d7281f8074ae06ad0d0b1e63e7bec9973ff174162f1735bd"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-em-worst.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/017-inline-em-worst.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-em-worst.md",
+      "bytes": 173,
+      "sha256": "f9a7a5c97aea0cb4167f56960f437495195b220103b5a75b61344a66b20b290c"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-entity.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/018-inline-entity.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-entity.md",
+      "bytes": 328,
+      "sha256": "b94c9930f4e09918c344bb4b13448544f38439fab960d1cf5300f8afb6674da4"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-escape.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/019-inline-escape.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-escape.md",
+      "bytes": 185,
+      "sha256": "fdb75d7916062598ba48206bb43546bb2ce3ed2d4200b9bab7292312f56a16a4"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-html.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/020-inline-html.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-html.md",
+      "bytes": 516,
+      "sha256": "dc4cbd9eea0b58e2c27700bc43d03fd2643f354e534777a08d62652ca8e99c7a"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-links-flat.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/021-inline-links-flat.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-links-flat.md",
+      "bytes": 730,
+      "sha256": "a3c0f2bb030c7d1ea92035ff4c53b7af85624f9a3c2ac3ae2585a9ed81104955"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-links-nested.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/022-inline-links-nested.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-links-nested.md",
+      "bytes": 313,
+      "sha256": "f14204673581dfe7caf3535216acf8f7f08e155b226253790460550f126d2ff0"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/inline-newlines.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/023-inline-newlines.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/inline-newlines.md",
+      "bytes": 140,
+      "sha256": "a0c9519d2f93cc6284dcc18264b1ab5a76acaa27e3dab0062045f469df32a57c"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/lorem1.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/024-lorem1.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/lorem1.md",
+      "bytes": 3789,
+      "sha256": "5ee469b3c3ebd95b3ae8659e08bf9d414120f38ad9020252164ca13a163347aa"
+    },
+    {
+      "slug": "cmark-gfm",
+      "source_path": "bench/samples/rawtabs.md",
+      "local_path": "tests/fixtures/sources/cmark-gfm/025-rawtabs.md",
+      "url": "https://cdn.jsdelivr.net/gh/github/cmark-gfm@master/bench/samples/rawtabs.md",
+      "bytes": 295,
+      "sha256": "eec9fba1de450e37f8c362398c35e52b41f7f8f5f0388a45d3c31ceaee0dbb60"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "README.md",
+      "local_path": "tests/fixtures/sources/joplin/001-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/laurent22/joplin@dev/README.md",
+      "bytes": 62392,
+      "sha256": "b9444e9a16aa4d8b87124a368605847ce9ad368e603e5f6116c34f3121a86f69"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/README.md",
+      "local_path": "tests/fixtures/sources/joplin/002-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/laurent22/joplin@dev/packages/app-cli/README.md",
+      "bytes": 118,
+      "sha256": "bbfe0ef945695a60ed7f133a808c3ab938265f4e87444a194a62e9b658a3d2e9"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/tests/enex_to_md/checklist.md",
+      "local_path": "tests/fixtures/sources/joplin/003-checklist.md",
+      "url": "https://raw.githubusercontent.com/laurent22/joplin/dev/packages/app-cli/tests/enex_to_md/checklist.md",
+      "bytes": 44,
+      "sha256": "b81c92ba80cec42b85ae9669e2c2c31579d0f2f19e7ed6f60f97c1a7a244ee88"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/tests/enex_to_md/code1.md",
+      "local_path": "tests/fixtures/sources/joplin/004-code1.md",
+      "url": "https://cdn.jsdelivr.net/gh/laurent22/joplin@dev/packages/app-cli/tests/enex_to_md/code1.md",
+      "bytes": 292,
+      "sha256": "2f501fe4be98b2be2cf7748ffe7d0a8fe014c6b3b45e3e1bf911fa28a67e731c"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/tests/enex_to_md/code2.md",
+      "local_path": "tests/fixtures/sources/joplin/005-code2.md",
+      "url": "https://cdn.jsdelivr.net/gh/laurent22/joplin@dev/packages/app-cli/tests/enex_to_md/code2.md",
+      "bytes": 86,
+      "sha256": "21d4d1b3776b8a6b4974a5827b408f9eadceed22d252a57576c7752a22dda094"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/tests/enex_to_md/code3.md",
+      "local_path": "tests/fixtures/sources/joplin/006-code3.md",
+      "url": "https://raw.githubusercontent.com/laurent22/joplin/dev/packages/app-cli/tests/enex_to_md/code3.md",
+      "bytes": 86,
+      "sha256": "3e1be0c0c3c20e3f768254d1629d1286000572e65d2633eaa0774bcf53318c5f"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/tests/enex_to_md/code4.md",
+      "local_path": "tests/fixtures/sources/joplin/007-code4.md",
+      "url": "https://cdn.jsdelivr.net/gh/laurent22/joplin@dev/packages/app-cli/tests/enex_to_md/code4.md",
+      "bytes": 123,
+      "sha256": "795b9d244cdeedf33713c3395a9da76440a17b5eaf83d86b6459a95dd84106b9"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/tests/enex_to_md/code5.md",
+      "local_path": "tests/fixtures/sources/joplin/008-code5.md",
+      "url": "https://cdn.jsdelivr.net/gh/laurent22/joplin@dev/packages/app-cli/tests/enex_to_md/code5.md",
+      "bytes": 243,
+      "sha256": "25638cc6f02857e8110fb1924455cfb99be102319906f14cb7b983aa1cce5b26"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/tests/enex_to_md/heading.md",
+      "local_path": "tests/fixtures/sources/joplin/009-heading.md",
+      "url": "https://cdn.jsdelivr.net/gh/laurent22/joplin@dev/packages/app-cli/tests/enex_to_md/heading.md",
+      "bytes": 154,
+      "sha256": "54899436dc2dda7671f195f3a757e21a8736b42983e7eeee9d2be2b3b21ff73c"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/tests/enex_to_md/images_with_and_without_size.md",
+      "local_path": "tests/fixtures/sources/joplin/010-images_with_and_without_size.md",
+      "url": "https://raw.githubusercontent.com/laurent22/joplin/dev/packages/app-cli/tests/enex_to_md/images_with_and_without_size.md",
+      "bytes": 363,
+      "sha256": "b9d01eea237853d7df14e351edc5d247174c68332874ff88f30009a1bf48f2dd"
+    },
+    {
+      "slug": "joplin",
+      "source_path": "packages/app-cli/tests/enex_to_md/inlineCode.md",
+      "local_path": "tests/fixtures/sources/joplin/011-inlineCode.md",
+      "url": "https://cdn.jsdelivr.net/gh/laurent22/joplin@dev/packages/app-cli/tests/enex_to_md/inlineCode.md",
+      "bytes": 158,
+      "sha256": "3265f452567593704f9066815b8835131d87f2c2b9f69e9961f595945a32082a"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "README.md",
+      "local_path": "tests/fixtures/sources/kramdown/001-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/README.md",
+      "bytes": 3058,
+      "sha256": "48055ec4059e23a536934c88ae8d1cbb065320f6c7e22b89362613404614ec4b"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/03_paragraph/indented.text",
+      "local_path": "tests/fixtures/sources/kramdown/002-indented.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/03_paragraph/indented.text",
+      "bytes": 186,
+      "sha256": "84d731ac8fdc8e0632bbd7926a92b60f7ae35f4f7fc89c3e452d2cb10028e32b"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/04_header/atx_header.text",
+      "local_path": "tests/fixtures/sources/kramdown/003-atx_header.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/04_header/atx_header.text",
+      "bytes": 472,
+      "sha256": "688eedb3554cb781c3a566dfcc5870717bdeebccaa6cf191d6b3a112a1d750d7"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/05_blockquote/lazy.text",
+      "local_path": "tests/fixtures/sources/kramdown/004-lazy.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/05_blockquote/lazy.text",
+      "bytes": 217,
+      "sha256": "e777ab940b0b32ef1daeca3f8a280e8c6db9e108a32c571365e1f9992606086d"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/06_codeblock/highlighting-minted.text",
+      "local_path": "tests/fixtures/sources/kramdown/005-highlighting-minted.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/06_codeblock/highlighting-minted.text",
+      "bytes": 55,
+      "sha256": "43112644a3b47ee8d9691c3131c13e744427efcbc08af59c845ee49fa9e2464d"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/06_codeblock/tilde_syntax.text",
+      "local_path": "tests/fixtures/sources/kramdown/006-tilde_syntax.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/06_codeblock/tilde_syntax.text",
+      "bytes": 107,
+      "sha256": "412aeac9bf878306943adb85dd55e392d21e3794deef1366839a7693aff93391"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/06_codeblock/with_lang_in_fenced_block_name_with_dash.text",
+      "local_path": "tests/fixtures/sources/kramdown/007-with_lang_in_fenced_block_name_with_dash.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/06_codeblock/with_lang_in_fenced_block_name_with_dash.text",
+      "bytes": 61,
+      "sha256": "f8b9871719ccdf11615a18ec25727b5b54a145b625033b825ecdfa9c65f677ff"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/08_list/list_and_hr.text",
+      "local_path": "tests/fixtures/sources/kramdown/008-list_and_hr.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/08_list/list_and_hr.text",
+      "bytes": 48,
+      "sha256": "16944991ec7c269af330b8bb502a2ba367765df08e4a42ebecb80cb4a0b370ca"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/08_list/simple_ul.text",
+      "local_path": "tests/fixtures/sources/kramdown/009-simple_ul.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/08_list/simple_ul.text",
+      "bytes": 360,
+      "sha256": "44a3fe6d702c98a16f8a3e740b7d1f1fdeaf05b75a61012e74b3f7bcd0b55546"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/09_html/html_and_codeblocks.text",
+      "local_path": "tests/fixtures/sources/kramdown/010-html_and_codeblocks.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/09_html/html_and_codeblocks.text",
+      "bytes": 84,
+      "sha256": "bb14869b2f69acc79993aae49e6fa06a5273b2831f2dbcb6831b5518e4abef1e"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/09_html/html_to_native/list_ol.text",
+      "local_path": "tests/fixtures/sources/kramdown/011-list_ol.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/09_html/html_to_native/list_ol.text",
+      "bytes": 239,
+      "sha256": "4d9e220b792806f6c1ed872b9f38e5356ea05d78c64ccb766716121b21a893b8"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/09_html/not_parsed.text",
+      "local_path": "tests/fixtures/sources/kramdown/012-not_parsed.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/09_html/not_parsed.text",
+      "bytes": 217,
+      "sha256": "403236af48922b0558808699a9d43a348d045d3052134b7b6ba9a932b73160ea"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/09_html/table.text",
+      "local_path": "tests/fixtures/sources/kramdown/013-table.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/09_html/table.text",
+      "bytes": 62,
+      "sha256": "9773d5c6d91ad007f181a53dfd687f3f937f577aa8beda38f3d2e3d212fba75c"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/12_extension/ignored.text",
+      "local_path": "tests/fixtures/sources/kramdown/014-ignored.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/12_extension/ignored.text",
+      "bytes": 78,
+      "sha256": "779df69faa0afa62decc49f2511f8d08a77dec89b78b020459e153caee99f2e0"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/13_definition_list/item_ial.text",
+      "local_path": "tests/fixtures/sources/kramdown/015-item_ial.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/13_definition_list/item_ial.text",
+      "bytes": 210,
+      "sha256": "fcf7a467c400e8b2539150dfa87d4433a7830ac03b72a4189bce8721ec3e374d"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/14_table/errors.text",
+      "local_path": "tests/fixtures/sources/kramdown/016-errors.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/14_table/errors.text",
+      "bytes": 90,
+      "sha256": "52219b698837a500fe77d63bd1285f1815bd6e623da8ae3fb8634007a65673f6"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/block/15_math/normal.text",
+      "local_path": "tests/fixtures/sources/kramdown/017-normal.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/block/15_math/normal.text",
+      "bytes": 265,
+      "sha256": "89f32fd5dfd897e953270f1fc4f6fcdcaa9decc39d65a47ad46ce29300e6874e"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/man/example.text",
+      "local_path": "tests/fixtures/sources/kramdown/018-example.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/man/example.text",
+      "bytes": 1829,
+      "sha256": "beb29cd7299f38dcbebd71417c4f0164bd5b5bb41455fa1aaf2267c6b3bac734"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/span/01_link/imagelinks.text",
+      "local_path": "tests/fixtures/sources/kramdown/019-imagelinks.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/span/01_link/imagelinks.text",
+      "bytes": 503,
+      "sha256": "977ba8a509559c9865717a4ef63735b0da215d885b73949c9505276f674d67cc"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/span/02_emphasis/errors.text",
+      "local_path": "tests/fixtures/sources/kramdown/020-errors.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/span/02_emphasis/errors.text",
+      "bytes": 98,
+      "sha256": "ec52d6ee3689e5c69aa5dd7748c64e7a14e2f0f89341ad5ec1384aa8a20e5373"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/span/03_codespan/rouge/simple.text",
+      "local_path": "tests/fixtures/sources/kramdown/021-simple.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/span/03_codespan/rouge/simple.text",
+      "bytes": 59,
+      "sha256": "68e2ad1bafed2a12e9610b32f285310c0ffe27540ebc57aef2081a12a6ca747e"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/span/04_footnote/inside_footnote.text",
+      "local_path": "tests/fixtures/sources/kramdown/022-inside_footnote.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/span/04_footnote/inside_footnote.text",
+      "bytes": 177,
+      "sha256": "3aa180c29d4e80b7961f85c4af768fea6d541fcf94253919efd98513dee9abeb"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/span/05_html/markdown_attr.text",
+      "local_path": "tests/fixtures/sources/kramdown/023-markdown_attr.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/span/05_html/markdown_attr.text",
+      "bytes": 318,
+      "sha256": "9c49cce0a79cb6aa0a590f48012354a8fe56fb048569fc39e9cc9f8882d0b7f6"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/span/abbreviations/in_footnote.text",
+      "local_path": "tests/fixtures/sources/kramdown/024-in_footnote.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/span/abbreviations/in_footnote.text",
+      "bytes": 69,
+      "sha256": "9a0d6cffb74d45148eb84fe0ee33f60d449fb51ecd3fb9abd8707d0617fa0507"
+    },
+    {
+      "slug": "kramdown",
+      "source_path": "test/testcases/span/math/normal.text",
+      "local_path": "tests/fixtures/sources/kramdown/025-normal.text",
+      "url": "https://cdn.jsdelivr.net/gh/gettalong/kramdown@master/test/testcases/span/math/normal.text",
+      "bytes": 174,
+      "sha256": "e053536241d2876e3640d23aef79bacca45eeb6eb82e5fc021efa9640443d4ee"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_01_08.md",
+      "local_path": "tests/fixtures/sources/logseq/001-2024_01_08.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_01_08.md",
+      "bytes": 254,
+      "sha256": "e061fe5fec45bcf9af72bc38f9e293a52f79324f2133c26b2291786ac5b4b6c2"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_01_17.md",
+      "local_path": "tests/fixtures/sources/logseq/002-2024_01_17.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_01_17.md",
+      "bytes": 59,
+      "sha256": "c7e70009f6113886eb525cab65ae7e8314cee167bd8bd96a4f668f2c83c89786"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_13.md",
+      "local_path": "tests/fixtures/sources/logseq/003-2024_02_13.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_13.md",
+      "bytes": 110,
+      "sha256": "5a1466d1d0e4d4ca26895d99c1f7f670bae15214eb370fe8dd23e2ae368bbf88"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_14.md",
+      "local_path": "tests/fixtures/sources/logseq/004-2024_02_14.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_14.md",
+      "bytes": 281,
+      "sha256": "4508ab4e68e546112d2aa3c6a7f36def58fbb9179391771891dcead5cd448874"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_15.md",
+      "local_path": "tests/fixtures/sources/logseq/005-2024_02_15.md",
+      "url": "https://raw.githubusercontent.com/logseq/logseq/master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_15.md",
+      "bytes": 284,
+      "sha256": "d3d1c7a2ca8e33d08a3478e9e946e66fb42aeaee951fdb05c7d736607e28aad1"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_16.md",
+      "local_path": "tests/fixtures/sources/logseq/006-2024_02_16.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_16.md",
+      "bytes": 1101,
+      "sha256": "97dad5d90b109a73c218411fc8a36fe9a4d8fd303031dba2b9065faea980fc3e"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_23.md",
+      "local_path": "tests/fixtures/sources/logseq/007-2024_02_23.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_23.md",
+      "bytes": 105,
+      "sha256": "a99ba4d547641937634203143439d0ae046bb6440f9bb54c4aa696fcb279a23c"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_28.md",
+      "local_path": "tests/fixtures/sources/logseq/008-2024_02_28.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_28.md",
+      "bytes": 168,
+      "sha256": "cb7cc23368a26f7be5473d8ad1b78d749db5940424c511eaacfe7708f7a140e0"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_29.md",
+      "local_path": "tests/fixtures/sources/logseq/009-2024_02_29.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_02_29.md",
+      "bytes": 48,
+      "sha256": "0b08743715df385118bcd01845daa260ccafed36b5391341dfb16671495b1b9f"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_03_01.md",
+      "local_path": "tests/fixtures/sources/logseq/010-2024_03_01.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_03_01.md",
+      "bytes": 186,
+      "sha256": "077a7fbf5643dfe466c5f71f18dc484feec1a8b736590a8fc7826ca813a5fa97"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_04_01.md",
+      "local_path": "tests/fixtures/sources/logseq/011-2024_04_01.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_04_01.md",
+      "bytes": 376,
+      "sha256": "2991a29984448f48fcff5431e6b623419726070237411b19a81d64c4ebd83ca7"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_07_24.md",
+      "local_path": "tests/fixtures/sources/logseq/012-2024_07_24.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_07_24.md",
+      "bytes": 67,
+      "sha256": "b9422a7d8c4e90d74bad19ff33bfc6f2893989705717e763143194b0c7ad4b1e"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_08_07.md",
+      "local_path": "tests/fixtures/sources/logseq/013-2024_08_07.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_08_07.md",
+      "bytes": 1867,
+      "sha256": "d602939ff8acbb9a8a68cb9fb51cfc4d3cb8910b7420104f0e3ed4640a4e0bfb"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_10_09.md",
+      "local_path": "tests/fixtures/sources/logseq/014-2024_10_09.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_10_09.md",
+      "bytes": 75,
+      "sha256": "61a01f60b6d18077e4a21825054dadb43d22c65eaf2fbd835ede2e3ee619a1c5"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_10_17.md",
+      "local_path": "tests/fixtures/sources/logseq/015-2024_10_17.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_10_17.md",
+      "bytes": 114,
+      "sha256": "5994c46b7eb03fc24a3f7caee2a863c2f873c03f1cbc45d5d8fd5a424479d77c"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_11_12.md",
+      "local_path": "tests/fixtures/sources/logseq/016-2024_11_12.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_11_12.md",
+      "bytes": 82,
+      "sha256": "35f7019b679338dfb0121df4a0a4ebb80a08543a98993307a005d5c73d5de681"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_11_18.md",
+      "local_path": "tests/fixtures/sources/logseq/017-2024_11_18.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_11_18.md",
+      "bytes": 76,
+      "sha256": "5f0aeb1cf329aa5cde9290ec435ada2e712e13980efe5e12d552a9a58ba00a26"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2024_11_26.md",
+      "local_path": "tests/fixtures/sources/logseq/018-2024_11_26.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2024_11_26.md",
+      "bytes": 441,
+      "sha256": "dedd72e3afbb9aa31db714006580ba58dbeeeae06c3d396e32171ebaaa70487d"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2025_01_10.md",
+      "local_path": "tests/fixtures/sources/logseq/019-2025_01_10.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2025_01_10.md",
+      "bytes": 77,
+      "sha256": "f8a04c707abfabbfb9c36def1e349de111f9ee6f2330d5b4e614f9be81d01bca"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2025_06_12.md",
+      "local_path": "tests/fixtures/sources/logseq/020-2025_06_12.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2025_06_12.md",
+      "bytes": 1614,
+      "sha256": "bdd144d25645964ee0c3c705b6d77a91810bd85e7bd3d45189a4a9e94d41110e"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2025_06_23.md",
+      "local_path": "tests/fixtures/sources/logseq/021-2025_06_23.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2025_06_23.md",
+      "bytes": 144,
+      "sha256": "5e571d0ea4ae5d6df928cb8340371bafbfab6662e318632ae208d8a9b3e7facd"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2025_07_10.md",
+      "local_path": "tests/fixtures/sources/logseq/022-2025_07_10.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2025_07_10.md",
+      "bytes": 141,
+      "sha256": "bc05e8457917f71298150bb12378d1cf98f61df2f2d3d383dfd03ca49f263a1b"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2025_07_15.md",
+      "local_path": "tests/fixtures/sources/logseq/023-2025_07_15.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2025_07_15.md",
+      "bytes": 510,
+      "sha256": "b044e9158d3efa06f49a08f3692b5e660133caf51957dc5f60ea65385f596513"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2025_11_04.md",
+      "local_path": "tests/fixtures/sources/logseq/024-2025_11_04.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2025_11_04.md",
+      "bytes": 107,
+      "sha256": "ba42427e6cca5f3749dba84c041e11b1eb8ebf3c82c52c94130008965cefc8d0"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2025_12_17.md",
+      "local_path": "tests/fixtures/sources/logseq/025-2025_12_17.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2025_12_17.md",
+      "bytes": 141,
+      "sha256": "60a46e4598189b0032467b5b18a668e79d251d2acb59d2b314fe1a345bbdbc28"
+    },
+    {
+      "slug": "logseq",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph/journals/2026_01_27.md",
+      "local_path": "tests/fixtures/sources/logseq/026-2026_01_27.md",
+      "url": "https://cdn.jsdelivr.net/gh/logseq/logseq@master/deps/graph-parser/test/resources/exporter-test-graph/journals/2026_01_27.md",
+      "bytes": 218,
+      "sha256": "10c38fda63bff246c4208198f2a9eaac995f8368cbda8793882d451bb8fe1142"
+    },
+    {
+      "slug": "macdown",
+      "source_path": "README.md",
+      "local_path": "tests/fixtures/sources/macdown/001-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/MacDownApp/macdown@master/README.md",
+      "bytes": 4860,
+      "sha256": "db0450492cc23c7221ba74d17461d99ea031bb8a508f2d4cbcf334ba3ff1c5d1"
+    },
+    {
+      "slug": "macdown",
+      "source_path": "assets/demo.md",
+      "local_path": "tests/fixtures/sources/macdown/002-demo.md",
+      "url": "https://cdn.jsdelivr.net/gh/MacDownApp/macdown@master/assets/demo.md",
+      "bytes": 2509,
+      "sha256": "c8c66c12662624f284f45c5e377e2786a14b3846bfc31fef77dfcd003ea36173"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/blockquote.md",
+      "local_path": "tests/fixtures/sources/marktext/001-blockquote.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/blockquote.md",
+      "bytes": 94,
+      "sha256": "94f0f41453044c60c479d1bd390d8712cf8589cc297aed266079576d7bb14939"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/code.md",
+      "local_path": "tests/fixtures/sources/marktext/002-code.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/code.md",
+      "bytes": 172,
+      "sha256": "eabfcc8907a18a3bfb464679861ecc87c9777b245b8191efea27d4ff8bae6375"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/formatted.md",
+      "local_path": "tests/fixtures/sources/marktext/003-formatted.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/formatted.md",
+      "bytes": 165,
+      "sha256": "922dcbf2666de89f179cacdf909472023f703c8dbb47e2abdf5e86197c555ec6"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/frontmatter.md",
+      "local_path": "tests/fixtures/sources/marktext/004-frontmatter.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/frontmatter.md",
+      "bytes": 113,
+      "sha256": "bc8f09912d9c3cbf5c0f013626fd89292a9f26b8ce14afd821a8f851303a3d55"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/gfm.md",
+      "local_path": "tests/fixtures/sources/marktext/005-gfm.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/gfm.md",
+      "bytes": 115,
+      "sha256": "6db7eb77ad0f86a05923a667f7e6a1dcd9a37100088f2d542c189e331dcfa2f3"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/link-image.md",
+      "local_path": "tests/fixtures/sources/marktext/006-link-image.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/link-image.md",
+      "bytes": 255,
+      "sha256": "cc28707054d6a9c1f64c23dfa3a1fe07c032e927e76b45443610b9d65af53c21"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/lists.md",
+      "local_path": "tests/fixtures/sources/marktext/007-lists.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/lists.md",
+      "bytes": 128,
+      "sha256": "b1b2c18583132b48e970ec137ba01535ada5494971dbdd2a8410911a78be0aaf"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/math.md",
+      "local_path": "tests/fixtures/sources/marktext/008-math.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/math.md",
+      "bytes": 96,
+      "sha256": "913c10d2b09f664881c393dbee076cbd9c7100668c98056959b47d77d8b83669"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/table.md",
+      "local_path": "tests/fixtures/sources/marktext/009-table.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/table.md",
+      "bytes": 137,
+      "sha256": "8f52821b4aad3da273a5de1046fd9caaa705fd354a2d780b1d36c416a8e00517"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/e2e/data/xss.md",
+      "local_path": "tests/fixtures/sources/marktext/010-xss.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/e2e/data/xss.md",
+      "bytes": 1080,
+      "sha256": "da63a5f5dd9ea21babe410cb91ef5aeda3377563575f2a05e24d5532554dcf66"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/unit/data/common/BasicTextFormatting.md",
+      "local_path": "tests/fixtures/sources/marktext/011-BasicTextFormatting.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/unit/data/common/BasicTextFormatting.md",
+      "bytes": 653,
+      "sha256": "0c44ec157e74cb4d9d14355c00d1ff26dd3c46d009cea04975dc94043dc46c99"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/unit/data/common/Blockquotes.md",
+      "local_path": "tests/fixtures/sources/marktext/012-Blockquotes.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/unit/data/common/Blockquotes.md",
+      "bytes": 1058,
+      "sha256": "319d7617cd6972e66e616b52fb32b643f61be291b9f90b4712b6007ec236c73d"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/unit/data/common/CodeBlocks.md",
+      "local_path": "tests/fixtures/sources/marktext/013-CodeBlocks.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/unit/data/common/CodeBlocks.md",
+      "bytes": 660,
+      "sha256": "75783b19bae3cbbd70db9797c1bc613dddc22e67ac505308544bece290c158a1"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/unit/data/common/Escapes.md",
+      "local_path": "tests/fixtures/sources/marktext/014-Escapes.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/unit/data/common/Escapes.md",
+      "bytes": 270,
+      "sha256": "5c731de28cfeb05a8a2703aee375e0d769384302f2f4dd87b7b09ecc689e88c1"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/unit/data/common/Headings.md",
+      "local_path": "tests/fixtures/sources/marktext/015-Headings.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/unit/data/common/Headings.md",
+      "bytes": 480,
+      "sha256": "2896875533c4c7cf4ebbea37c13e0e684e8e7c9f6d2443ae078d43141def35f6"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/unit/data/common/Images.md",
+      "local_path": "tests/fixtures/sources/marktext/016-Images.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/unit/data/common/Images.md",
+      "bytes": 125,
+      "sha256": "76690542544a6dfe36a78af32dc964c6b67f5d32a55e8306821fba6c5a926b76"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/unit/data/common/Links.md",
+      "local_path": "tests/fixtures/sources/marktext/017-Links.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/unit/data/common/Links.md",
+      "bytes": 549,
+      "sha256": "e9219e390d589648282e74ef8eeaf60d2601b66319f7b1d6928005950a6d8841"
+    },
+    {
+      "slug": "marktext",
+      "source_path": "test/unit/data/common/Lists.md",
+      "local_path": "tests/fixtures/sources/marktext/018-Lists.md",
+      "url": "https://cdn.jsdelivr.net/gh/marktext/marktext@master/test/unit/data/common/Lists.md",
+      "bytes": 2016,
+      "sha256": "1db22986beca70bdd1cdeb24cbd2f7941efe44f9f3a12de6915c596170ebc576"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "README.md",
+      "local_path": "tests/fixtures/sources/multimarkdown/001-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/README.md",
+      "bytes": 13294,
+      "sha256": "929dcf024d0895e392bc2a6a121d9688d1e63e943dc4f71cb5be9f9c9ff92202"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/Abbreviations.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/002-Abbreviations.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/Abbreviations.text",
+      "bytes": 687,
+      "sha256": "5c2e10410f257291a22b3ee84129b03b57aaf2fa0e552be0c791acf8d135b213"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/AdvancedFencedCodeBlocks.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/003-AdvancedFencedCodeBlocks.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/AdvancedFencedCodeBlocks.text",
+      "bytes": 336,
+      "sha256": "84ceda9fca73472cfe86ce90431899371c4abb67e9d7632d9fc116a92ab81b3d"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/AutomaticLinks.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/004-AutomaticLinks.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/AutomaticLinks.text",
+      "bytes": 100,
+      "sha256": "2bc9b4941126d70b0d30bf010eac5fc6813bb683c42d0064c31f08b4dc267631"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/BasicLists.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/005-BasicLists.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/BasicLists.text",
+      "bytes": 382,
+      "sha256": "4f340afc90c34a7f374341bcd902a1e4aeb6fd0ed2922a9f190dbe684c72a0bd"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/Citations.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/006-Citations.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/Citations.text",
+      "bytes": 458,
+      "sha256": "24318bdc75b9691f76636a09804fe1ddc436b88c280116c01728fd7ba27b3ff1"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/Cross-References.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/007-Cross-References.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/Cross-References.text",
+      "bytes": 460,
+      "sha256": "cec505291a99338f0a6f1890db428b34f600dff5909ae39f1729d47238627d7a"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/EdgeCases.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/008-EdgeCases.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/EdgeCases.text",
+      "bytes": 1131,
+      "sha256": "bad51ec03df756ddd6fc36a14f88cb43d12d4dd566ecf313b79166de75d89fe5"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/EmphandStrongStar.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/009-EmphandStrongStar.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/EmphandStrongStar.text",
+      "bytes": 1242,
+      "sha256": "19ff7f7c9b92f133af225b977213fb70182626485f514d0e01b4b03af4e5c2b6"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/English.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/010-English.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/English.text",
+      "bytes": 135,
+      "sha256": "31bbe2b4c0ef8a8a8f8be1894b72835aee09576920bd6ef7c370fb60baff38a0"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/FigureImages.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/011-FigureImages.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/FigureImages.text",
+      "bytes": 347,
+      "sha256": "2c1c4b5c7d91efad00e14064efb080e496fbcd03c40d7125154a02431f6a7c67"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/German.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/012-German.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/German.text",
+      "bytes": 134,
+      "sha256": "14867ce5a888b98dec4bd775d98f99645904c45b5688a5c0bbc145b071aa6cce"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/HTMLBlocks.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/013-HTMLBlocks.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/HTMLBlocks.text",
+      "bytes": 675,
+      "sha256": "ce3806f07a9c51681afeba01a2f229df90d7b14696785849a8836b8c9e91b38a"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/Headers.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/014-Headers.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/Headers.text",
+      "bytes": 254,
+      "sha256": "112ce8ca415d792a7ebd081b03990ef143088432b23f3a752c00a37ee8cf6521"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/IndentedCodeBlocks.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/015-IndentedCodeBlocks.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/IndentedCodeBlocks.text",
+      "bytes": 225,
+      "sha256": "a5bc072297ecfbbdc036a653d8a12a6330317b46595f657b496e4f185a4ba222"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/InlineImages.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/016-InlineImages.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/InlineImages.text",
+      "bytes": 494,
+      "sha256": "b81f3bdf2d0e5cf481f8caf4ed9efbdf76e25eb085e6ee6052cb548a6e5d9e82"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/International.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/017-International.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/International.text",
+      "bytes": 56,
+      "sha256": "ed52c0c9c0b7517f51b8520d91d570a59a9d9b5d6cad3ebfa76c8b6b413ab5c3"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/LinkVariations.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/018-LinkVariations.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/LinkVariations.text",
+      "bytes": 397,
+      "sha256": "891083dc5073535797847703c58989fb573a7f5ab43ce59ab09a1f62e4cb53f7"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/MarkdownSyntax.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/019-MarkdownSyntax.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/MarkdownSyntax.text",
+      "bytes": 27766,
+      "sha256": "c49330de0ccc345f46e5e4f18580aca7b1e0a6a0b12a8ab1cf0a203ecdb8e203"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/MetadataYAML.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/020-MetadataYAML.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/MetadataYAML.text",
+      "bytes": 68,
+      "sha256": "9e8770383749c50525800867eff5d404cc86f3502fdc93add4fbcca428c35633"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/NestedLists.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/021-NestedLists.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/NestedLists.text",
+      "bytes": 278,
+      "sha256": "5993a7e3f2a5f482f66144fc1bc9648ecf178b6b71d2cd67742a2ba46909510c"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/ReferenceImages.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/022-ReferenceImages.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/ReferenceImages.text",
+      "bytes": 405,
+      "sha256": "56401029b286f426745ee819f5cd50ca511b0c09ad160e7db5d73fa03e97c435"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/SmartQuotes.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/023-SmartQuotes.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/SmartQuotes.text",
+      "bytes": 474,
+      "sha256": "0c08a3a9e5626c647668ef98ae2dc7d1ccb6b926411a2a7e1fb0fc1e8a691483"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/Superscript.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/024-Superscript.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/Superscript.text",
+      "bytes": 334,
+      "sha256": "7e17dc323dfcd556a12a3aa0393a22471159dc3e05233c4955007056bd60e3d1"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/MMD6Tests/Tables.text",
+      "local_path": "tests/fixtures/sources/multimarkdown/025-Tables.text",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/MMD6Tests/Tables.text",
+      "bytes": 937,
+      "sha256": "24cbdecd4ae3c81cf1fb7157c95bd77dd6dd3958a0b5636915e0a7751095b30c"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/Complex/image.md",
+      "local_path": "tests/fixtures/sources/multimarkdown/026-image.md",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/Complex/image.md",
+      "bytes": 104,
+      "sha256": "5ed6348eb2b5c1d376d8258209136246f1ae6dfee1f28990ccb474ada1fdc251"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/Complex/main.md",
+      "local_path": "tests/fixtures/sources/multimarkdown/027-main.md",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/Complex/main.md",
+      "bytes": 180,
+      "sha256": "76e5feca4f672d63c179e6330af59a83a4ec8513b0093b14f09177ffb60a1dc0"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/Complex/refs.md",
+      "local_path": "tests/fixtures/sources/multimarkdown/028-refs.md",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/Complex/refs.md",
+      "bytes": 121,
+      "sha256": "28e1d1d6c31c913b7a37f0d4634aa067abc1e0197b3b1bb55ee6946e804a8992"
+    },
+    {
+      "slug": "multimarkdown",
+      "source_path": "tests/Complex/temp/text.markdown",
+      "local_path": "tests/fixtures/sources/multimarkdown/029-text.markdown",
+      "url": "https://cdn.jsdelivr.net/gh/fletcher/MultiMarkdown-6@develop/tests/Complex/temp/text.markdown",
+      "bytes": 362,
+      "sha256": "7b37c016bd5731c1e1412cd6c95ff03e767bad56379c85d19ec4262c2efda6f8"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "README.md",
+      "local_path": "tests/fixtures/sources/obsidian/001-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/README.md",
+      "bytes": 5628,
+      "sha256": "b990cfffe426fa58e9b03602e65896fa506d42d6b7efb507b19fb863d628402b"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Home.md",
+      "local_path": "tests/fixtures/sources/obsidian/002-Home.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Home.md",
+      "bytes": 2055,
+      "sha256": "406152da3e87c25a3d6037a4d0cc6046ed63fed6488b08d5c72e2a0de70977dc"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Editing and formatting/Basic formatting syntax.md",
+      "local_path": "tests/fixtures/sources/obsidian/003-Basic_formatting_syntax.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Editing%20and%20formatting/Basic%20formatting%20syntax.md",
+      "bytes": 16149,
+      "sha256": "38db5d30f637adfcbe212fd8b5616412b93bd8c0387845e5ff5355f5195235bd"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Editing and formatting/Advanced formatting syntax.md",
+      "local_path": "tests/fixtures/sources/obsidian/004-Advanced_formatting_syntax.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Editing%20and%20formatting/Advanced%20formatting%20syntax.md",
+      "bytes": 5545,
+      "sha256": "15ed1c714c0e8a4dd48ac05ce53df787d1eda241c78d8b27a091f142cbe26307"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Editing and formatting/Callouts.md",
+      "local_path": "tests/fixtures/sources/obsidian/005-Callouts.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Editing%20and%20formatting/Callouts.md",
+      "bytes": 6176,
+      "sha256": "5d12e34b9fb68c6b7ad0ea39d80fb11267b0406cd204f61d4c00f2d5dea9bab6"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Editing and formatting/Obsidian Flavored Markdown.md",
+      "local_path": "tests/fixtures/sources/obsidian/006-Obsidian_Flavored_Markdown.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Editing%20and%20formatting/Obsidian%20Flavored%20Markdown.md",
+      "bytes": 2564,
+      "sha256": "da08d3873a6b5a2334d57c1c943a9a1ca6d74991573638b466d3f6ecf9c9cda4"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Editing and formatting/Properties.md",
+      "local_path": "tests/fixtures/sources/obsidian/007-Properties.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Editing%20and%20formatting/Properties.md",
+      "bytes": 10453,
+      "sha256": "75c85e422f5e2b17c9c8fe9125b6c9b4159fd6635cefbbef6b72c3272b623db6"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Editing and formatting/HTML content.md",
+      "local_path": "tests/fixtures/sources/obsidian/008-HTML_content.md",
+      "url": "https://raw.githubusercontent.com/obsidianmd/obsidian-help/master/en/Editing%20and%20formatting/HTML%20content.md",
+      "bytes": 3145,
+      "sha256": "e83bd7192d72c4ef9e2d60d7406879dcb49c60caa09e903639037b629652f95c"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Editing and formatting/Tags.md",
+      "local_path": "tests/fixtures/sources/obsidian/009-Tags.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Editing%20and%20formatting/Tags.md",
+      "bytes": 2209,
+      "sha256": "20214764032cb166d6e13cc39605b654d691f5a17ad70437d6df81e28fc149dc"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Editing and formatting/Attachments.md",
+      "local_path": "tests/fixtures/sources/obsidian/010-Attachments.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Editing%20and%20formatting/Attachments.md",
+      "bytes": 1774,
+      "sha256": "7e3ec7096b7f7a4c4c523cc93b1d8de1a98c15141e862a243098387b8f112493"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Linking notes and files/Internal links.md",
+      "local_path": "tests/fixtures/sources/obsidian/011-Internal_links.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Linking%20notes%20and%20files/Internal%20links.md",
+      "bytes": 9009,
+      "sha256": "0256da27a66e45d1d8daeaae3249c0bd502429965a46af951ef5c6cd1b3ff891"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Linking notes and files/Embed files.md",
+      "local_path": "tests/fixtures/sources/obsidian/012-Embed_files.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Linking%20notes%20and%20files/Embed%20files.md",
+      "bytes": 3125,
+      "sha256": "5757a6269949f507f3b5f1605ab9bfe81f247738d5b44c3bf096efc6215fbc54"
+    },
+    {
+      "slug": "obsidian",
+      "source_path": "en/Linking notes and files/Aliases.md",
+      "local_path": "tests/fixtures/sources/obsidian/013-Aliases.md",
+      "url": "https://cdn.jsdelivr.net/gh/obsidianmd/obsidian-help@master/en/Linking%20notes%20and%20files/Aliases.md",
+      "bytes": 1777,
+      "sha256": "c108b0e8d90888a49ea34092b2d2dc375fb027d2b7599268b20fe48283470909"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "benchmark/sample.md",
+      "local_path": "tests/fixtures/sources/pandoc/001-sample.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/benchmark/sample.md",
+      "bytes": 49271,
+      "sha256": "0da0b076be3925ac8ae18b01a5efa4eb4a926e5ec8cb9b49cf15e642f250f60e"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "README.md",
+      "local_path": "tests/fixtures/sources/pandoc/002-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/README.md",
+      "bytes": 13844,
+      "sha256": "62c323aa56d0c3ff499a8cb573d5f2d36500e9e55b840aa7b30c135120414226"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/10057.md",
+      "local_path": "tests/fixtures/sources/pandoc/003-10057.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/10057.md",
+      "bytes": 164,
+      "sha256": "9eb591407f970417f722687b98e0beb7226c446642e693532db22eb08f909323"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/10747.md",
+      "local_path": "tests/fixtures/sources/pandoc/004-10747.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/10747.md",
+      "bytes": 60,
+      "sha256": "0499b79f42b00adc93ae121f0b92dbe7e77c41f8e134a99612cf817a991df805"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/2434.md",
+      "local_path": "tests/fixtures/sources/pandoc/005-2434.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/2434.md",
+      "bytes": 1674,
+      "sha256": "7acd3a782b8a8d694afa4e52876deee47203dca78c8352bb2fded96e6ceb4041"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/3512.md",
+      "local_path": "tests/fixtures/sources/pandoc/006-3512.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/3512.md",
+      "bytes": 150,
+      "sha256": "920d7efe6fc2538e85ea43688382c40e47e13de0fb9e928a617764cc6103492e"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/3734.md",
+      "local_path": "tests/fixtures/sources/pandoc/007-3734.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/3734.md",
+      "bytes": 1615,
+      "sha256": "9f7180a367c9068fb7c79cacf0082eb53561cd268803096e26cedc25d83020cc"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/4063.md",
+      "local_path": "tests/fixtures/sources/pandoc/008-4063.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/4063.md",
+      "bytes": 869,
+      "sha256": "7441f0e53d8ca84d8c0b810c972c93ba15594003450dbd7b7d7e7fe99774ba0a"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/4465.md",
+      "local_path": "tests/fixtures/sources/pandoc/009-4465.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/4465.md",
+      "bytes": 420,
+      "sha256": "0824c0d10600a77d67d0ddb4d5954f012dd39d6e86609911db21c97646db638d"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/4805-beamer-columns-alignment.md",
+      "local_path": "tests/fixtures/sources/pandoc/010-4805-beamer-columns-alignment.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/4805-beamer-columns-alignment.md",
+      "bytes": 658,
+      "sha256": "c1ae216ab273d9b9856fe96980044a194ace0ba9c23f89204dbabb8e24b98506"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/5121.md",
+      "local_path": "tests/fixtures/sources/pandoc/011-5121.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/5121.md",
+      "bytes": 254,
+      "sha256": "a93f2db81814a38312eeff0686579add0bc41982f0177334cf3ea87d3c7e7e05"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/5549.md",
+      "local_path": "tests/fixtures/sources/pandoc/012-5549.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/5549.md",
+      "bytes": 97,
+      "sha256": "be341b140fb82ace2e48cd966740b07154d69c7a749f50096f45970be05b7b13"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/5878.md",
+      "local_path": "tests/fixtures/sources/pandoc/013-5878.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/5878.md",
+      "bytes": 188,
+      "sha256": "beb62db4967e46a25b2c67a97d6ef4634dbf60b054ab78d3d96c3d9169fe99a6"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/6385.md",
+      "local_path": "tests/fixtures/sources/pandoc/014-6385.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/6385.md",
+      "bytes": 216,
+      "sha256": "f6893bd5e00c69fde790cb9146275f7dec107a36d6124bc1d0fc296aa4d15431"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/6869.md",
+      "local_path": "tests/fixtures/sources/pandoc/015-6869.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/6869.md",
+      "bytes": 432,
+      "sha256": "a40fa1df3a73815dc795cb173ae2863ed96d3e23a40171a23ce4c0e5071c219d"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/7219.md",
+      "local_path": "tests/fixtures/sources/pandoc/016-7219.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/7219.md",
+      "bytes": 515,
+      "sha256": "1227b5856b5cae154d34ab55e9d7c0027d69ec48e0c7f8ecc33bab850f9d164b"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/7623.md",
+      "local_path": "tests/fixtures/sources/pandoc/017-7623.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/7623.md",
+      "bytes": 181,
+      "sha256": "29e599b613f8218776439651ecb69dadea8bb536eb1ae4a943a0a35eb53782a7"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/8011.md",
+      "local_path": "tests/fixtures/sources/pandoc/018-8011.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/8011.md",
+      "bytes": 204,
+      "sha256": "17a178710e6242308c6583bc686af2dfd6d80bef72118f93700ec5d5208866d5"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/8402.md",
+      "local_path": "tests/fixtures/sources/pandoc/019-8402.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/8402.md",
+      "bytes": 744,
+      "sha256": "1d8acf1674158cd6b108bcf47e09a06ae4317723ff5354db55d36c771f13a5a0"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/8966.md",
+      "local_path": "tests/fixtures/sources/pandoc/020-8966.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/8966.md",
+      "bytes": 509,
+      "sha256": "ad8ebf352df11b5cc5a537d80b1760ac8de3a5e158e1b4136a31f0db30d433e6"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/9386.md",
+      "local_path": "tests/fixtures/sources/pandoc/021-9386.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/9386.md",
+      "bytes": 488,
+      "sha256": "b799e046c916b4ada0cfd3370cc9cc13f33b41e3486961476bb371c1a67b90ee"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/9797.md",
+      "local_path": "tests/fixtures/sources/pandoc/022-9797.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/9797.md",
+      "bytes": 857,
+      "sha256": "5ef0f665c3f0f8eb0982c269d86cdaf9e8f0be4130bf767e2cb871a9102c6c40"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/biblatex-basic.md",
+      "local_path": "tests/fixtures/sources/pandoc/023-biblatex-basic.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/biblatex-basic.md",
+      "bytes": 1183,
+      "sha256": "58ea7192cb361f45d26e1fc92876126fd26cd30c59743aa378e563de1835d899"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/biblatex-inbook-title-booktitle-maintitle-series.md",
+      "local_path": "tests/fixtures/sources/pandoc/024-biblatex-inbook-title-booktitle-maintitle-series.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/biblatex-inbook-title-booktitle-maintitle-series.md",
+      "bytes": 946,
+      "sha256": "d8a5b6cdc865494eb1757a57bbe91e4091e07357b97ff978c16bd1a7d889ae7c"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/biblatex-nietzsche-historie.md",
+      "local_path": "tests/fixtures/sources/pandoc/025-biblatex-nietzsche-historie.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/biblatex-nietzsche-historie.md",
+      "bytes": 3555,
+      "sha256": "bc469bc41de0db86fc399429b8e9ebebfab81be0cb3edf4d8e6985b53f184d8f"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/biblatex-westfahl-frontier.md",
+      "local_path": "tests/fixtures/sources/pandoc/026-biblatex-westfahl-frontier.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/biblatex-westfahl-frontier.md",
+      "bytes": 1498,
+      "sha256": "199e590e2c033becb186dcd2f95d8cb518647ae812a9f73ecf0f2c9ab33ae93e"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/figures-context.md",
+      "local_path": "tests/fixtures/sources/pandoc/027-figures-context.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/figures-context.md",
+      "bytes": 1306,
+      "sha256": "35fc24d25b8790609924c9f113c13605006a259f208553f0df9e10029701b014"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/macro-defs-in-preamble.md",
+      "local_path": "tests/fixtures/sources/pandoc/028-macro-defs-in-preamble.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/macro-defs-in-preamble.md",
+      "bytes": 388,
+      "sha256": "22a5de264ea27808196a7489424ac3a2f6a0fe8cb20c9f5e341d7fa6bf5bd829"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/pandoc-citeproc-325.md",
+      "local_path": "tests/fixtures/sources/pandoc/029-pandoc-citeproc-325.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/pandoc-citeproc-325.md",
+      "bytes": 423,
+      "sha256": "f166fe4f5490df467163205ef0fdac8ba27eab2db5501bdc4792eec312698c59"
+    },
+    {
+      "slug": "pandoc",
+      "source_path": "test/command/pandoc-citeproc-chicago-fullnote-bibliography.md",
+      "local_path": "tests/fixtures/sources/pandoc/030-pandoc-citeproc-chicago-fullnote-bibliography.md",
+      "url": "https://cdn.jsdelivr.net/gh/jgm/pandoc@main/test/command/pandoc-citeproc-chicago-fullnote-bibliography.md",
+      "bytes": 3232,
+      "sha256": "4d0bdfaef0cf1e7297939fcebf1632bb87bc474a69e919fa9a167dd5d96810dd"
+    },
+    {
+      "slug": "quarto",
+      "source_path": "docs/authoring/markdown-basics.qmd",
+      "local_path": "tests/fixtures/sources/quarto/001-markdown-basics.qmd",
+      "url": "https://cdn.jsdelivr.net/gh/quarto-dev/quarto-web@main/docs/authoring/markdown-basics.qmd",
+      "bytes": 27494,
+      "sha256": "10639806054ccdc8afa27f0a452f0442c6a83785c66dd646cf059c3055948182"
+    },
+    {
+      "slug": "quarto",
+      "source_path": "docs/authoring/figures.qmd",
+      "local_path": "tests/fixtures/sources/quarto/002-figures.qmd",
+      "url": "https://cdn.jsdelivr.net/gh/quarto-dev/quarto-web@main/docs/authoring/figures.qmd",
+      "bytes": 24057,
+      "sha256": "497b04c7a38ec871932fca0c4c62b2fa551afd73405568ef45dfb40a14992be8"
+    },
+    {
+      "slug": "quarto",
+      "source_path": "docs/authoring/tables.qmd",
+      "local_path": "tests/fixtures/sources/quarto/003-tables.qmd",
+      "url": "https://raw.githubusercontent.com/quarto-dev/quarto-web/main/docs/authoring/tables.qmd",
+      "bytes": 25177,
+      "sha256": "a357e92cf7c6a4f818fb3d36edc36df43891f7b3cf3c688e46f8fde794dcfbad"
+    },
+    {
+      "slug": "quarto",
+      "source_path": "docs/authoring/callouts.qmd",
+      "local_path": "tests/fixtures/sources/quarto/004-callouts.qmd",
+      "url": "https://cdn.jsdelivr.net/gh/quarto-dev/quarto-web@main/docs/authoring/callouts.qmd",
+      "bytes": 5417,
+      "sha256": "0ae2c25082c7f218f664a39dc5cd64b11339e77e72b8790e65a94e5869b3c516"
+    },
+    {
+      "slug": "quarto",
+      "source_path": "docs/authoring/shortcodes.qmd",
+      "local_path": "tests/fixtures/sources/quarto/005-shortcodes.qmd",
+      "url": "https://cdn.jsdelivr.net/gh/quarto-dev/quarto-web@main/docs/authoring/shortcodes.qmd",
+      "bytes": 212,
+      "sha256": "27ab50d68610ae7bd31b7bf0c3962bfa15862ac60a8b2af819a6711ecc15c035"
+    },
+    {
+      "slug": "quarto",
+      "source_path": "docs/authoring/diagrams.qmd",
+      "local_path": "tests/fixtures/sources/quarto/006-diagrams.qmd",
+      "url": "https://cdn.jsdelivr.net/gh/quarto-dev/quarto-web@main/docs/authoring/diagrams.qmd",
+      "bytes": 10984,
+      "sha256": "31340c6743d06f66e4a456f3e6cd5bf29163c45d07abad30a455fcc2b4df1119"
+    },
+    {
+      "slug": "quarto",
+      "source_path": "docs/guide/index.qmd",
+      "local_path": "tests/fixtures/sources/quarto/007-index.qmd",
+      "url": "https://cdn.jsdelivr.net/gh/quarto-dev/quarto-web@main/docs/guide/index.qmd",
+      "bytes": 451,
+      "sha256": "35d561a249ca65166ea8cb29b369dff92c97ef906979f81bbad7ff0858fd1134"
+    },
+    {
+      "slug": "quarto",
+      "source_path": "docs/computations/r.qmd",
+      "local_path": "tests/fixtures/sources/quarto/008-r.qmd",
+      "url": "https://cdn.jsdelivr.net/gh/quarto-dev/quarto-web@main/docs/computations/r.qmd",
+      "bytes": 10817,
+      "sha256": "285b239b1c364db460123b6a232a0b8df1c4ae53240ce1475fe6fb957a1a66dc"
+    },
+    {
+      "slug": "stackedit",
+      "source_path": "README.md",
+      "local_path": "tests/fixtures/sources/stackedit/001-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/benweet/stackedit@master/README.md",
+      "bytes": 3083,
+      "sha256": "8ee0d9323304b8f51961c6a74fa7fed75cfa5a4b0f47d97ae942257aae8d20c7"
+    },
+    {
+      "slug": "stackedit",
+      "source_path": "src/data/markdownSample.md",
+      "local_path": "tests/fixtures/sources/stackedit/002-markdownSample.md",
+      "url": "https://cdn.jsdelivr.net/gh/benweet/stackedit@master/src/data/markdownSample.md",
+      "bytes": 1413,
+      "sha256": "6ae80b9e49ad31710fb74ca5ea0c7b46ac2184fa040f630856f2c8bf6d2588ca"
+    },
+    {
+      "slug": "stackedit",
+      "source_path": "src/data/welcomeFile.md",
+      "local_path": "tests/fixtures/sources/stackedit/003-welcomeFile.md",
+      "url": "https://cdn.jsdelivr.net/gh/benweet/stackedit@master/src/data/welcomeFile.md",
+      "bytes": 7173,
+      "sha256": "f3bbe27bf1b0e2de31263718efe9052791f6cea4a678927643607ebf3703efa0"
+    },
+    {
+      "slug": "typora",
+      "source_path": "README.md",
+      "local_path": "tests/fixtures/sources/typora/001-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/typora/typora-issues@master/README.md",
+      "bytes": 2674,
+      "sha256": "61718db68d29fbb242b1d2f78cdb89a13bccef7524c0f3bdf48db3fd4be7a07f"
+    },
+    {
+      "slug": "vscode",
+      "source_path": "extensions/markdown-language-features/README.md",
+      "local_path": "tests/fixtures/sources/vscode/001-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/microsoft/vscode@main/extensions/markdown-language-features/README.md",
+      "bytes": 475,
+      "sha256": "baa4f6ae4e4a16ddeb8c687a641fe934ea682e5c284a576dc9fa8177618d3d7c"
+    },
+    {
+      "slug": "vscode",
+      "source_path": ".github/instructions/writing-tests.instructions.md",
+      "local_path": "tests/fixtures/sources/vscode/002-writing-tests.instructions.md",
+      "url": "https://cdn.jsdelivr.net/gh/microsoft/vscode@main/.github/instructions/writing-tests.instructions.md",
+      "bytes": 2535,
+      "sha256": "439641e585befa26ec06e0be8ea2bf36f052f72893d40eee7c00043424e0ce84"
+    },
+    {
+      "slug": "vscode",
+      "source_path": "extensions/markdown-language-features/test-workspace/a.md",
+      "local_path": "tests/fixtures/sources/vscode/003-a.md",
+      "url": "https://cdn.jsdelivr.net/gh/microsoft/vscode@main/extensions/markdown-language-features/test-workspace/a.md",
+      "bytes": 161,
+      "sha256": "a8243a270cc931de2a7c1f128b21398b582efd93f9aa949f2cb6ecea0ed8a473"
+    },
+    {
+      "slug": "vscode",
+      "source_path": "extensions/markdown-language-features/test-workspace/checkbox-count-demo.md",
+      "local_path": "tests/fixtures/sources/vscode/004-checkbox-count-demo.md",
+      "url": "https://cdn.jsdelivr.net/gh/microsoft/vscode@main/extensions/markdown-language-features/test-workspace/checkbox-count-demo.md",
+      "bytes": 410,
+      "sha256": "90ba928920a3f0638fe30e4b7eb428386f524aa2b10015a31137330a883415a3"
+    },
+    {
+      "slug": "vscode",
+      "source_path": "extensions/markdown-language-features/test-workspace/checkbox-count-extension/README.md",
+      "local_path": "tests/fixtures/sources/vscode/005-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/microsoft/vscode@main/extensions/markdown-language-features/test-workspace/checkbox-count-extension/README.md",
+      "bytes": 987,
+      "sha256": "c25efea5bb09d214d107f55d7e2e9628fe475194c9ef328788a50b6cc50ce74d"
+    },
+    {
+      "slug": "vscode",
+      "source_path": "extensions/markdown-language-features/test-workspace/sub/c.md",
+      "local_path": "tests/fixtures/sources/vscode/006-c.md",
+      "url": "https://cdn.jsdelivr.net/gh/microsoft/vscode@main/extensions/markdown-language-features/test-workspace/sub/c.md",
+      "bytes": 57,
+      "sha256": "8edcd2b06f0742054d4d37ab213d6ea6767a835cb597d1951c1aab6112439cff"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "README.md",
+      "local_path": "tests/fixtures/sources/zettlr/001-README.md",
+      "url": "https://cdn.jsdelivr.net/gh/Zettlr/Zettlr@develop/README.md",
+      "bytes": 33215,
+      "sha256": "814dbabdab583a3ef104d2875553515b8461e068542a312f8b6a4bc0f02802e7"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "scripts/test-gui/test-files/GUI Tests/File System Abstraction Layer.md",
+      "local_path": "tests/fixtures/sources/zettlr/002-File_System_Abstraction_Layer.md",
+      "url": "https://cdn.jsdelivr.net/gh/Zettlr/Zettlr@develop/scripts/test-gui/test-files/GUI%20Tests/File%20System%20Abstraction%20Layer.md",
+      "bytes": 3897,
+      "sha256": "598b7eb96a6e0bc467ab9261da0d880a1c6e1e377bb4b51c922084572ed98c5b"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "scripts/test-gui/test-files/GUI Tests/non-ascii image.md",
+      "local_path": "tests/fixtures/sources/zettlr/003-non-ascii_image.md",
+      "url": "https://cdn.jsdelivr.net/gh/Zettlr/Zettlr@develop/scripts/test-gui/test-files/GUI%20Tests/non-ascii%20image.md",
+      "bytes": 651,
+      "sha256": "7adeb7b6295da8f156049c1a6622f84ae9ff16edc0af3e571124008b2da7c1a9"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "scripts/test-gui/test-files/Miscellaneous/Export Link Removal.md",
+      "local_path": "tests/fixtures/sources/zettlr/004-Export_Link_Removal.md",
+      "url": "https://raw.githubusercontent.com/Zettlr/Zettlr/develop/scripts/test-gui/test-files/Miscellaneous/Export%20Link%20Removal.md",
+      "bytes": 405,
+      "sha256": "a70215911d274ffe26b9ae004fed94cbd8a1dc3b43ae1dfe42495979b4b1754e"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "scripts/test-gui/test-files/Miscellaneous/Footnotes.md",
+      "local_path": "tests/fixtures/sources/zettlr/005-Footnotes.md",
+      "url": "https://cdn.jsdelivr.net/gh/Zettlr/Zettlr@develop/scripts/test-gui/test-files/Miscellaneous/Footnotes.md",
+      "bytes": 1478,
+      "sha256": "e757c00d8d65558026220d514e88d15337b102f33db1e7c1de198e9a08e80942"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "scripts/test-gui/test-files/Miscellaneous/Link Resolution.md",
+      "local_path": "tests/fixtures/sources/zettlr/006-Link_Resolution.md",
+      "url": "https://cdn.jsdelivr.net/gh/Zettlr/Zettlr@develop/scripts/test-gui/test-files/Miscellaneous/Link%20Resolution.md",
+      "bytes": 1156,
+      "sha256": "79cee5b03eb57ba2749da30d640bf99987998a57669dc4b4cc38ddb48d6fe0d0"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "scripts/test-gui/test-files/Miscellaneous/Pandoc Heading Numbering.md",
+      "local_path": "tests/fixtures/sources/zettlr/007-Pandoc_Heading_Numbering.md",
+      "url": "https://cdn.jsdelivr.net/gh/Zettlr/Zettlr@develop/scripts/test-gui/test-files/Miscellaneous/Pandoc%20Heading%20Numbering.md",
+      "bytes": 676,
+      "sha256": "3c7802d40481e7d18b942e6b90eafc609b56a41d1dea3360537aa8451572eb9a"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "scripts/test-gui/test-files/Miscellaneous/Sorting.md",
+      "local_path": "tests/fixtures/sources/zettlr/008-Sorting.md",
+      "url": "https://cdn.jsdelivr.net/gh/Zettlr/Zettlr@develop/scripts/test-gui/test-files/Miscellaneous/Sorting.md",
+      "bytes": 1027,
+      "sha256": "6f4114a69b022963d43f1c6856fe021209a3ae49a91620f9ca556bc2c828ab79"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "scripts/test-gui/test-files/Miscellaneous/YAML Frontmatter.md",
+      "local_path": "tests/fixtures/sources/zettlr/009-YAML_Frontmatter.md",
+      "url": "https://cdn.jsdelivr.net/gh/Zettlr/Zettlr@develop/scripts/test-gui/test-files/Miscellaneous/YAML%20Frontmatter.md",
+      "bytes": 454,
+      "sha256": "6275a25cfc15bd5e2a9fe1964e423458020eb7d8098d60c3695af8ff23df0f4d"
+    },
+    {
+      "slug": "zettlr",
+      "source_path": "scripts/test-gui/test-files/Miscellaneous/reveal.js Test.md",
+      "local_path": "tests/fixtures/sources/zettlr/010-reveal.js_Test.md",
+      "url": "https://cdn.jsdelivr.net/gh/Zettlr/Zettlr@develop/scripts/test-gui/test-files/Miscellaneous/reveal.js%20Test.md",
+      "bytes": 292,
+      "sha256": "c6bd08845a39b5d08fee6edc89cd34ad1674b10d41946a983a2f15cc9850d86b"
+    }
+  ]
+}

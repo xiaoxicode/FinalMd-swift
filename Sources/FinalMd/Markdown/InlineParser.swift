@@ -72,11 +72,15 @@ enum InlineParser {
                 // 图片 ![alt](src "title")
                 if c == "!", peek(1) == "[" {
                     flushPlain()
+                    let saved = pos
                     if let raw = readDelimited(open: "![", close: "]"),
                        let link = readLinkTarget(after: pos) {
                         out.append(imageAttachment(alt: raw, src: link.url, title: link.title))
                         continue
                     }
+                    // 不是完整图片语法（如 ![[]] 嵌入、裸 ![）：readDelimited 已经
+                    // 把 pos 推过右括号，必须回滚，否则方括号里的文字会被整段吞掉。
+                    pos = saved
                     plain.append(c)
                     pos += 1
                     continue
@@ -85,6 +89,7 @@ enum InlineParser {
                 // 链接 [text](url)
                 if c == "[" {
                     flushPlain()
+                    let saved = pos
                     if let raw = readDelimited(open: "[", close: "]"),
                        let link = readLinkTarget(after: pos) {
                         var inner = base
@@ -96,6 +101,9 @@ enum InlineParser {
                         out.append(content)
                         continue
                     }
+                    // 引用式链接 [1]、Obsidian 双链 [[...]]、任务框 [ ] 等
+                    // 都要按字面文本保留，不能因为后面没有 (url) 就吃掉内容。
+                    pos = saved
                     plain.append(c)
                     pos += 1
                     continue

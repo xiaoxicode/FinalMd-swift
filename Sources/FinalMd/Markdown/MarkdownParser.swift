@@ -170,15 +170,19 @@ enum MarkdownParser {
             markerLength = 2
         } else if let dot = rest.firstIndex(of: "."), rest.startIndex < dot {
             let numPart = String(rest[rest.startIndex..<dot])
+            // "1." 这种只有序号、没有后续空格的行：index(after:) 会等于 endIndex，
+            // 直接用 rest[endIndex] 取值会触发 String 索引越界崩溃。
+            let after = rest.index(after: dot)
             if !numPart.isEmpty, numPart.allSatisfy(\.isNumber),
-               dot < rest.endIndex, rest[rest.index(after: dot)] == " " {
+               after < rest.endIndex, rest[after] == " " {
                 ordered = true
                 markerLength = numPart.count + 2
             }
         } else if let paren = rest.firstIndex(of: ")"), rest.startIndex < paren {
             let numPart = String(rest[rest.startIndex..<paren])
+            let after = rest.index(after: paren)
             if !numPart.isEmpty, numPart.allSatisfy(\.isNumber),
-               paren < rest.endIndex, rest[rest.index(after: paren)] == " " {
+               after < rest.endIndex, rest[after] == " " {
                 ordered = true
                 markerLength = numPart.count + 2
             }

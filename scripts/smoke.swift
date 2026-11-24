@@ -827,6 +827,36 @@ func testEditorFocus() {
     check("异步移交入口不抛异常", true)
 }
 
+// MARK: - 外部语料回归（兼容性测试发现的真实缺陷）
+
+func testExternalCorpusRegressions() {
+    // 1) "1." / "2)" 这种只有序号、没有后续空格的行，
+    //    listItemInfo 曾用 rest[endIndex] 取值，触发 String 索引越界崩溃。
+    //    来源：cmark-gfm/bench/samples/block-list-flat.md
+    let edge = "1.\n\n2)\n\n1. ok\n"
+    let a = MarkdownParser.parse(edge)
+    check("空序号行解析不崩溃", a.length > 0)
+    check("空序号行按字面保留", a.string.contains("1."))
+    _ = MarkdownSerializer.markdown(from: a)
+
+    // 2) 链接目标解析失败时没有回滚 pos，方括号里的文字会被整段吞掉。
+    //    影响引用式链接 / Obsidian 双链 / 任务复选框 / 数组下标等常见写法。
+    let cases: [(String, String, String)] = [
+        ("引用式链接", "[1] [2] [3]\n\n[1]: https://example.com\n", "[1]"),
+        ("Obsidian 双链", "见 [[My Note]] 与 [[Other|别名]]\n", "[[My Note]]"),
+        ("任务列表复选框", "- [ ] 待办\n- [x] 完成\n", "[ ]"),
+        ("Obsidian 嵌入", "![[image.png]]\n", "![[image.png]]"),
+        ("裸方括号", "数组 [1, 2] 与 [text]\n", "[1, 2]"),
+    ]
+    for (name, md, token) in cases {
+        let parsed = MarkdownParser.parse(md)
+        check("\(name)：方括号内文字不被吞", parsed.string.contains(token))
+        let out1 = MarkdownSerializer.markdown(from: parsed)
+        let out2 = MarkdownSerializer.markdown(from: MarkdownParser.parse(out1))
+        check("\(name)：往返稳定", out1 == out2)
+    }
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -843,6 +873,7 @@ testWheelZoom()
 testLocalization()
 testEditorModes()
 testEditorFocus()
+testExternalCorpusRegressions()
 testCaretSizing()
 testCaretAlignment()
 testInlineSelection()
