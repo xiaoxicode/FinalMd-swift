@@ -1,13 +1,13 @@
 {
-  "note": "FinalMd 兼容性回归阈值。CI 上由 scripts/check-compat-thresholds.py 读取；指标提升后用 python3 scripts/check-compat-thresholds.py --update-baseline 更新本文件。语料数与规范用例数必须完全相等，其余指标不得低于阈值；required_features_100 列出的扩展语法必须逐字保留 100%，min_feature_rates 列出因容器块语义暂做不到 100% 的语法下限（按实测向下取整，避免浮点误判）。raw_exact_rate 已抬到 1.0：262 行透传块必须全部逐字保留，倒退一行即拦下。",
+  "note": "FinalMd 兼容性回归阈值。CI 上由 scripts/check-compat-thresholds.py 读取；指标提升后用 python3 scripts/check-compat-thresholds.py --update-baseline 更新本文件。语料数与规范用例数必须完全相等，其余指标不得低于阈值；required_features_100 列出的语法（含 CommonMark 缩进代码块）必须逐字保留 100%，min_feature_rates 保留给未来新增的低频语法下限（按实测向下取整，避免浮点误判）。raw_exact_rate 为 1.0：262 行透传块必须全部逐字保留，倒退一行即拦下。",
   "thresholds": {
     "files": 207,
     "spec_cases": 1327,
-    "avg_retention": 0.836,
+    "avg_retention": 0.907,
     "avg_structure": 0.947,
     "raw_exact_rate": 1.0,
-    "file_stable": 184,
-    "file_converged": 195,
+    "file_stable": 186,
+    "file_converged": 196,
     "case_stable": 1305,
     "case_converged": 1323
   },
@@ -16,9 +16,8 @@
     "wikilink",
     "embed",
     "callout",
-    "task"
+    "task",
+    "indented"
   ],
-  "min_feature_rates": {
-    "indented": 0.929
-  }
+  "min_feature_rates": {}
 }

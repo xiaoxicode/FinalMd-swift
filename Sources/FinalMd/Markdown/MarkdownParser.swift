@@ -137,29 +137,51 @@ enum MarkdownParser {
                 continue
             }
 
-            // 列表
+            // 列表（含 CommonMark 容器块：项内缩进代码块 / 引用 / 嵌套源码）。
+            // 缩进续行不能 trim 后拼进列表文本：storage 里一个段落就是一个列表项，
+            // 拼接会让它被序列化成多个 "- " 行，既丢内容又丢原始缩进。
+            // 正确做法是把原始行挂在所属列表项下面，按 raw 机制逐字写回。
             if listItemInfo(line) != nil {
-                var items: [(String, String, Int)] = []  // (marker, content, level)
+                var items: [ListEntry] = []
                 var counter = 0
+                var contentIndent = 2
                 while i < lines.count {
                     let l = lines[i]
                     if let info = listItemInfo(l) {
                         counter = info.ordered ? counter + 1 : 0
                         let n = info.ordered ? counter : 0
-                        items.append((info.ordered ? "\(n)." : "-", info.content, info.level))
+                        items.append(ListEntry(marker: info.ordered ? "\(n)." : "-",
+                                               content: info.content,
+                                               level: info.level,
+                                               indent: info.indent))
+                        contentIndent = info.contentIndent
                         i += 1
-                    } else if !l.trimmingCharacters(in: .whitespaces).isEmpty,
-                              l.hasPrefix(" ") || l.hasPrefix("\t"),
-                              !items.isEmpty {
-                        // 续行：接到上一个列表项后面
-                        let cont = l.trimmingCharacters(in: .whitespaces)
-                        items[items.count - 1].1 += "\n" + cont
-                        i += 1
-                    } else {
+                        continue
+                    }
+                    // 空行后紧跟「项内缩进代码块」时，空行属于同一个列表项：
+                    // 不能在这里 break，否则列表被拆成两段，有序编号会重新从 1 开始。
+                    if l.trimmingCharacters(in: .whitespaces).isEmpty {
+                        var k = i
+                        while k < lines.count,
+                              lines[k].trimmingCharacters(in: .whitespaces).isEmpty { k += 1 }
+                        if k < lines.count, !items.isEmpty,
+                           isListItemIndentedCode(lines[k], contentIndent: contentIndent) {
+                            let kind = listIndentedKind(lines[k], contentIndent: contentIndent)
+                            for _ in i..<k { items[items.count - 1].lines.append(("", kind)) }
+                            i = k
+                            continue
+                        }
                         break
                     }
+                    if (l.hasPrefix(" ") || l.hasPrefix("\t")), !items.isEmpty {
+                        items[items.count - 1].lines.append(
+                            (l, listIndentedKind(l, contentIndent: contentIndent)))
+                        i += 1
+                        continue
+                    }
+                    break
                 }
-                out.append(listBlock(items))
+                out.append(listBlock(items, rawID: &nextRawID))
                 continue
             }
 
@@ -608,7 +630,7 @@ enum MarkdownParser {
         }
         guard !content.isEmpty else { return NSAttributedString() }
         let style = DocTheme.paragraphStyle(for: .raw)
-        if kind == .indentedCode { style.textBlocks = [DocTheme.codeTextBlock] }
+        if kind == .indentedCode || kind == .listCode { style.textBlocks = [DocTheme.codeTextBlock] }
         let attrs: [NSAttributedString.Key: Any] = [
             .font: DocTheme.monospacedFont(size: DocTheme.codeFontSize),
             .paragraphStyle: style,
@@ -639,6 +661,20 @@ enum MarkdownParser {
         let ordered: Bool
         let level: Int
         let content: String
+        /// 列表标记前的原始前导空格数（写回时保住 4 空格缩进的嵌套列表项）
+        let indent: Int
+        /// 列表项内容起始列。缩进 >= contentIndent + 4 的行才是
+        /// CommonMark 意义上的「列表项内缩进代码块」。
+        let contentIndent: Int
+    }
+
+    /// 一个列表项：正文 + 属于它的缩进容器块原始行。
+    private struct ListEntry {
+        var marker: String
+        var content: String
+        var level: Int
+        var indent: Int
+        var lines: [(String, MDRawKind)] = []
     }
 
     private static func listItemInfo(_ line: String) -> ListInfo? {
@@ -679,7 +715,36 @@ enum MarkdownParser {
         } else {
             level = leading / 2
         }
-        return ListInfo(ordered: ordered, level: level, content: content)
+        return ListInfo(ordered: ordered, level: level, content: content,
+                        indent: leading, contentIndent: leading + markerLength)
+    }
+
+    /// 前导空白按 CommonMark 的列数展开：tab 补齐到下一个 4 列边界。
+    private static func expandedIndent(_ line: String) -> Int {
+        var col = 0
+        for ch in line {
+            if ch == " " { col += 1 }
+            else if ch == "\t" { col += 4 - (col % 4) }
+            else { break }
+        }
+        return col
+    }
+
+    /// 列表项内的缩进行分类：
+    /// - 缩进 >= 内容缩进 + 4，且不是引用 / 嵌套列表 / 围栏等容器块起始 → 缩进代码块
+    /// - 其余（引用续行、Logseq 属性行、嵌套源码）→ 普通缩进容器内容
+    /// 两者都按原始行逐字保留，区别只在结构识别与 HTML 导出。
+    private static func listIndentedKind(_ line: String, contentIndent: Int) -> MDRawKind {
+        let t = line.trimmingCharacters(in: .whitespaces)
+        let containerStart = t.hasPrefix(">") || t.hasPrefix("#") || t.hasPrefix("|")
+            || t.hasPrefix("```") || t.hasPrefix("~~~") || isHorizontalRule(t)
+            || listItemInfo(line) != nil
+        if expandedIndent(line) >= contentIndent + 4, !containerStart { return .listCode }
+        return .listIndented
+    }
+
+    private static func isListItemIndentedCode(_ line: String, contentIndent: Int) -> Bool {
+        listIndentedKind(line, contentIndent: contentIndent) == .listCode
     }
 
     // MARK: - 块构造
@@ -818,9 +883,10 @@ enum MarkdownParser {
         return out
     }
 
-    private static func listBlock(_ items: [(String, String, Int)]) -> NSAttributedString {
+    private static func listBlock(_ items: [ListEntry], rawID: inout Int) -> NSAttributedString {
         let out = NSMutableAttributedString()
-        for (marker, content, level) in items {
+        for item in items {
+            let (marker, content, level) = (item.marker, item.content, item.level)
             let ordered = marker != "-"
             let style = DocTheme.paragraphStyle(for: .paragraph)
             style.lineHeightMultiple = DocTheme.bodyLineHeight
@@ -837,15 +903,35 @@ enum MarkdownParser {
             let bullet = NSAttributedString(string: marker + " ", attributes: attrs)
             let attributed = InlineParser.parse(content, base: attrs)
 
-            let item = NSMutableAttributedString()
-            item.append(bullet)
-            item.append(attributed)
+            let entry = NSMutableAttributedString()
+            entry.append(bullet)
+            entry.append(attributed)
 
-            let range = NSRange(location: 0, length: item.length)
-            item.addAttribute(.mdListItem, value: MDListItem(ordered: ordered, level: level), range: range)
-            item.addAttribute(.mdBlockType, value: MDBlockType.paragraph.rawValue, range: range)
-            item.append(NSAttributedString(string: "\n", attributes: attrs))
-            out.append(item)
+            let range = NSRange(location: 0, length: entry.length)
+            entry.addAttribute(.mdListItem,
+                               value: MDListItem(ordered: ordered, level: level,
+                                                 indent: item.indent),
+                               range: range)
+            entry.addAttribute(.mdBlockType, value: MDBlockType.paragraph.rawValue, range: range)
+            entry.append(NSAttributedString(string: "\n", attributes: attrs))
+            out.append(entry)
+
+            // 缩进容器块：按 kind 分段，连续同类的原始行共用一个 rawID，
+            // 序列化时聚合成一块，逐行（含块内空行）原样写回。
+            var group: [String] = []
+            var groupKind: MDRawKind?
+            func flushGroup() {
+                defer { group = []; groupKind = nil }
+                guard let kind = groupKind, !group.isEmpty else { return }
+                out.append(rawBlock(group, kind: kind, id: rawID))
+                rawID += 1
+            }
+            for (line, kind) in item.lines {
+                if let current = groupKind, current != kind { flushGroup() }
+                groupKind = kind
+                group.append(line)
+            }
+            flushGroup()
         }
         return out
     }

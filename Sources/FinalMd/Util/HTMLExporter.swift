@@ -26,8 +26,9 @@ enum HTMLExporter {
                 body += "<pre><code\(cls)>\(escape(text))</code></pre>\n"
             case .rule:
                 body += "<hr />\n"
-            case .listItem(let ordered, let level, let content):
+            case .listItem(let ordered, let level, let content, let originalIndent):
                 _ = level
+                _ = originalIndent
                 body += "<li>\(InlineSerializer.html(content))</li>\n"
                 _ = ordered
             case .image(let att):
@@ -56,6 +57,24 @@ enum HTMLExporter {
                             return String(line.dropFirst(n))
                         }.joined(separator: "\n")
                     body += "<pre><code>\(escape(code))</code></pre>\n"
+                } else if kind == .listCode {
+                    // 列表项内的缩进代码块：语法缩进 = 列表内容缩进 + 4，
+                    // 逐行去掉「非空行的最小缩进」，相对缩进仍然保留。
+                    let rawLines = source.split(separator: "\n", omittingEmptySubsequences: false)
+                        .map(String.init)
+                    let minIndent = rawLines
+                        .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+                        .map { $0.prefix(while: { $0 == " " }).count }
+                        .min() ?? 0
+                    let code = rawLines.map { line -> String in
+                        let n = min(line.prefix(while: { $0 == " " }).count, minIndent)
+                        return String(line.dropFirst(n))
+                    }.joined(separator: "\n")
+                    body += "<pre><code>\(escape(code))</code></pre>\n"
+                } else if kind == .listIndented {
+                    // 列表项内的引用 / 属性 / 嵌套源码：即刻模式按源码形态显示，
+                    // HTML 也原样印出，避免把 "> " 引用误渲染成代码内容。
+                    body += "<pre>\(escape(source))</pre>\n"
                 }
             case .callout(let lines, let kind, let fold):
                 let lower = kind.lowercased()

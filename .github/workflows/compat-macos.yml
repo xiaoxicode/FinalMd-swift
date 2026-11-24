@@ -3,9 +3,11 @@ name: Markdown 兼容性回归
 # 与 build-macos.yml 并列的独立 job：每次 push / PR 都用仓库内已提交的
 # 207 份真实语料 + 1327 条官方规范用例跑解析器往返，并用阈值闸门拦回归。
 # 语料全部来自 git，CI 不需要联网下载，也不需要任何 secrets。
-# 冒烟测试同时覆盖外部文件体检、4 空格缩进代码块、Obsidian 双链 / 嵌入 /
-# Callout 折叠与行内强调、任务框点选等交互逻辑；
-# 阈值闸门见 scripts/check-compat-thresholds.py，逐字保留要求 262/262 = 100%。
+# 冒烟测试（601 项）同时覆盖外部文件体检、独立与列表项内缩进代码块、
+# Obsidian 双链 / 嵌入内联卡片 / Callout 折叠与行内强调、任务框点选等逻辑；
+# 阈值闸门见 scripts/check-compat-thresholds.py：required_features_100 要求
+# 双链 / 嵌入 / Callout / 任务框 / 缩进代码块五类特征 100%，
+# 逐字保留要求 262/262 = 100%，min_feature_rates 当前为空。
 on:
   push:
     branches: [main, master]
@@ -66,8 +68,9 @@ jobs:
         # 同时校验：MANIFEST 的 sha256 / 字节数；
         # BASELINE.json 的绝对阈值（含 avg_retention / avg_structure /
         # file_stable / case_converged 等）；
-        # 四类 Obsidian 扩展语法（双链 / 嵌入 / Callout / 任务框）100% 逐字保留；
-        # min_feature_rates 里低频语法（4 空格缩进代码块）的最低保留率；
+        # required_features_100 五类语法特征（双链 / 嵌入 / Callout /
+        # 任务框 / 缩进代码块）100% 逐字保留；
+        # min_feature_rates（当前为空，预留给未来低频语法）；
         # 以及相对上一版的逐文件保留率 / 稳定性倒退。
         run: python3 scripts/check-compat-thresholds.py
 

@@ -33,6 +33,8 @@ FILES=(
   "$SRC/Sources/FinalMd/Markdown/MarkdownSerializer.swift"
   "$SRC/Sources/FinalMd/Markdown/MarkdownCompatibility.swift"
   "$SRC/Sources/FinalMd/Markdown/ObsidianLinks.swift"
+  "$SRC/Sources/FinalMd/Markdown/EmbedInline.swift"
+  "$SRC/Sources/FinalMd/Markdown/TaskBoxToggle.swift"
   "$SRC/Sources/FinalMd/Markdown/EditorMode.swift"
   "$SRC/Sources/FinalMd/Model/ChartConfig.swift"
   "$SRC/Sources/FinalMd/Editor/InlineSelection.swift"
@@ -42,6 +44,7 @@ FILES=(
   "$SRC/Sources/FinalMd/Editor/SourceTextView.swift"
   "$SRC/Sources/FinalMd/Editor/EditorFocus.swift"
   "$SRC/Sources/FinalMd/Util/ImageEmbed.swift"
+  "$SRC/Sources/FinalMd/Util/HTMLExporter.swift"
   "$WORK/main.swift"
 )
 

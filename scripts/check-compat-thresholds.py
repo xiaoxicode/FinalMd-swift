@@ -65,13 +65,11 @@ if not M or not R or not B:
 if "--update-baseline" in sys.argv:
     s = R["summary"]
     B.setdefault("required_features_100",
-                 ["wikilink", "embed", "callout", "task"])
-    # 缩进代码块还受「列表项内嵌套」语义限制，无法要求 100%，
-    # 但不能比本次实测低（52/57 → 53/57）。
-    B.setdefault("min_feature_rates", {"indented": 0.0})
+                 ["wikilink", "embed", "callout", "task", "indented"])
+    # 预留给未来新增、暂时做不到 100% 的低频语法；当前全部特征已 100%。
+    B.setdefault("min_feature_rates", {})
     # 阈值必须向下取整：53/57 = 0.9298，手写成 0.93 会当场卡住自己
     def floor3(v):
-        return math.floor(v * 1000) / 1000
         return math.floor(v * 1000) / 1000
     B["thresholds"] = {
         "files": s["files"],
@@ -184,8 +182,8 @@ w("")
 
 w("## 2c. 低频语法的最低保留率")
 
-# 有些语法（如列表项内的 4 空格缩进代码）还受解析器层级限制，做不到 100%，
-# 但仍要守住本次达到的水平，防止被改回去。
+# 目前为空：列表项内的 CommonMark 容器块补齐后，所有特征都已达到 100%，
+# 全部移入 required_features_100 硬约束。保留本节以便未来新增低频语法时设下限。
 for key, minimum in B.get("min_feature_rates", {}).items():
     d, p = detected[key], preserved[key]
     rate = (p / d) if d else 0.0

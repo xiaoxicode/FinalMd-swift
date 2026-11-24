@@ -18,7 +18,7 @@ FILES = R["files"]
 CASES = R["spec_cases"]
 FEATURES = {f["key"]: f["label"] for f in R["features"]}
 
-# 五个阶段的实测基线，用于对比（数字来自各阶段提交的 RESULTS.json）
+# 六个阶段的实测基线，用于对比（数字来自各阶段提交的 RESULTS.json）
 BASELINE = dict(
     retention=0.690,
     obsidian=0.211,
@@ -39,7 +39,17 @@ STAGE4 = dict(
     case_stable=1301, case_converged=1323, structure=0.9034,
     raw_kept=227, raw_total=262, indented="52/57",
 )
-FIXED = dict(retention=S["avg_retention"], smoke=554)
+FIXED = dict(retention=S["avg_retention"], smoke=601)
+# 第五阶段（外部文件体检 / 缩进代码块 / Obsidian 交互，42e5b15）实测，
+# 取自该提交的 tests/fixtures/RESULTS.json。
+STAGE_E = dict(retention=0.837, smoke=521, file_stable=184, file_converged=195,
+               case_stable=1305, case_converged=1323, structure=0.9476,
+               raw_kept=260, raw_total=262, indented="53/57")
+# 第六阶段（逐字 262/262 / Callout 行内强调 / 任务框点选，639432e）实测，
+# 用于「改进 G」里给出本次两项带来的增量。
+STAGE5 = dict(retention=0.837, smoke=554, file_stable=184, file_converged=195,
+              case_stable=1305, case_converged=1323, structure=0.9476,
+              raw_kept=262, raw_total=262, indented="53/57")
 
 
 def feature_rate(key):
@@ -83,7 +93,7 @@ w(f"从 {len(M['sources'])} 个主流 Markdown 软件 / 解析器生态与 "
   "`MarkdownParser.parse` / `MarkdownSerializer.markdown` 逐份跑通。")
 w("")
 w("| 指标 | ① 首次运行 | ② 修复两个 P0 后 | ③ 原样透传块 + CI | ④ Obsidian 语法 | "
-  "⑤ 当前：体检 / 缩进 / 交互 / 收尾三项 |")
+  "⑤ 当前：容器块语义 / 内联嵌入 |")
 w("|---|---|---|---|---|---|")
 w(f"| 解析崩溃 | {BASELINE['crashes']} 处（索引越界） | **0** | **0** | **0** | **0** |")
 w(f"| 平均可读字符保留率 | {pct(BASELINE['retention'])} | {pct(STAGE2['retention'])} | "
@@ -148,12 +158,28 @@ w(f"文件往返：一次稳定 {ratio(S['file_stable'], S['files'])}，"
   f"{pct(STAGE4['structure'])} → **{pct(S['avg_structure'])}**，"
   f"平均保留率 {pct(STAGE4['retention'])} → **{pct(FIXED['retention'])}**。")
 w("")
-w("**结论**：五个阶段依次修复了 2 个会造成崩溃 / 数据丢失的缺陷、落地 P1 "
-  "「原样透传块」并把兼容性测试接入 CI、补齐 Obsidian 双链 / 嵌入 / Callout / "
-  "任务框的逐字序列化、完成 4 空格缩进代码块与外部文件自动兼容性体检、"
-  "以及双链跳转 / 嵌入预览 / Callout 折叠交互；最后一轮收尾再把最后 2 行"
-  "逐字保留补齐、让 Callout 内部行真解析行内强调、并支持任务框点击勾选。"
-  "语法特征矩阵 C 类（<60%）保持清零，透传块逐字保留达到 "
+w(f"**本次增量（上一轮收尾 → 当前）**：列表项内的 CommonMark 容器块与嵌入内联展示"
+  f"落地后，平均可读字符保留率 {pct(STAGE5['retention'])} → "
+  f"**{pct(FIXED['retention'])}**"
+  f"（+{(FIXED['retention'] - STAGE5['retention']) * 100:.1f}pp），缩进代码块特征 "
+  f"{STAGE5['indented']} → **{ratio(in_p, in_d)}（100%）**，文件一次稳定 "
+  f"{STAGE5['file_stable']} → **{S['file_stable']}**、收敛 "
+  f"{STAGE5['file_converged']} → **{S['file_converged']}**；规范用例稳定 / 收敛 "
+  f"{STAGE5['case_stable']}/{STAGE5['case_converged']} → "
+  f"**{S['case_stable']}/{S['case_converged']}** 持平，结构识别率 "
+  f"{pct(STAGE5['structure'])} → **{pct(S['avg_structure'])}** 持平，"
+  f"冒烟测试 {STAGE5['smoke']} → **{FIXED['smoke']} 项**。")
+w("")
+w("**结论**：从首次全量测试到现在，依次修复了 2 个会造成崩溃 / 数据丢失的缺陷、"
+  "落地 P1「原样透传块」并把兼容性测试接入 CI、补齐 Obsidian 双链 / 嵌入 / "
+  "Callout / 任务框的逐字序列化、完成 4 空格缩进代码块与外部文件自动兼容性体检、"
+  "双链跳转 / 嵌入预览 / Callout 折叠交互，再把最后 2 行逐字保留补齐、"
+  "让 Callout 内部行真解析行内强调、支持任务框点击勾选；本次最后补齐"
+  "**列表项内部的缩进代码块（CommonMark 容器块语义）**，并把 Obsidian 嵌入"
+  "从只读预览面板改成**文档流里的内联卡片**。"
+  "语法特征矩阵 C 类（<60%）保持清零，缩进代码块补齐最后 4 份样本后达到 "
+  f"**{ratio(in_p, in_d)}（100%）**，与双链 / 嵌入 / Callout / 任务框一起"
+  "列为 CI 的 `required_features_100` 硬约束；透传块逐字保留 "
   f"**{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} "
   f"({pct(S['raw_exact_rate'])})**。剩余边界见第 7 节。")
 w("")
@@ -198,10 +224,11 @@ w(f"4. **语法特征扫描**：对原文与首轮序列化输出各跑 {len(FEA
 w("5. **逐字保留比对**：正则只判断「长得像」，会把 `\\[1\\]:` 也误算成保留。"
   "因此额外抽取原文里 frontmatter 整块、HTML 块起始行、链接定义行，"
   "逐行检查其原始字节是否出现在序列化输出中，作为 CI 的硬阈值。")
-w("6. **扩展语法硬约束**：Obsidian 双链 / 嵌入 / Callout / 任务框按语法特征分别计数，"
-  "要求命中样本 100% 在输出里保留等价写法；这些语法字符占比很小，"
-  "单看整体保留率发现不了倒退。缩进代码块因列表嵌套语义做不到 100%，"
-  "改设实测最低保留率下限。")
+w("6. **扩展语法硬约束**：Obsidian 双链 / 嵌入 / Callout / 任务框与 CommonMark "
+  "缩进代码块按语法特征分别计数，要求命中样本 100% 在输出里保留等价写法；"
+  "这些语法字符占比很小，单看整体保留率发现不了倒退。五类都进了 "
+  "`BASELINE.json` 的 `required_features_100`；`min_feature_rates` 当前为空，"
+  "预留给未来新增的低频语法。")
 w("7. **外部文件体检**：`MarkdownCompatibility.assess` 用同一套解析器跑一轮往返，"
   "按「改写行数 + 可读字符保留率 + 扩展语法命中数」判断打开时是否提示改用传统模式。"
   "在 207 份真实语料上采样：118 份会触发提示、FinalMd 自建文档 0 份触发。")
@@ -215,7 +242,8 @@ w("| 收敛 | 允许第一轮做规范化（空行、列表符号），第二轮
 w("| 可读字符保留率 | 原文中的字母 / 数字 / CJK 字符按顺序出现在输出中的比例（启发式，"
   "用于发现内容被吞掉，不比较排版标记） |")
 w("| 结构识别率 | 规范用例预期 HTML 的块类型，有多少出现在解析结果的 `.mdBlockType` 中。"
-  "缩进代码块用 `raw` 块承载以逐字保住前导空格，指标上按 `code` 计入 |")
+  "独立缩进代码块与列表项内缩进代码块都用 `raw` 块承载以逐字保住前导空格，"
+  "指标上按 `code` 计入 |")
 w("| 透传块逐字保留 | frontmatter 整块 + HTML 块起始行 + 链接定义行，按原始字节原样出现在输出中的比例 |")
 w("")
 
@@ -423,11 +451,11 @@ w("三项的回归断言都进了冒烟测试：体检阈值与七语言文案�
 w("")
 w(f"效果：逐字保留 {ratio(STAGE4['raw_kept'], STAGE4['raw_total'])} "
   f"({pct(STAGE4['raw_kept']/STAGE4['raw_total'])}) → "
-  f"**{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} "
-  f"({pct(S['raw_exact_rate'])})**，平均保留率 "
-  f"{pct(STAGE4['retention'])} → **{pct(FIXED['retention'])}**，"
-  f"规范用例结构识别率 {pct(STAGE4['structure'])} → **{pct(S['avg_structure'])}**，"
-  f"冒烟测试 {STAGE4['smoke']} → **{FIXED['smoke']} 项**。"
+  f"**{ratio(STAGE_E['raw_kept'], STAGE_E['raw_total'])} "
+  f"({pct(STAGE_E['raw_kept']/STAGE_E['raw_total'])})**，平均保留率 "
+  f"{pct(STAGE4['retention'])} → **{pct(STAGE_E['retention'])}**，"
+  f"规范用例结构识别率 {pct(STAGE4['structure'])} → **{pct(STAGE_E['structure'])}**，"
+  f"冒烟测试 {STAGE4['smoke']} → **{STAGE_E['smoke']} 项**。"
   "CI 闸门同步抬高：新增 `avg_structure` 绝对阈值、缩进代码块最低保留率下限。")
 w("")
 
@@ -456,15 +484,68 @@ w("| 任务框点击勾选 | 单击 `[ ]` / `[x]` / `[X]` 走一次可撤销的 
   "序列化器本就以当前显示文字为准输出复选框，不需要缓存状态；"
   "⌘+点击仍保留双链 / 嵌入 / Callout 折叠，双击图片仍进图表编辑 |")
 w("")
-w(f"效果：透传块逐字保留 {ratio(STAGE4['raw_kept'], STAGE4['raw_total'])} → "
-  f"**{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} "
-  f"({pct(S['raw_exact_rate'])})**，Callout 12/12 与任务框 9/9 仍 100%；"
-  f"文件一次稳定 {S['file_stable']}/{S['files']}、收敛 {S['file_converged']}/{S['files']}，"
-  f"规范用例一次稳定 {S['case_stable']}/{S['spec_cases']}、"
-  f"收敛 {S['case_converged']}/{S['spec_cases']}，"
-  f"平均保留率 {pct(FIXED['retention'])}、结构识别率 {pct(S['avg_structure'])} 全部持平；"
-  f"冒烟测试 {STAGE4['smoke']} → **{FIXED['smoke']} 项**。"
+w(f"效果：透传块逐字保留 {ratio(STAGE_E['raw_kept'], STAGE_E['raw_total'])} → "
+  f"**{ratio(STAGE5['raw_kept'], STAGE5['raw_total'])} "
+  f"({pct(STAGE5['raw_kept']/STAGE5['raw_total'])})**，"
+  "Callout 12/12 与任务框 9/9 仍 100%；"
+  f"文件一次稳定 {STAGE5['file_stable']}/{S['files']}、"
+  f"收敛 {STAGE5['file_converged']}/{S['files']}，"
+  f"规范用例一次稳定 {STAGE5['case_stable']}/{S['spec_cases']}、"
+  f"收敛 {STAGE5['case_converged']}/{S['spec_cases']}，"
+  f"平均保留率 {pct(STAGE_E['retention'])}、"
+  f"结构识别率 {pct(STAGE_E['structure'])} 全部持平；"
+  f"冒烟测试 {STAGE_E['smoke']} → **{STAGE5['smoke']} 项**。"
   "CI 闸门把 `raw_exact_rate` 从 0.992 抬到 1.0，倒退一行即拦下。")
+w("")
+
+w("### 改进 G：列表容器块语义与嵌入内联展示（本次落地）")
+w("")
+w("上一轮收尾结束后，第 7 节还剩两处边界：列表项内部的缩进代码块被当成列表续行，"
+  "以及 `![[嵌入]]` 只能在只读预览面板里查看。本次一次做完，"
+  "仍然是 **零保留率倒退、零稳定性倒退**。")
+w("")
+w("| 需求 | 做法 | 关键取舍 |")
+w("|---|---|---|")
+w("| 列表项内部的缩进代码块 | `MarkdownParser` 的 `ListInfo` 记录 `contentIndent`，"
+  "列表项下的缩进行按原始行挂到 `ListEntry.lines`，由 `expandedIndent` / "
+  "`listIndentedKind` / `isListItemIndentedCode` 分类：相对 `contentIndent` "
+  "再缩进 4 空格 / tab 才是 `MDRawKind.listCode`（HTML 导出为 `<pre><code>`），"
+  "其余是 `listIndented` 逐字透传 | **严格按 CommonMark 容器块规则**："
+  "不是「见到缩进就当代码」，更不是把缩进行 trim 后拼进列表文字；"
+  "前导空格是语义的一部分，序列化时 `.listItem` 用原始 `indent` 复写，"
+  "不能按列表层级补 2 空格 |")
+w("| 属性 run 合并陷阱 | `MDListItem.isEqual` / `hash` 必须包含新增的 `indent`，"
+  "否则 AppKit 会把缩进不同的相邻属性 run 合并，全量测试里表现为 zettlr 某文件"
+  "的缩进特征忽高忽低 | 任何影响序列化的 `NSObject` 属性字段都要参与相等性判断；"
+  "这是 `NSAttributedString` 的隐式合并行为，冒烟测试单独设了断言 |")
+w("| 列表与普通块的分隔 | `MarkdownSerializer` 的 `attached` 规则收紧为"
+  "「列表项 ↔ 附属容器行」之间才用单换行紧连，普通块仍插空行 | "
+  "放宽到「任意列表续行」会让 3 份文件从一次稳定退化（logseq / "
+  "multimarkdown / quarto），回归闸门当场拦下 |")
+w("| 嵌入内容内联展示 | 新增 `EmbedInline.swift`：用单个 `U+FFFC` 附件字符承载 "
+  "`MDEmbedAttachment`，`MDEmbedAttachmentCell` 自绘明暗自适应的标题 / 正文 / "
+  "图片卡片；`AppModel.loadRich` 展开，`textDidChange` 后由 "
+  "`scheduleInlineEmbedRefresh()` 在下一 runloop 增量展开用户新敲的 `![[…]]` | "
+  "卡片只占一个字符、目标内容**不写进当前 Markdown**；刷新时关闭 undo 注册，"
+  "避免在 AppKit 布局周期里同步改 `NSTextStorage`；"
+  "⌘+点击仍可打开完整只读预览面板 |")
+w("| 序列化与兼容性隔离 | `InlineSerializer.markdown` / `html` 遇到 "
+  "`MDEmbedAttachment` 直接按 `link.raw` 逐字还原 `![[…]]`；"
+  "目标文件不存在时不生成卡片，不吞掉用户输入 | "
+  "`run-compat.sh` 走的是纯 `parse → serialize`，不调用 `EmbedInline.expand`，"
+  "因此内联卡片是 app 层展示增强，不会把语料指标「刷」上去或引入新的往返差异 |")
+w("")
+w(f"效果：缩进代码块特征 {STAGE5['indented']} → **{ratio(in_p, in_d)}（100%）**，"
+  f"平均可读字符保留率 {pct(STAGE5['retention'])} → **{pct(FIXED['retention'])}**"
+  f"（+{(FIXED['retention'] - STAGE5['retention']) * 100:.1f}pp），"
+  f"文件一次稳定 {STAGE5['file_stable']} → **{S['file_stable']}**、"
+  f"收敛 {STAGE5['file_converged']} → **{S['file_converged']}**；"
+  f"规范用例稳定 / 收敛 {S['case_stable']}/{S['case_converged']}、"
+  f"结构识别率 {pct(S['avg_structure'])} 全部持平，透传块仍 "
+  f"{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} 逐字保留；"
+  f"冒烟测试 {STAGE5['smoke']} → **{FIXED['smoke']} 项**。"
+  "CI 闸门把 `indented` 升为 `required_features_100` 的第五类，"
+  "`min_feature_rates` 随之清空。")
 w("")
 
 # ---------------------------------------------------------------------------
@@ -492,20 +573,23 @@ w("2. **打开外部文件会自动体检**：`MarkdownCompatibility.assess` 跑
   "在 207 份语料里 118 份会触发，FinalMd 自建文档 0 份触发。"
   "策略可在「视图 → 打开外部 Markdown 时」改成「每次询问 / 默认传统模式 / 保持当前模式」。")
 w("3. **即刻模式仍会规范化**，但范围已进一步收窄：列表符号、段落空行、标题写法会被统一；"
-  "YAML/TOML frontmatter、原始 HTML 块、引用式链接 / 脚注 / 引文定义、4 空格缩进代码块、"
-  "Obsidian 双链 / 嵌入 / Callout / 任务框均逐字往返。"
-  "透传块在编辑器里以等宽源码形态显示，不渲染成对应视觉效果；"
-  "Callout 是例外——内部行的 `**粗**` / `*斜*` / 行内代码 / 链接已真解析成富文本，"
-  "但保存时仍逐字写回原行。")
+  "YAML/TOML frontmatter、原始 HTML 块、引用式链接 / 脚注 / 引文定义、"
+  "独立与列表项内的 4 空格缩进代码块、Obsidian 双链 / 嵌入 / Callout / 任务框"
+  "均逐字往返。透传块在编辑器里以等宽源码形态显示（缩进代码块带底纹），"
+  "不渲染成对应视觉效果；Callout 是例外——内部行的 `**粗**` / `*斜*` / "
+  "行内代码 / 链接已真解析成富文本，但保存时仍逐字写回原行。")
 w("4. **未编辑就切换模式不损坏文件**：`AppModel.authority` 机制保证"
   "刚打开、两侧都未编辑时切换模式不会重新序列化，保留原文件字节。"
   "改写风险出现在「即刻侧被编辑过再保存 / 切到传统侧」时。")
-w(f"5. **缩进代码块的容器块语义**：独立成块的 4 空格 / tab 代码已逐字支持；"
-  f"但列表项内部的缩进代码（CommonMark 的容器块规则）仍按列表续行处理，"
-  f"正则口径 {ratio(in_p, in_d)}，剩余 {in_d - in_p} 份样本未命中。"
+w(f"5. **列表容器块已补齐**：独立成块与列表项内部的缩进代码都按 CommonMark "
+  f"容器块规则逐字支持（相对列表内容缩进再 4 空格 / tab 才算代码），"
+  f"正则口径 {ratio(in_p, in_d)} = 100%，已升为 CI 硬约束。"
+  "更极端的多层嵌套列表与围栏代码块交错仍可能不规范收敛（见上文不收敛清单），"
   "这类文件建议用传统模式。")
 w("6. **交互边界**：⌘+点击双链会打开同库笔记（有未保存改动时先询问）；"
-  "嵌入在只读面板预览，不会把目标内容写进当前文件、也不会内联展开；"
+  "⌘+点击 `![[…]]` 会在文档流里展开为内联卡片（可读标题 / 正文 / 缩略图），"
+  "也可打开完整只读预览面板；卡片是只读展示，目标内容不会写进当前文件，"
+  "保存时仍逐字输出 `![[…]]` 源码；目标文件不存在则保留原语法不展开。"
   "折叠只加 `NSLayoutManager` 临时属性、不写 `NSTextStorage`，"
   "重新打开后按 `+` / `-` 默认状态重置。"
   "Callout 内部行已解析行内强调，任务框可单击勾选（可撤销）；"
@@ -539,25 +623,27 @@ w("| P1 | 打开外部 `.md` 时自动体检，提示「建议用传统模式编
   "✅ 第五阶段完成 | 118/207 份外部语料会自动提示；自建文档不打扰 |")
 w("| P2 | 支持缩进代码块（4 空格 / tab） | ✅ 第五阶段完成 | "
   f"逐字保留 {ratio(STAGE4['raw_kept'], STAGE4['raw_total'])} → "
-  f"{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])}，"
-  f"结构识别率 {pct(STAGE4['structure'])} → {pct(S['avg_structure'])} |")
+  f"{ratio(STAGE_E['raw_kept'], STAGE_E['raw_total'])}，"
+  f"结构识别率 {pct(STAGE4['structure'])} → {pct(STAGE_E['structure'])} |")
 w("| P3 | Obsidian 双链跳转、Callout 折叠交互、嵌入内容展开 | ✅ 第五阶段完成 | "
   "从「保真」走向「完整可用」，且折叠不触碰 storage |")
-w("| P1 | 补齐最后 2 行逐字保留，把 `raw_exact_rate` 抬到 100% | ✅ 本次完成 | "
-  f"透传块 {ratio(S['raw_blocks_kept'], S['raw_blocks_total'])}，"
+w("| P1 | 补齐最后 2 行逐字保留，把 `raw_exact_rate` 抬到 100% | ✅ 上一轮完成 | "
+  f"透传块 {ratio(STAGE5['raw_kept'], STAGE5['raw_total'])}，"
   "CI 倒退一行即拦下 |")
-w("| P2 | Callout 内部行解析行内强调（含 HTML 导出） | ✅ 本次完成 | "
+w("| P2 | Callout 内部行解析行内强调（含 HTML 导出） | ✅ 上一轮完成 | "
   "即刻模式能显示粗体 / 斜体 / 行内代码 / 链接，且 12/12 逐字往返不回归 |")
-w("| P3 | 任务框点击勾选 | ✅ 本次完成 | 单击 `[ ]` / `[x]` 可撤销切换，"
+w("| P3 | 任务框点击勾选 | ✅ 上一轮完成 | 单击 `[ ]` / `[x]` 可撤销切换，"
   "序列化以当前文字为准 |")
-w("| P2 | 列表项内部的缩进代码块（CommonMark 容器块语义） | ⬜ 待做 | "
-  f"补齐缩进特征剩余的 {in_d - in_p} 份样本 |")
-w("| P3 | 嵌入内容内联展示（当前为只读预览面板） | ⬜ 待做 | "
-  "从「可查看」走向「可编辑」 |")
+w("| P2 | 列表项内部的缩进代码块（CommonMark 容器块语义） | ✅ 本次完成 | "
+  f"缩进特征 {STAGE5['indented']} → {ratio(in_p, in_d)}（100%），"
+  f"平均保留率 +{(FIXED['retention'] - STAGE5['retention']) * 100:.1f}pp |")
+w("| P3 | 嵌入内容内联展示（原为只读预览面板） | ✅ 本次完成 | "
+  "`![[…]]` 在文档流里渲染成只读内联卡片，源码仍逐字保存；"
+  "⌘+点击可看完整预览 |")
 w("")
-w("此前历轮列出的待办（外部文件提示 / 缩进代码块 / Obsidian 交互 / 最后 2 行 / "
-  "Callout 行内强调 / 任务框点选）已全部完成，剩余两项属于更细的容器块语义与"
-  "嵌入编辑体验，非兼容性阻塞项。")
+w("报告里列出的待办已全部完成。第 7 节剩余的是更细的边界"
+  "（不收敛的复杂嵌套文档、内联卡片仍是只读展示、Callout 只改格式时按原行写回），"
+  "均非兼容性阻塞项。")
 w("")
 
 # ---------------------------------------------------------------------------
@@ -570,13 +656,15 @@ w("# 1) 下载 / 更新语料（已有文件会复用，不重复请求网络）
 w("python3 scripts/fetch-fixtures.py")
 w("")
 w("# 2) 冒烟测试（含透传块 / Obsidian 语法 / 外部文件体检 / 缩进代码块 / "
-  "交互 / 最后 2 行逐字保留 / Callout 行内强调 / 任务框点选的回归断言）")
+  "交互 / 最后 2 行逐字保留 / Callout 行内强调 / 任务框点选 / "
+  "列表容器块 / 嵌入内联展示的回归断言）")
 w("./scripts/run-smoke.sh")
 w("")
 w("# 3) 编译并运行全部语料的兼容性测试")
 w("./scripts/run-compat.sh")
 w("")
-w("# 4) 校验语料完整性 + 绝对阈值 + 扩展语法硬约束 + 逐文件回归（CI 上跑的就是这条）")
+w("# 4) 校验语料完整性 + 绝对阈值 + 五类语法特征 100% 硬约束 + 逐文件回归"
+  "（CI 上跑的就是这条）")
 w("python3 scripts/check-compat-thresholds.py")
 w("")
 w("# 5) 由结构化结果重新生成这份报告与语料说明")
@@ -587,7 +675,8 @@ w("CI：`.github/workflows/compat-macos.yml` 在 push / PR / 手动触发时跑 
   "`run-smoke.sh` → `run-compat.sh` → `check-compat-thresholds.py` → "
   "`gen-compat-report.py`，并把 `RESULTS.json` 与 `COMPATIBILITY.md` 上传为构建产物。"
   "阈值基线写在 `tests/fixtures/BASELINE.json`（含 `avg_structure`、"
-  "`min_feature_rates` 与 `raw_exact_rate = 1.0`），提升后用 "
+  "`required_features_100` 五类特征与 `raw_exact_rate = 1.0`；"
+  "`min_feature_rates` 当前为空，预留给未来低频语法），提升后用 "
   "`--update-baseline` 显式更新。")
 w("")
 w("本次实测：")
@@ -602,9 +691,12 @@ w(f"| 透传块逐字保留 | {ratio(S['raw_blocks_kept'], S['raw_blocks_total']
   f"({pct(S['raw_exact_rate'])}) |")
 w(f"| Obsidian 双链 / 嵌入 / Callout / 任务框 | "
   f"{ratio(wl_p, wl_d)} / {ratio(em_p, em_d)} / {ratio(co_p, co_d)} / {ratio(tk_p, tk_d)}，全部 100% |")
-w(f"| 缩进代码块（正则口径） | {ratio(in_p, in_d)}（达到闸门下限 92.9%） |")
+w(f"| 缩进代码块（正则口径） | {ratio(in_p, in_d)}（100%，已升为 "
+  "`required_features_100` 硬约束） |")
+w("| 列表容器块 / 嵌入内联卡片 | 冒烟回归断言覆盖逐字往返、HTML 导出与增量展开；"
+  "全量语料 0 份保留率倒退、0 份稳定性倒退 |")
 w("| `check-compat-thresholds.py` | 语料 sha256、绝对阈值、逐文件回归、"
-  "四类扩展语法 100% 硬约束、缩进代码块最低保留率全部通过 |")
+  "五类语法特征 100% 硬约束、透传块逐字保留全部通过 |")
 w("| `swift build` / `swift build -c release` | 零警告 |")
 w("| `scripts/make_app.sh` | 重新打包 `build/FinalMd.app` |")
 w("")
@@ -639,7 +731,7 @@ readme = [
     "| `MANIFEST.json` | 每个文件的来源路径、URL、字节数、sha256 与许可证 |",
     "| `PATHS.json` | 固化的下载路径清单（让脚本不依赖 GitHub API，可复现） |",
     "| `RESULTS.json` | `run-compat.sh` 生成的结构化测试结果 |",
-    "| `BASELINE.json` | CI 回归阈值（保留率 / 结构识别率 / 稳定率、四类 Obsidian 扩展语法 100% 硬约束、缩进代码块最低保留率、透传块逐字保留 262/262 = 100%）；指标提升后用 `check-compat-thresholds.py --update-baseline` 更新 |",
+    "| `BASELINE.json` | CI 回归阈值（保留率 / 结构识别率 / 稳定率、`required_features_100` 五类语法特征 100% 硬约束、`raw_exact_rate = 1.0` 即透传块逐字保留 262/262；`min_feature_rates` 当前为空，预留给未来低频语法）；指标提升后用 `check-compat-thresholds.py --update-baseline` 更新 |",
     "| `sources/<slug>/` | 按来源分组的原始 `.md` 文件 |",
     "| `specs/` | CommonMark / GFM 规范原文与解析后的结构化用例 |",
     "",

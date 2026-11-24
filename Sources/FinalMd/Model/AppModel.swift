@@ -373,13 +373,49 @@ final class AppModel: ObservableObject {
     }
 
     private func loadRich(_ attr: NSAttributedString, into view: MDEditorTextView) {
-        EditorModeBridge.install(attr, in: view, plain: false)
+        // 即刻模式把能解析到目标文件的 ![[...]] 展开成内联卡片。
+        // 卡片是单个附件字符，序列化时按原语法逐字还原，Markdown 源码、
+        // 传统模式的字节内容以及 parse → serialize 兼容性往返都不受影响。
+        let expanded = EmbedInline.expand(attr, documentPath: currentPath, vaultRoot: vaultRoot)
+        EditorModeBridge.install(expanded, in: view, plain: false)
         // 换了文档，旧 Callout 的折叠状态不再对应任何块
         view.expandAllCallouts()
         view.refreshTypingAttributes()
         view.showsLineRuling = showLineRuling
         view.needsDisplay = true
         richContentLoaded = true
+    }
+
+    // MARK: - 内联嵌入
+
+    /// 用户新敲进去的 `![[...]]` 也要内联展示。延后到下一个 runloop，
+    /// 避免在 AppKit 的 textDidChange / 布局周期里同步改 storage；
+    /// 替换属于渲染增强，不进 undo 历史，也不改变 Markdown 源码。
+    private var inlineEmbedRefreshScheduled = false
+
+    func scheduleInlineEmbedRefresh() {
+        guard editorMode == .instant, !inlineEmbedRefreshScheduled,
+              let storage = richTextView?.textStorage,
+              EmbedInline.needsRefresh(storage) else { return }
+        inlineEmbedRefreshScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.inlineEmbedRefreshScheduled = false
+            guard self.editorMode == .instant,
+                  let view = self.richTextView,
+                  let storage = view.textStorage,
+                  EmbedInline.needsRefresh(storage) else { return }
+            let caret = view.selectedRange
+            let undo = view.undoManager
+            undo?.disableUndoRegistration()
+            let changed = EmbedInline.refresh(in: storage,
+                                              documentPath: self.currentPath,
+                                              vaultRoot: self.vaultRoot)
+            undo?.enableUndoRegistration()
+            if changed {
+                view.setSelectedRange(NSRange(location: min(caret.location, storage.length), length: 0))
+            }
+        }
     }
 
     private func loadSource(_ md: String, into view: MDSourceTextView) {

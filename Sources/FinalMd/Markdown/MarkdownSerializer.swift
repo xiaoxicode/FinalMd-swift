@@ -17,7 +17,7 @@ enum DocBlock {
     case quote(NSAttributedString)
     case code(String, language: String)
     case rule
-    case listItem(ordered: Bool, level: Int, content: NSAttributedString)
+    case listItem(ordered: Bool, level: Int, content: NSAttributedString, indent: Int? = nil)
     case image(MDImageAttachment)
     case table(rows: [[NSAttributedString]], hasHeader: Bool)
     /// 原样透传块：不解析、不转义、不规范化，逐字写回 Markdown。
@@ -38,10 +38,13 @@ enum MarkdownSerializer {
         var previousWasListItem = false
         var previousListOrdered = false
         var previousListLevel = 0
+        // 列表项附属的缩进容器块：与所属列表项之间不插空行，也不重置有序编号
+        var previousWasListContinuation = false
 
         for block in blocks {
             var text = ""
             var isListItem = false
+            var isListContinuation = false
             var listOrdered = false
             var listLevel = 0
 
@@ -73,7 +76,7 @@ enum MarkdownSerializer {
                 orderedCounters.removeAll()
                 lastLevel = -1
 
-            case .listItem(let ordered, let level, let content):
+            case .listItem(let ordered, let level, let content, let originalIndent):
                 isListItem = true
                 listOrdered = ordered
                 listLevel = level
@@ -86,7 +89,10 @@ enum MarkdownSerializer {
                         body = body.attributedSubstring(from: NSRange(location: drop, length: body.length - drop))
                     }
                 }
-                let indent = String(repeating: "  ", count: level)
+                // 解析时记下的原始缩进优先：4 空格嵌套列表不能被压成 2 空格/级，
+                // 否则下一轮会丢失 zettlr / Logseq 语料里的容器块缩进。
+                let indent = originalIndent.map { String(repeating: " ", count: $0) }
+                    ?? String(repeating: "  ", count: level)
                 if ordered {
                     if level != lastLevel { orderedCounters[level] = 0 }
                     let n = (orderedCounters[level] ?? 0) + 1
@@ -120,12 +126,17 @@ enum MarkdownSerializer {
                 orderedCounters.removeAll()
                 lastLevel = -1
 
-            case .raw(let source, _):
+            case .raw(let source, let kind):
                 // 整块逐字输出：frontmatter 的换行、HTML 的尖括号、链接定义的方括号
                 // 都不经过 InlineSerializer，也就不会被 escapeMarkdown 改写。
                 text = source
-                orderedCounters.removeAll()
-                lastLevel = -1
+                // 列表项内的缩进容器块仍属于同一个列表：既不插空行，也不重置
+                // orderedCounters（否则 "1. foo / 缩进代码 / 2. bar" 会变回 "1. bar"）。
+                isListContinuation = kind == .listIndented || kind == .listCode
+                if !isListContinuation {
+                    orderedCounters.removeAll()
+                    lastLevel = -1
+                }
 
             case .callout(let lines, _, _):
                 // Callout 多行属于同一个块，必须一次输出，不能像 quote 那样按段落拆成
@@ -135,17 +146,25 @@ enum MarkdownSerializer {
                 lastLevel = -1
             }
 
-            // 连续的列表项之间不留空行（紧列表），其余块之间空一行
+            // 连续的列表项之间不留空行（紧列表）；列表项附属的缩进容器块
+            // 与所属列表项同样不留空行，其余块之间空一行
             if !pieces.isEmpty {
                 let sameList = previousWasListItem && isListItem
                     && previousListOrdered == listOrdered
                     && previousListLevel == listLevel
-                pieces.append(sameList ? "\n" : "\n\n")
+                // 只在「列表项 ↔ 它的附属容器行」之间紧连；附属行后面若接
+                // 普通段落，仍要空一行，否则第二轮解析会把普通段落重新拆开
+                // 并补上空行，导致 out1 != out2（失去一次稳定）。
+                let attached =
+                    (isListContinuation && (previousWasListItem || previousWasListContinuation))
+                    || (previousWasListContinuation && isListItem)
+                pieces.append(sameList || attached ? "\n" : "\n\n")
             }
             pieces.append(text)
             previousWasListItem = isListItem
             previousListOrdered = listOrdered
             previousListLevel = listLevel
+            previousWasListContinuation = isListContinuation
         }
 
         return pieces.joined() + "\n"
@@ -238,7 +257,10 @@ enum MarkdownSerializer {
                     result.append(.rule)
                     continue
                 }
-                continue
+                // 内联嵌入卡片不是独占段落的附件：整段照常序列化，
+                // 由 InlineSerializer 把 U+FFFC 还原成原始 ![[...]] 语法。
+                if attachment is MDEmbedAttachment { /* fall through */ }
+                else { continue }
             }
 
             // 表格单元格
@@ -256,7 +278,8 @@ enum MarkdownSerializer {
 
             // 列表项
             if let item = attrs[.mdListItem] as? MDListItem {
-                result.append(.listItem(ordered: item.ordered, level: item.level, content: para))
+                result.append(.listItem(ordered: item.ordered, level: item.level,
+                                        content: para, indent: item.indent))
                 continue
             }
 
@@ -374,6 +397,14 @@ enum InlineSerializer {
                     : "![\(image.alt)](\(image.src) \"\(image.mdTitle)\")"
                 return
             }
+            // 即刻模式里的内联嵌入卡片：一个 U+FFFC 就是整条 ![[...]]，
+            // 按原语法逐字还原，绝不把卡片内容写进 Markdown 源码。
+            if let embed = attrs[.attachment] as? MDEmbedAttachment {
+                for mark in active.reversed() { out += closingMarkdown(mark) }
+                active = []
+                out += embed.link.raw
+                return
+            }
 
             // 任务复选框：显示文字就是源码，逐字输出即可；用户勾选成 [x] 时
             // 以当前文字为准，不能用解析时缓存的 [ ] 覆盖。
@@ -456,6 +487,12 @@ enum InlineSerializer {
                     tag += " title=\"\(escapeHTML(image.mdTitle))\""
                 }
                 out += tag + " />"
+                return
+            }
+            // 内联嵌入卡片：HTML 导出按源码语法输出一个可点击的链接文字，
+            // 不把卡片里的目标内容复制进当前文档。
+            if let embed = attrs[.attachment] as? MDEmbedAttachment {
+                out += escapeHTML(embed.link.raw)
                 return
             }
 

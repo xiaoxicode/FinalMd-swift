@@ -163,6 +163,8 @@ struct EditorView: NSViewRepresentable {
             (textView as? MDEditorTextView)?.applyInputRules()
             // storage 变了，旧的临时属性范围可能已失效，按块 ID 重新套折叠状态
             (textView as? MDEditorTextView)?.reapplyFoldVisuals()
+            // 用户刚敲完一个 ![[...]] 时，下一帧把它展开成内联卡片
+            model.scheduleInlineEmbedRefresh()
             model.refreshToolbar()
         }
 
@@ -641,6 +643,11 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
             let attrs = storage.attributes(at: index, effectiveRange: nil)
             if let wiki = attrs[.mdWikiLink] as? MDWikiLink {
                 if wiki.embedded { onEmbedActivated?(wiki) } else { onWikiLinkActivated?(wiki) }
+                return
+            }
+            // 内联卡片本身没有 .mdWikiLink 属性了，⌘+点击它仍可打开完整只读预览
+            if let embed = attrs[.attachment] as? MDEmbedAttachment {
+                onEmbedActivated?(embed.link)
                 return
             }
             if let id = attrs[.mdCalloutID] as? Int,

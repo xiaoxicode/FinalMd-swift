@@ -112,6 +112,12 @@ enum MDRawKind: String {
     /// CommonMark 4 空格 / tab 缩进代码块。按原始行逐字保存，
     /// 序列化时不能丢掉前导空格，否则下一轮会被当成普通段落。
     case indentedCode
+    /// 列表项内的缩进行（CommonMark 容器块内容）：引用续行、属性行、嵌套源码等。
+    /// 仍是上一个列表项的附属内容，按原始行逐字保存；序列化时不能当成独立
+    /// 段落插空行，也不能让它重置有序列表编号。
+    case listIndented
+    /// 列表项内的缩进代码块：缩进达到「列表内容缩进 + 4」，结构上等价于 code。
+    case listCode
 }
 
 // MARK: - 块级类型
@@ -150,17 +156,26 @@ final class MDListItem: NSObject {
     let ordered: Bool
     let level: Int
     let number: Int
+    /// 解析时记下的原始前导空格数。序列化时优先用它，避免 4 空格缩进的
+    /// 嵌套列表项被压成 2 空格/级；编辑器里新建的列表项为 nil，按 level 推算。
+    /// 必须参与 isEqual / hash，否则 AppKit 合并相邻属性 run 时会串用旧缩进。
+    let indent: Int?
 
-    init(ordered: Bool, level: Int, number: Int = 1) {
+    init(ordered: Bool, level: Int, number: Int = 1, indent: Int? = nil) {
         self.ordered = ordered
         self.level = max(level, 0)
         self.number = number
+        self.indent = indent
         super.init()
     }
 
     override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? MDListItem else { return false }
-        return ordered == other.ordered && level == other.level && number == other.number
+        // indent 必须参与相等性判断：NSAttributedString 会按 isEqual 合并相邻
+        // 属性相同的 run，若忽略 indent，4 空格缩进的列表项会复用别的缩进值，
+        // 写回时静默丢掉原始空格。
+        return ordered == other.ordered && level == other.level
+            && number == other.number && indent == other.indent
     }
 
     override var hash: Int {
@@ -168,6 +183,7 @@ final class MDListItem: NSObject {
         h.combine(ordered)
         h.combine(level)
         h.combine(number)
+        h.combine(indent)
         return h.finalize()
     }
 }

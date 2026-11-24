@@ -1416,6 +1416,143 @@ func testFinalCompatibilityEdges() {
           TaskBoxToggle.boxRange(in: taskDoc, at: proseRange.location) == nil)
 }
 
+// MARK: - 列表项内的 CommonMark 容器块
+
+func testListContainerBlocks() {
+    let code = "- foo\n\n      bar\n\n- baz\n"
+    let codeOut = roundTrip(code)
+    check("列表项内缩进代码：逐字保住 6 空格", codeOut.contains("\n      bar\n"))
+    check("列表项内缩进代码：不拆成第二个列表项", !codeOut.contains("- bar"))
+    check("列表项内缩进代码：往返稳定", stable(code))
+
+    let ordered = "1.  foo\n\n        bar\n\n2.  baz\n"
+    check("有序列表项内代码：编号接续 2. 而不是重启为 1.",
+          roundTrip(ordered).contains("2.  baz"))
+
+    let nested = "- [ ] Removing directories\n\n    - [ ] Child A\n    - [ ] Child B\n"
+    let nestedOut = roundTrip(nested)
+    check("4 空格嵌套列表项：保住原始缩进", nestedOut.contains("\n    - [ ] Child A"))
+    check("4 空格嵌套列表项：保住第二个子项", nestedOut.contains("\n    - [ ] Child B"))
+    check("4 空格嵌套列表项：往返稳定", stable(nested))
+
+    let quote = "- a\n    > quoted line\n    > 1. second\n"
+    check("列表项内引用续行：逐字保住 4 空格 + >",
+          roundTrip(quote).contains("    > quoted line"))
+
+    let props = "- item\n  template:: children-only\n  name::\n    nested:: value\n"
+    let propsOut = roundTrip(props)
+    check("列表项属性续行：不生成额外的 - 行", !propsOut.contains("- template::"))
+    check("列表项属性续行：保住 2 空格", propsOut.contains("\n  template:: children-only"))
+    check("列表项属性续行：保住 4 空格", propsOut.contains("\n    nested:: value"))
+    check("列表项属性续行：往返稳定", stable(props))
+
+    // AppKit 会按 isEqual 合并属性相同的相邻 run；忽略 indent 会串用旧缩进值，
+    // 单文件测试不复现、全量语料才暴露，必须在这里守住。
+    let zero = MDListItem(ordered: false, level: 0, indent: 0)
+    let one = MDListItem(ordered: false, level: 0, indent: 1)
+    check("MDListItem：不同 indent 不相等", zero != one)
+    check("MDListItem：相同 indent 相等", zero == MDListItem(ordered: false, level: 0, indent: 0))
+    check("MDListItem：编辑时新建的对象沿用 nil", MDListItem(ordered: false, level: 0).indent == nil)
+
+    let parsed = MarkdownParser.parse("- foo\n\n      bar\n")
+    var sawListCode = false
+    parsed.enumerateAttribute(.mdRawKind,
+                              in: NSRange(location: 0, length: parsed.length),
+                              options: []) { value, _, _ in
+        if (value as? String) == MDRawKind.listCode.rawValue { sawListCode = true }
+    }
+    check("列表项内代码块：结构标记为 listCode", sawListCode)
+    let html = HTMLExporter.document(from: parsed, title: "T", language: "zh")
+    check("列表项内代码块：HTML 导出为 pre/code", html.contains("<pre><code>"))
+    check("列表项内代码块：HTML 去掉语法缩进", html.contains("bar") && !html.contains("      bar"))
+
+    let indentedParsed = MarkdownParser.parse("- a\n    > quoted\n")
+    var hasListIndented = false
+    var hasListCodeInQuote = false
+    indentedParsed.enumerateAttribute(.mdRawKind,
+                                      in: NSRange(location: 0, length: indentedParsed.length),
+                                      options: []) { value, _, _ in
+        let kind = value as? String ?? ""
+        if kind == MDRawKind.listIndented.rawValue { hasListIndented = true }
+        if kind == MDRawKind.listCode.rawValue { hasListCodeInQuote = true }
+    }
+    check("列表项内引用续行：标记为 listIndented 而非代码块",
+          hasListIndented && !hasListCodeInQuote)
+}
+
+// MARK: - Obsidian 嵌入内联展示
+
+func testInlineEmbeds() {
+    check("嵌入语法：目标", EmbedInline.wikiLink(from: "![[Note]]")?.target == "Note")
+    check("嵌入语法：embedded", EmbedInline.wikiLink(from: "![[Note]]")?.embedded == true)
+    check("嵌入语法：别名", EmbedInline.wikiLink(from: "![[Note|别名]]")?.alias == "别名")
+    check("嵌入语法：标题后缀", EmbedInline.wikiLink(from: "![[Note#标题]]")?.suffix == "#标题")
+    check("嵌入语法：块 ID", EmbedInline.wikiLink(from: "![[Note#^abc]]")?.suffix == "#^abc")
+    check("嵌入语法：原文逐字", EmbedInline.wikiLink(from: "![[Note|别名]]")?.raw == "![[Note|别名]]")
+    check("嵌入语法：拒绝畸形", EmbedInline.wikiLink(from: "![[a[b]]") == nil)
+    check("嵌入语法：拒绝普通双链", EmbedInline.wikiLink(from: "[[Note]]") == nil)
+
+    let dir = NSTemporaryDirectory() + "finalmd-embed-smoke-\(UUID().uuidString)"
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let note = (dir as NSString).appendingPathComponent("Note.md")
+    try? "# 标题\n\n正文 **粗体**\n".write(toFile: note, atomically: true, encoding: .utf8)
+    let docPath = (dir as NSString).appendingPathComponent("index.md")
+
+    let expanded = EmbedInline.expand(MarkdownParser.parse("前文 ![[Note]] 后文\n"),
+                                      documentPath: docPath, vaultRoot: nil)
+    var cards: [MDEmbedAttachment] = []
+    expanded.enumerateAttribute(.attachment,
+                                in: NSRange(location: 0, length: expanded.length),
+                                options: []) { value, _, _ in
+        if let card = value as? MDEmbedAttachment { cards.append(card) }
+    }
+    check("内联嵌入：展开成 1 张卡片", cards.count == 1)
+    check("内联嵌入：卡片保留原始语法", cards.first?.link.raw == "![[Note]]")
+    check("内联嵌入：卡片读到目标内容", cards.first?.preview.text.contains("正文 **粗体**") == true)
+    check("内联嵌入：卡片标题是目标文件名", cards.first?.preview.title == "Note.md")
+    check("内联嵌入：只占一个附件字符", expanded.string.contains("\u{FFFC}"))
+    check("内联嵌入：不额外插入段落", !expanded.string.contains("\n\n"))
+
+    let restored = MarkdownSerializer.markdown(from: expanded)
+    check("内联嵌入：序列化逐字还原 ![[Note]]", restored.contains("![[Note]]"))
+    check("内联嵌入：卡片内容不写进源码", !restored.contains("正文 **粗体**"))
+    check("内联嵌入：前后文字不丢", restored.contains("前文 ") && restored.contains(" 后文"))
+    check("内联嵌入：还原后往返稳定", roundTrip(restored).contains("![[Note]]"))
+
+    let alone = EmbedInline.expand(MarkdownParser.parse("![[Note]]\n"),
+                                   documentPath: docPath, vaultRoot: nil)
+    check("内联嵌入：独占一行时也不会被块切分吞掉",
+          MarkdownSerializer.markdown(from: alone).contains("![[Note]]"))
+
+    let htmlCard = InlineSerializer.html(expanded)
+    check("内联嵌入：HTML 输出源码语法", htmlCard.contains("![[Note]]"))
+    check("内联嵌入：HTML 不复制目标内容", !htmlCard.contains("正文"))
+
+    let missing = EmbedInline.expand(MarkdownParser.parse("![[NoSuchNote]]\n"),
+                                     documentPath: docPath, vaultRoot: nil)
+    check("内联嵌入：目标不存在时保留源码",
+          MarkdownSerializer.markdown(from: missing).contains("![[NoSuchNote]]"))
+    var missingCards = 0
+    missing.enumerateAttribute(.attachment,
+                               in: NSRange(location: 0, length: missing.length),
+                               options: []) { value, _, _ in
+        if value is MDEmbedAttachment { missingCards += 1 }
+    }
+    check("内联嵌入：目标不存在时不生成卡片", missingCards == 0)
+
+    let typed = NSMutableAttributedString(string: "看这里 ![[Note]] 结束")
+    check("内联嵌入：needsRefresh 命中未展开语法", EmbedInline.needsRefresh(typed))
+    check("内联嵌入：增量展开成功",
+          EmbedInline.refresh(in: typed, documentPath: docPath, vaultRoot: nil))
+    check("内联嵌入：增量展开后无需再刷新", !EmbedInline.needsRefresh(typed))
+    check("内联嵌入：增量展开后序列化还原",
+          MarkdownSerializer.markdown(from: typed).contains("![[Note]]"))
+    check("内联嵌入：增量展开不重复替换",
+          !EmbedInline.refresh(in: typed, documentPath: docPath, vaultRoot: nil))
+
+    try? FileManager.default.removeItem(atPath: dir)
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -1439,6 +1576,8 @@ testExternalCompatibility()
 testIndentedCodeBlocks()
 testObsidianInteractions()
 testFinalCompatibilityEdges()
+testListContainerBlocks()
+testInlineEmbeds()
 testCaretSizing()
 testCaretAlignment()
 testInlineSelection()

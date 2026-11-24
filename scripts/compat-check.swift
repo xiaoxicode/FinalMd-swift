@@ -170,7 +170,10 @@ func blockTypes(_ a: NSAttributedString) -> Set<String> {
     // 缩进代码块用 raw 块承载（为了逐字保住前导空格），但结构上它就是 code。
     // 不映射的话 CommonMark 里预期 <pre><code> 的用例会被误判成「结构丢失」。
     a.enumerateAttribute(.mdRawKind, in: full, options: []) { value, _, _ in
-        if (value as? String) == MDRawKind.indentedCode.rawValue { out.insert("code") }
+        let k = value as? String ?? ""
+        if k == MDRawKind.indentedCode.rawValue || k == MDRawKind.listCode.rawValue {
+            out.insert("code")
+        }
     }
     return out
 }
