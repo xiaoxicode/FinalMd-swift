@@ -46,5 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         // 启动时再应用一次外观：AppModel 初始化时 NSApp 可能还没就绪
         AppModel.shared?.applyAppearance()
+        // 视图此时可能还没建好；等它就绪时 editorViewDidBecomeReady 还会再推一次
+        AppModel.shared?.reapplyEditorMode()
     }
 }

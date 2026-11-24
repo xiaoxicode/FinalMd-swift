@@ -104,8 +104,32 @@ final class AppModel: ObservableObject {
 
     // MARK: 文档
 
+    /// 当前活跃的文本视图。传统模式下指向源码视图，即刻模式下指向排版视图。
+    /// 命令、查找、统计、undo 都通过它走，因此切换模式后它们自动作用于正确的视图。
     weak var textView: NSTextView? {
         didSet { refreshAll() }
+    }
+
+    /// 两个编辑器常驻窗口，切换模式只显隐、不销毁：
+    /// 即刻视图里的富文本、图片附件、光标状态才不会在来回切换时丢失。
+    weak var richTextView: MDEditorTextView?
+    weak var sourceTextView: MDSourceTextView?
+
+    /// 两侧内容谁更新。nil = 刚装载 / 刚同步，两边等价，切换时无需搬运。
+    private var authority: EditorSide?
+
+    /// 编辑模式：即刻（所见即所得）/ 传统（Markdown 源码）。
+    /// 属于本机偏好，不写进文档；下次启动沿用上次的选择。
+    @Published var editorMode: EditorMode = {
+        let saved = UserDefaults.standard.string(forKey: EditorMode.storageKey) ?? ""
+        return EditorMode(rawValue: saved) ?? .instant
+    }() {
+        didSet {
+            guard oldValue != editorMode else { return }
+            UserDefaults.standard.set(editorMode.rawValue, forKey: EditorMode.storageKey)
+            applyEditorMode()
+            showToast(l10n.t(editorMode.labelKey))
+        }
     }
 
     @Published private(set) var currentPath: String?
@@ -210,6 +234,18 @@ final class AppModel: ObservableObject {
 
     func refreshToolbar() {
         guard let tv = textView else { return }
+
+        // 传统模式是纯文本编辑：没有字重 / 块样式 / 对齐状态可回显，
+        // 功能区整片本来也会淡显，这里只保留 undo / redo 两个仍然有效的按钮。
+        guard editorMode == .instant else {
+            var plain = ToolbarState()
+            plain.canUndo = tv.undoManager?.canUndo ?? false
+            plain.canRedo = tv.undoManager?.canRedo ?? false
+            toolbar = plain
+            NSApp.mainWindow?.isDocumentEdited = isDirty
+            return
+        }
+
         var s = ToolbarState()
         s.isBold = tv.hasTrait(.bold)
         s.isItalic = tv.hasTrait(.italic)
@@ -250,24 +286,101 @@ final class AppModel: ObservableObject {
 
     // MARK: - 文档读写
 
+    /// 存盘用的 Markdown 文本。
+    /// 传统模式直接取源码视图的字符串（逐字节保留用户输入，不做任何规范化），
+    /// 即刻模式才把富文本序列化回 Markdown。
     var markdown: String {
-        guard let storage = textView?.textStorage else { return "" }
-        return MarkdownSerializer.markdown(from: storage)
+        if editorMode == .classic, let source = sourceTextView {
+            return EditorModeBridge.plainText(in: source)
+        }
+        if let storage = richTextView?.textStorage {
+            return EditorModeBridge.sourceText(from: storage)
+        }
+        return ""
     }
 
+    /// 最近一次装载的文档原文。两个编辑器视图不是同一帧创建的，
+    /// 后就绪的那个用它补上同一份内容（传统模式因此能看到文件的原始字节）。
+    private var pendingDocument: String?
+    /// 两个视图是否已经装载过当前文档（后创建的那个才需要补写）
+    private var richContentLoaded = false
+    private var sourceContentLoaded = false
+
     func setMarkdown(_ md: String) {
-        guard let tv = textView, let storage = tv.textStorage else { return }
-        let attr = MarkdownParser.parse(md)
-        storage.beginEditing()
-        storage.setAttributedString(attr)
-        storage.endEditing()
-        tv.didChangeText()
-        tv.setSelectedRange(NSRange(location: 0, length: 0))
-        // 换文档后必须重算输入属性：否则新建/打开后敲的第一个字会沿用上一篇的样式
-        // （典型症状：新建文档一开口就是标题）。空文档会落到正文。
-        tv.refreshTypingAttributes()
+        pendingDocument = md
+
+        // 两侧同时装载：即刻侧拿解析后的排版，传统侧拿原样 Markdown。
+        // 此刻两边内容等价，来回切换不需要重新转换，也不会把原文件的
+        // 空行 / 列表风格悄悄规范化掉。
+        if let rich = richTextView {
+            loadRich(EditorModeBridge.richText(from: md), into: rich)
+        } else {
+            richContentLoaded = false
+        }
+        if let source = sourceTextView {
+            loadSource(md, into: source)
+        } else {
+            sourceContentLoaded = false
+        }
+        authority = nil
+
+        if editorMode == .instant {
+            // 换文档后必须重算输入属性：否则新建/打开后敲的第一个字会沿用上一篇的样式
+            richTextView?.refreshTypingAttributes()
+        }
         markDirty(false)
         refreshAll()
+    }
+
+    private func loadRich(_ attr: NSAttributedString, into view: MDEditorTextView) {
+        EditorModeBridge.install(attr, in: view, plain: false)
+        view.refreshTypingAttributes()
+        view.showsLineRuling = showLineRuling
+        view.needsDisplay = true
+        richContentLoaded = true
+    }
+
+    private func loadSource(_ md: String, into view: MDSourceTextView) {
+        EditorModeBridge.install(NSAttributedString(string: md), in: view, plain: true)
+        view.applySyntaxHighlight()
+        view.needsDisplay = true
+        sourceContentLoaded = true
+    }
+
+    /// 某个编辑器视图刚创建完成。把文档补给它，再按当前模式显隐。
+    func editorViewDidBecomeReady(_ side: EditorSide) {
+        switch side {
+        case .rich:
+            if let rich = richTextView, !richContentLoaded {
+                let md: String
+                if authority == .source, let source = sourceTextView {
+                    md = source.string
+                } else {
+                    md = pendingDocument ?? ""
+                }
+                loadRich(EditorModeBridge.richText(from: md), into: rich)
+            }
+        case .source:
+            if let source = sourceTextView, !sourceContentLoaded {
+                let md: String
+                if authority == .rich, let storage = richTextView?.textStorage {
+                    md = EditorModeBridge.sourceText(from: storage)
+                } else {
+                    md = pendingDocument ?? (richTextView?.textStorage.map { EditorModeBridge.sourceText(from: $0) } ?? "")
+                }
+                loadSource(md, into: source)
+            }
+        }
+
+        EditorModeBridge.resetUndoHistory([richTextView, sourceTextView])
+        applyLineRuling()
+        applyEditorMode()
+    }
+
+    /// 某个视图发生了真实编辑。记下哪一侧是最新内容，切换模式时只搬运这一侧。
+    func noteEdited(in view: NSTextView) {
+        if view === richTextView { authority = .rich }
+        else if view === sourceTextView { authority = .source }
     }
 
     func loadWelcome() {
@@ -347,8 +460,15 @@ final class AppModel: ObservableObject {
     }
 
     func exportHTML() async {
-        guard let storage = textView?.textStorage else { return }
-        let html = HTMLExporter.document(from: storage, title: displayTitle, language: l10n.htmlLang)
+        // 传统模式下 rich 视图可能还是旧内容，用当前源码现场解析一份，
+        // 既不改动隐藏视图，也不影响用户正在编辑的源码与 undo 历史。
+        let attr: NSAttributedString
+        if editorMode == .classic, let source = sourceTextView {
+            attr = MarkdownParser.parse(source.string)
+        } else if let storage = richTextView?.textStorage {
+            attr = storage
+        } else { return }
+        let html = HTMLExporter.document(from: attr, title: displayTitle, language: l10n.htmlLang)
         if await OpenSavePanel.exportFile(l10n: l10n,
                                           defaultName: displayTitle + ".html",
                                           extension: "html",
@@ -358,8 +478,13 @@ final class AppModel: ObservableObject {
     }
 
     func exportPDF() async {
-        guard let tv = textView else { return }
-        if await PDFExporter.export(l10n: l10n, view: tv, defaultName: displayTitle + ".pdf") {
+        guard let rich = richTextView else { return }
+        if editorMode == .classic, let source = sourceTextView {
+            // PDF 印的是排版结果，不是源码。把当前源码刷新进隐藏的 rich 视图，
+            // 导出完仍留在传统模式，源码视图与存盘内容都不受影响。
+            loadRich(EditorModeBridge.richText(from: source.string), into: rich)
+        }
+        if await PDFExporter.export(l10n: l10n, view: rich, defaultName: displayTitle + ".pdf") {
             showToast(l10n.t("toast.exportedPdf"))
         }
     }
@@ -555,6 +680,51 @@ final class AppModel: ObservableObject {
         zoom = min(max(value, 0.6), 2.0)
     }
 
+    // MARK: - 编辑模式（即刻 / 传统）
+
+    /// 切换按钮 / 菜单 / 快捷键共用的入口
+    func toggleEditorMode() {
+        editorMode = (editorMode == .instant) ? .classic : .instant
+    }
+
+    /// 把模式落到两个视图上：先让目标侧拿到最新内容，再把「活跃视图」指过去。
+    /// 显隐与键盘焦点由两个 NSViewRepresentable 在 updateNSView 里完成（时机更准）。
+    func applyEditorMode() {
+        syncHiddenSideIfNeeded(for: editorMode == .classic ? .source : .rich)
+
+        let active: NSTextView? = editorMode == .classic ? sourceTextView : richTextView
+        if textView !== active {
+            textView = active            // didSet 会刷新统计 / 工具栏
+        } else {
+            refreshAll()
+        }
+    }
+
+    /// 只有「另一侧被编辑过」才需要搬运内容。
+    /// 刚打开文件、或刚同步过（authority == nil）时直接换显隐，
+    /// 原文件的换行与标记写法因此能原封不动地保留。
+    private func syncHiddenSideIfNeeded(for target: EditorSide) {
+        guard let authority, authority != target else { return }
+        switch target {
+        case .source:
+            guard let storage = richTextView?.textStorage,
+                  let source = sourceTextView else { return }
+            loadSource(EditorModeBridge.sourceText(from: storage), into: source)
+        case .rich:
+            guard let rich = richTextView, let source = sourceTextView else { return }
+            loadRich(EditorModeBridge.richText(from: source.string), into: rich)
+        }
+        self.authority = nil
+        // 整篇被替换后，两个视图里按旧字符范围记录的 undo 都已失效
+        EditorModeBridge.resetUndoHistory([richTextView, sourceTextView])
+    }
+
+    /// 编辑器视图刚创建 / 偏好刚恢复时调用一次，保证模式与视图状态一致。
+    /// 启动阶段视图还没建好，这里能安全地什么都不做。
+    func reapplyEditorMode() {
+        applyEditorMode()
+    }
+
     // MARK: - 文档横线
 
     /// 开 / 关文档横线（作业本行线），并记住这次选择
@@ -564,10 +734,9 @@ final class AppModel: ObservableObject {
         applyLineRuling()
     }
 
-    /// 把开关状态推给编辑器视图（视图就绪时、切换时都调用一次）
+    /// 把开关状态推给即刻视图。横线是排版页面的辅助线，传统模式（纯文本）不画。
     func applyLineRuling() {
-        guard let tv = textView as? MDEditorTextView else { return }
-        tv.showsLineRuling = showLineRuling
+        richTextView?.showsLineRuling = showLineRuling
     }
 
     // MARK: - 外观（浅色 / 深色）

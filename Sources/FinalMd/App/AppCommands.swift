@@ -99,6 +99,18 @@ struct AppCommands: Commands {
 
         // MARK: 视图
         CommandMenu(l10n.t("menu.view")) {
+            Button(l10n.t("menu.view.toggleMode")) { model.perform(.toggleMode) }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+            Menu(l10n.t("menu.view.editorMode")) {
+                ForEach(EditorMode.allCases) { mode in
+                    Button {
+                        model.editorMode = mode
+                    } label: {
+                        Text((model.editorMode == mode ? "✓ " : "    ") + l10n.t(mode.labelKey))
+                    }
+                }
+            }
+            Divider()
             Button(l10n.t("menu.view.zoomIn")) { model.perform(.zoomIn) }
                 .keyboardShortcut("+", modifiers: .command)
             Button(l10n.t("menu.view.zoomOut")) { model.perform(.zoomOut) }

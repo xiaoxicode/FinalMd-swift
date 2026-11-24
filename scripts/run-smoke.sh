@@ -29,8 +29,10 @@ FILES=(
   "$SRC/Sources/FinalMd/Markdown/InlineParser.swift"
   "$SRC/Sources/FinalMd/Markdown/MarkdownParser.swift"
   "$SRC/Sources/FinalMd/Markdown/MarkdownSerializer.swift"
+  "$SRC/Sources/FinalMd/Markdown/EditorMode.swift"
   "$SRC/Sources/FinalMd/Model/ChartConfig.swift"
   "$SRC/Sources/FinalMd/Editor/ScrollView.swift"
+  "$SRC/Sources/FinalMd/Editor/SourceTextView.swift"
   "$SRC/Sources/FinalMd/Util/ImageEmbed.swift"
   "$WORK/main.swift"
 )

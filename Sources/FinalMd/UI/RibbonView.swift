@@ -60,33 +60,39 @@ struct RibbonView: View {
 
     private var row1: some View {
         HStack(spacing: 0) {
-            RibbonGroup {
-                icon("doc.badge.plus", "tb.new", .new)
-                icon("folder", "tb.open", .open)
-                icon("square.and.arrow.down", "tb.save", .save)
-            }
-            RibbonGroup {
-                icon("arrow.uturn.backward", "tb.undo", .undo, disabled: !model.toolbar.canUndo)
-                icon("arrow.uturn.forward", "tb.redo", .redo, disabled: !model.toolbar.canRedo)
-            }
-            RibbonGroup {
-                stylePicker
-            }
-            RibbonGroup {
-                paragraphButton
-                ForEach(1...6, id: \.self) { level in
-                    headingButton(level)
+            Group {
+                RibbonGroup {
+                    icon("doc.badge.plus", "tb.new", .new)
+                    icon("folder", "tb.open", .open)
+                    icon("square.and.arrow.down", "tb.save", .save)
+                }
+                RibbonGroup {
+                    icon("arrow.uturn.backward", "tb.undo", .undo, disabled: !model.toolbar.canUndo)
+                    icon("arrow.uturn.forward", "tb.redo", .redo, disabled: !model.toolbar.canRedo)
+                }
+                RibbonGroup {
+                    stylePicker
+                }
+                RibbonGroup {
+                    paragraphButton
+                    ForEach(1...6, id: \.self) { level in
+                        headingButton(level)
+                    }
+                }
+                RibbonGroup(showsDivider: false) {
+                    icon("bold", "tb.bold", .bold, active: model.toolbar.isBold)
+                    icon("italic", "tb.italic", .italic, active: model.toolbar.isItalic)
+                    icon("underline", "tb.underline", .underline, active: model.toolbar.isUnderline)
+                    icon("strikethrough", "tb.strike", .strike, active: model.toolbar.isStrike)
+                    colorButton
+                    highlightButton
+                    icon("eraser", "tb.clearFormat", .clearFormat)
                 }
             }
-            RibbonGroup(showsDivider: false) {
-                icon("bold", "tb.bold", .bold, active: model.toolbar.isBold)
-                icon("italic", "tb.italic", .italic, active: model.toolbar.isItalic)
-                icon("underline", "tb.underline", .underline, active: model.toolbar.isUnderline)
-                icon("strikethrough", "tb.strike", .strike, active: model.toolbar.isStrike)
-                colorButton
-                highlightButton
-                icon("eraser", "tb.clearFormat", .clearFormat)
-            }
+            // 传统模式是纯文本，排版按钮一概不适用：淡显 + 禁用，
+            // 只留文件 / 撤销 / 查找这些仍然有效的入口。
+            .disabled(isClassic)
+            .opacity(isClassic ? 0.4 : 1)
             Spacer(minLength: 0)
         }
         .frame(minHeight: 24)
@@ -96,45 +102,58 @@ struct RibbonView: View {
 
     private var row2: some View {
         HStack(spacing: 0) {
-            RibbonGroup {
-                icon("list.bullet", "tb.bulletList", .bulletList, active: model.toolbar.isBulletList)
-                icon("list.number", "tb.orderedList", .orderedList, active: model.toolbar.isOrderedList)
+            Group {
+                RibbonGroup {
+                    icon("list.bullet", "tb.bulletList", .bulletList, active: model.toolbar.isBulletList)
+                    icon("list.number", "tb.orderedList", .orderedList, active: model.toolbar.isOrderedList)
+                }
+                RibbonGroup {
+                    icon("decrease.indent", "tb.outdent", .outdent)
+                    icon("increase.indent", "tb.indent", .indent)
+                }
+                RibbonGroup {
+                    icon("text.alignleft", "tb.alignLeft", .align(.left),
+                         active: model.toolbar.alignment == .left)
+                    icon("text.aligncenter", "tb.alignCenter", .align(.center),
+                         active: model.toolbar.alignment == .center)
+                    icon("text.alignright", "tb.alignRight", .align(.right),
+                         active: model.toolbar.alignment == .right)
+                    icon("text.justify", "tb.alignJustify", .align(.justified),
+                         active: model.toolbar.alignment == .justified)
+                }
+                RibbonGroup {
+                    icon("text.quote", "tb.quote", .quote, active: model.toolbar.isQuote)
+                    icon("chevron.left.forwardslash.chevron.right", "tb.inlineCode", .inlineCode,
+                         active: model.toolbar.isInlineCode)
+                    icon("terminal", "tb.codeBlock", .codeBlock, active: model.toolbar.isCodeBlock)
+                    icon("minus", "tb.hr", .hr)
+                }
+                RibbonGroup(showsDivider: false) {
+                    icon("link", "tb.link", .link)
+                    icon("tablecells", "tb.table", .table)
+                    icon("photo", "tb.image", .image)
+                    icon("chart.bar", "tb.chart", .chart)
+                    icon("list.bullet.indent", "tb.toc", .toc)
+                    icon("magnifyingglass", "tb.find", .find)
+                    icon("line.horizontal.3", "tb.lineRuling", .lineRuling,
+                         active: model.showLineRuling)
+                }
             }
-            RibbonGroup {
-                icon("decrease.indent", "tb.outdent", .outdent)
-                icon("increase.indent", "tb.indent", .indent)
-            }
-            RibbonGroup {
-                icon("text.alignleft", "tb.alignLeft", .align(.left),
-                     active: model.toolbar.alignment == .left)
-                icon("text.aligncenter", "tb.alignCenter", .align(.center),
-                     active: model.toolbar.alignment == .center)
-                icon("text.alignright", "tb.alignRight", .align(.right),
-                     active: model.toolbar.alignment == .right)
-                icon("text.justify", "tb.alignJustify", .align(.justified),
-                     active: model.toolbar.alignment == .justified)
-            }
-            RibbonGroup {
-                icon("text.quote", "tb.quote", .quote, active: model.toolbar.isQuote)
-                icon("chevron.left.forwardslash.chevron.right", "tb.inlineCode", .inlineCode,
-                     active: model.toolbar.isInlineCode)
-                icon("terminal", "tb.codeBlock", .codeBlock, active: model.toolbar.isCodeBlock)
-                icon("minus", "tb.hr", .hr)
-            }
-            RibbonGroup(showsDivider: false) {
-                icon("link", "tb.link", .link)
-                icon("tablecells", "tb.table", .table)
-                icon("photo", "tb.image", .image)
-                icon("chart.bar", "tb.chart", .chart)
-                icon("list.bullet.indent", "tb.toc", .toc)
-                icon("magnifyingglass", "tb.find", .find)
-                icon("line.horizontal.3", "tb.lineRuling", .lineRuling,
-                     active: model.showLineRuling)
-            }
+            .disabled(isClassic)
+            .opacity(isClassic ? 0.4 : 1)
+
             Spacer(minLength: 0)
+
+            // 切换按钮不放在淡显组里：两种模式下都必须能点回去
+            icon("arrow.left.arrow.right", "tb.switchMode", .toggleMode,
+                 active: model.editorMode == .classic)
+                .padding(.trailing, 8)
+                .help(l10n.t("tb.switchMode") + " (⌘⇧M)")
         }
         .frame(minHeight: 24)
     }
+
+    private var isClassic: Bool { model.editorMode == .classic }
 
     // MARK: 组件
 

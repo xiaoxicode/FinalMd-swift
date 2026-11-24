@@ -356,6 +356,112 @@ func testWheelZoom() {
     }
 }
 
+// MARK: - 编辑模式（即刻 / 传统）
+
+func testEditorModes() {
+    // 枚举本身
+    check("恰好两种编辑模式", EditorMode.allCases.count == 2)
+    check("即刻模式 rawValue", EditorMode.instant.rawValue == "instant")
+    check("传统模式 rawValue", EditorMode.classic.rawValue == "classic")
+    check("模式名称 key", EditorMode.instant.labelKey == "mode.instant"
+          && EditorMode.classic.labelKey == "mode.classic")
+    check("模式说明 key", EditorMode.instant.hintKey == "mode.instant.hint")
+    check("模式偏好键", EditorMode.storageKey == "finalmd.editorMode")
+    check("模式图标", !EditorMode.instant.symbol.isEmpty && !EditorMode.classic.symbol.isEmpty)
+
+    // 七种语言都要有完整的新文案
+    let newKeys = ["menu.view.editorMode", "menu.view.toggleMode", "tb.switchMode",
+                   "mode.instant", "mode.instant.hint", "mode.classic",
+                   "mode.classic.hint", "mode.classic.richOnly"]
+    for lang in I18nDictionary.supportedLanguages {
+        for key in newKeys {
+            let value = I18nDictionary.table[lang.code]?[key] ?? ""
+            check("\(lang.code) 文案 \(key)", !value.isEmpty)
+        }
+    }
+
+    // 即刻 → 传统 → 即刻：切过去要看得见 Markdown 标记，切回来内容不漂
+    let md = "# 标题\n\n正文 **粗体** 与 `代码`\n\n- 甲\n- 乙\n"
+    let rich = EditorModeBridge.richText(from: md)
+    let source = EditorModeBridge.sourceText(from: rich)
+    check("即刻→传统输出 Markdown 标记",
+          source.contains("# 标题") && source.contains("**粗体**") && source.contains("- 甲"))
+    let back = EditorModeBridge.sourceText(from: EditorModeBridge.richText(from: source))
+    equal("传统→即刻→传统 幂等", back, source)
+
+    // 纯文本显示基线
+    let attrs = EditorModeBridge.plainAttributes
+    let font = attrs[.font] as? NSFont
+    check("源码用等宽字体", font?.fontDescriptor.symbolicTraits.contains(.monoSpace) == true)
+    check("源码按字符折行",
+          (attrs[.paragraphStyle] as? NSParagraphStyle)?.lineBreakMode == .byCharWrapping)
+    check("源码文字用明暗动态色",
+          (attrs[.foregroundColor] as AnyObject?) === DocTheme.text)
+
+    // 真实源码视图：像文本编辑器，不做任何自动改写
+    let tv = MDSourceTextView()
+    tv.configure()
+    check("源码视图是纯文本", !tv.isRichText)
+    check("关闭智能引号替换", !tv.isAutomaticQuoteSubstitutionEnabled)
+    check("关闭破折号替换", !tv.isAutomaticDashSubstitutionEnabled)
+    check("关闭自动链接", !tv.isAutomaticLinkDetectionEnabled)
+    check("关闭拼写检查", !tv.isContinuousSpellCheckingEnabled)
+    check("插入点用明暗动态色", (tv.insertionPointColor as AnyObject?) === DocTheme.text)
+
+    let original = "# 标题  \n正文 **粗体**\n\n```swift\nlet a = 1\n```\n"
+    EditorModeBridge.install(NSAttributedString(string: original), in: tv, plain: true)
+    equal("装载源码逐字节保留", tv.string, original)
+    equal("保存源码不做规范化", EditorModeBridge.plainText(in: tv), original)
+    check("装载后光标在开头", tv.selectedRange().location == 0)
+
+    // 粘贴富文本进源码视图：只留字符，格式一律抹平
+    let fancy = NSMutableAttributedString(string: "**粗**", attributes: [
+        .font: NSFont.boldSystemFont(ofSize: 30),
+        .foregroundColor: NSColor.red,
+        .underlineStyle: 1,
+    ])
+    EditorModeBridge.install(fancy, in: tv, plain: true)
+    equal("富文本粘进源码只留字符", tv.string, "**粗**")
+    let a0 = tv.textStorage?.attributes(at: 0, effectiveRange: nil) ?? [:]
+    check("源码不会变粗", (a0[.font] as? NSFont)?.fontDescriptor.symbolicTraits.contains(.bold) != true)
+    check("源码不会带下划线", a0[.underlineStyle] == nil)
+    check("源码颜色统一", (a0[.foregroundColor] as AnyObject?) === DocTheme.text)
+
+    // 语法着色写在临时属性上：不碰 storage、不进存盘内容、不进 undo
+    let doc = "# 标题\n> 引用\n- 列表\n`代码` **粗体** [链接](https://a.b)\n```\nfence\n```\n"
+    EditorModeBridge.install(NSAttributedString(string: doc), in: tv, plain: true)
+    tv.applySyntaxHighlight()
+    equal("着色不改动文档内容", tv.string, doc)
+    check("着色不写进 storage",
+          (tv.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as AnyObject?) === DocTheme.text)
+    if let lm = tv.layoutManager {
+        let titleMark = lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 0,
+                                               effectiveRange: nil) as? NSColor
+        check("标题标记有临时着色", titleMark != nil)
+        check("临时着色用强调动态色", (titleMark as AnyObject?) === DocTheme.accent)
+    } else {
+        check("文本视图带 layoutManager", false)
+    }
+    tv.applySyntaxHighlight()
+    tv.applySyntaxHighlight()
+    equal("重复着色不叠加、不改写", tv.string, doc)
+
+    // 源码滚动容器（工厂与即刻模式一样标注了 @MainActor）
+    MainActor.assumeIsolated {
+        let (scroll, container) = SourceScrollFactory.make(textView: tv)
+        check("源码容器是 documentView", scroll.documentView === container)
+        check("源码视图挂在容器里", container.textView === tv)
+        check("源码容器底色用动态色", (scroll.backgroundColor as AnyObject?) === DocTheme.pageBackground)
+        container.needsLayout = true
+        container.layout()
+        check("源码容器宽度可排版", container.frame.width >= 320)
+        check("源码容器高度为正", container.frame.height > 0)
+    }
+
+    EditorModeBridge.resetUndoHistory([tv, nil])
+    check("模式切换清空 undo 不崩溃", true)
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -370,6 +476,7 @@ testWelcomeDocument()
 testScrollViewZoom()
 testWheelZoom()
 testLocalization()
+testEditorModes()
 
 print("")
 if failureDetails.isEmpty {

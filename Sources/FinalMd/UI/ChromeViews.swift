@@ -29,7 +29,9 @@ struct TitleBarView: View {
                     .truncationMode(.middle)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
+
+            EditorModeSwitch()
 
             Text(model.isDirty ? l10n.t("save.unsaved") : l10n.t("save.saved"))
                 .font(.system(size: 11.5))
@@ -46,6 +48,52 @@ struct TitleBarView: View {
         .frame(height: 34)
         .background(Color(nsColor: DocTheme.chromeBackground))
         .overlay(alignment: .bottom) { Divider() }
+    }
+}
+
+// MARK: - 编辑模式切换
+
+/// 标题栏上的「即刻模式 / 传统模式」分段按钮。
+/// 放在标题栏而不是功能区里，切换后功能区会被淡显禁用，按钮本身仍然可点。
+struct EditorModeSwitch: View {
+    @EnvironmentObject var model: AppModel
+    @EnvironmentObject var l10n: Localizer
+    var compact = false
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(EditorMode.allCases) { mode in
+                Button {
+                    model.editorMode = mode
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: mode.symbol)
+                            .font(.system(size: 10.5, weight: .semibold))
+                        if !compact {
+                            Text(l10n.t(mode.labelKey))
+                                .font(.system(size: 11.5, weight: .medium))
+                        }
+                    }
+                    .frame(height: 20)
+                    .padding(.horizontal, compact ? 6 : 9)
+                    .contentShape(Rectangle())
+                    .background(
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(model.editorMode == mode ? Color.accentColor : Color.clear)
+                    )
+                    .foregroundStyle(model.editorMode == mode ? Color.white : Color.primary)
+                }
+                .buttonStyle(.plain)
+                .help(l10n.t(mode.hintKey))
+            }
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 7).fill(Color.primary.opacity(0.07)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+        )
+        .help(l10n.t("tb.switchMode") + " (⌘⇧M)")
     }
 }
 
@@ -118,6 +166,9 @@ struct StatusBarView: View {
                 .truncationMode(.middle)
             Text("\(l10n.t("stat.zoom")) \(Int(round(model.zoom * 100)))%")
                 .help("⌘ / ⌃ + 滚轮缩放页面（捏合触控板同样可以）")
+            Text(l10n.t(model.editorMode.labelKey))
+                .foregroundStyle(Color.accentColor)
+                .help(l10n.t(model.editorMode.hintKey))
             Text("Markdown")
         }
         .font(.system(size: 11.5))

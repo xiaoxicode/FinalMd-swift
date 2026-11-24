@@ -60,13 +60,30 @@ struct EditorView: NSViewRepresentable {
             model.markDirty()
         }
 
+        model.richTextView = textView
         model.textView = textView
         model.loadInitialContentIfNeeded()
+        model.editorViewDidBecomeReady(.rich)
         return scroll
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         let coord = context.coordinator
+        let visible = model.editorMode == .instant
+
+        scrollView.isHidden = !visible
+        if scrollView.isHidden { _ = coord.textView?.resignFirstResponder() }
+
+        if coord.appliedMode != model.editorMode {
+            coord.appliedMode = model.editorMode
+            if visible {
+                DispatchQueue.main.async { [weak coord] in
+                    guard let tv = coord?.textView, let window = tv.window else { return }
+                    window.makeFirstResponder(tv)
+                }
+            }
+        }
+
         // 只有当 model.zoom 真的变了才往 scroll view 里写。
         // 否则用户手势缩放会在下一次 SwiftUI 刷新时被硬拉回 model.zoom。
         if abs(model.zoom - coord.appliedZoom) > 0.001 {
@@ -88,6 +105,8 @@ struct EditorView: NSViewRepresentable {
         weak var pageView: EditorPageView?
         /// 最近一次由代码写进 scroll view 的缩放值，用来区分「模型变了」和「用户捏合了」
         var appliedZoom: Double = 1
+        /// 最近一次应用到视图上的编辑模式，用来判断是否需要移交键盘焦点
+        var appliedMode: EditorMode?
 
         init(model: AppModel) {
             self.model = model
@@ -114,6 +133,7 @@ struct EditorView: NSViewRepresentable {
         }
 
         func textDidChange(_ notification: Notification) {
+            if let tv = textView { model.noteEdited(in: tv) }
             model.markDirty()
             model.refreshAll()
             pageView?.needsLayout = true

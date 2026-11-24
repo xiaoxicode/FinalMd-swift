@@ -20,8 +20,15 @@ struct ContentView: View {
             if model.findVisible {
                 FindBarView()
             }
-            EditorView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // 两个编辑器常驻同一容器：切换模式只是显隐互换，
+            // 即刻模式里的富文本 / 图片附件 / 光标不会被销毁重建。
+            ZStack {
+                EditorView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                SourceEditorView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             StatusBarView()
         }
         .background(Color(nsColor: DocTheme.workspaceBackground))

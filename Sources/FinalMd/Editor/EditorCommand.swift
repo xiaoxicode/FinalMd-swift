@@ -24,13 +24,58 @@ enum EditorCommand: Equatable {
     case link, table, image, chart, toc
     // 视图
     case zoomIn, zoomOut, zoomReset, lineRuling
+    // 编辑模式
+    case toggleMode
+}
+
+extension EditorCommand {
+
+    /// 传统模式是纯文本编辑器：所有富文本排版 / 插入命令都不适用，
+    /// 文件、撤销、查找、缩放、切换模式这些仍然有效。
+    /// 这里守住命令总线，工具栏按钮与菜单项即使被点到也不会破坏纯文本。
+    var isAvailableInClassicMode: Bool {
+        switch self {
+        case .new, .open, .save, .saveAs, .exportHTML, .exportPDF,
+             .undo, .redo, .find,
+             .zoomIn, .zoomOut, .zoomReset, .toggleMode:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// 只有真正改到文档内容的命令才标脏。
+    /// 以前「新建 / 打开 / 保存 / 缩放 / 开对话框」一律标脏，会导致刚保存完
+    /// 再点一次新建就误弹「有未保存改动」。
+    var mutatesDocument: Bool {
+        switch self {
+        case .bold, .italic, .underline, .strike, .inlineCode, .clearFormat,
+             .style, .bulletList, .orderedList, .quote, .codeBlock, .hr,
+             .align, .indent, .outdent, .undo, .redo:
+            return true
+        default:
+            // 插入类命令只负责打开对话框，真正写入时由各自的回调标脏
+            return false
+        }
+    }
 }
 
 extension AppModel {
 
     /// 工具栏 / 菜单 / 快捷键统一入口
     func perform(_ command: EditorCommand) {
+        // 切换模式不依赖任何编辑器视图就绪，也不该把文档标脏
+        if command == .toggleMode {
+            toggleEditorMode()
+            return
+        }
+
         guard let tv = textView else { return }
+
+        guard editorMode == .instant || command.isAvailableInClassicMode else {
+            showToast(l10n.t("mode.classic.richOnly"))
+            return
+        }
 
         switch command {
         case .new: Task { _ = await newDocument() }
@@ -40,8 +85,12 @@ extension AppModel {
         case .exportHTML: Task { await exportHTML() }
         case .exportPDF: Task { await exportPDF() }
 
-        case .undo: tv.undoManager?.undo(); markDirty(); refreshToolbar()
-        case .redo: tv.undoManager?.redo(); markDirty(); refreshToolbar()
+        case .undo:
+            tv.undoManager?.undo()
+            noteEdited(in: tv)
+        case .redo:
+            tv.undoManager?.redo()
+            noteEdited(in: tv)
         case .find:
             findVisible.toggle()
             if findVisible { refreshFindStatus() }
@@ -81,10 +130,10 @@ extension AppModel {
         case .zoomOut: setZoom(zoom - 0.1)
         case .zoomReset: setZoom(1)
         case .lineRuling: toggleLineRuling()
+        case .toggleMode: break      // 已在入口提前处理
         }
 
-        // 横线开关 / 查找面板只改视图状态，不该把文档标脏
-        if command != .find, command != .lineRuling {
+        if command.mutatesDocument {
             markDirty()
             refreshToolbar()
         }
