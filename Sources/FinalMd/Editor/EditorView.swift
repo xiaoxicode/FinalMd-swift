@@ -26,6 +26,10 @@ struct EditorView: NSViewRepresentable {
         textView.delegate = context.coordinator
 
         let (scroll, page) = EditorScrollFactory.make(textView: textView)
+        // 首帧就把显隐设对：ZStack 里后添加的源码视图默认会盖在上面，
+        // 若等 updateNSView 才隐藏，AppKit 启动时可能先把焦点交给它。
+        scroll.isHidden = model.editorMode != .instant
+        context.coordinator.appliedHidden = model.editorMode == .instant
         context.coordinator.textView = textView
         context.coordinator.pageView = page
         context.coordinator.observe(scrollView: scroll)
@@ -71,16 +75,20 @@ struct EditorView: NSViewRepresentable {
         let coord = context.coordinator
         let visible = model.editorMode == .instant
 
-        scrollView.isHidden = !visible
-        if scrollView.isHidden { _ = coord.textView?.resignFirstResponder() }
+        // 只在显隐真的变化时写 isHidden：每次 SwiftUI 刷新都写会额外触发
+        // AppKit 布局，而布局周期里改视图树正是首响应者异常的温床。
+        if coord.appliedHidden != visible {
+            coord.appliedHidden = visible
+            scrollView.isHidden = !visible
+        }
 
         if coord.appliedMode != model.editorMode {
             coord.appliedMode = model.editorMode
+            // 绝不在这里直接 resignFirstResponder()：那会让 AppKit 在布局周期里
+            // 猜测下一个响应者并抛异常。改由窗口把焦点一次性交给可见侧，
+            // 旧响应者由 NSWindow 负责让位（见 EditorFocus）。
             if visible {
-                DispatchQueue.main.async { [weak coord] in
-                    guard let tv = coord?.textView, let window = tv.window else { return }
-                    window.makeFirstResponder(tv)
-                }
+                EditorFocus.scheduleHandoff(to: coord.textView, from: model.sourceTextView)
             }
         }
 
@@ -107,6 +115,8 @@ struct EditorView: NSViewRepresentable {
         var appliedZoom: Double = 1
         /// 最近一次应用到视图上的编辑模式，用来判断是否需要移交键盘焦点
         var appliedMode: EditorMode?
+        /// 最近一次写入 scroll view 的显隐状态，避免每次刷新都触发 AppKit 布局
+        var appliedHidden: Bool?
 
         init(model: AppModel) {
             self.model = model

@@ -780,6 +780,53 @@ func testAIProtocol() {
     equal("AI 文案：变量替换仍生效", Localizer.translate("en", "ai.err.http", [:]), "Request failed")
 }
 
+// MARK: - 编辑模式焦点移交（启动首帧 SIGABRT 回归）
+
+func testEditorFocus() {
+    let root = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+    let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+    let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+    root.addSubview(scroll)
+    scroll.addSubview(tv)
+
+    // 判定隐藏必须沿着祖先链走：模式切换隐藏的是 scroll view，不是 text view 自己
+    check("可见视图不算隐藏", !EditorFocus.isEffectivelyHidden(tv))
+    tv.isHidden = true
+    check("自身隐藏可识别", EditorFocus.isEffectivelyHidden(tv))
+    tv.isHidden = false
+    scroll.isHidden = true
+    check("祖先隐藏可识别", EditorFocus.isEffectivelyHidden(tv))
+    scroll.isHidden = false
+    root.alphaValue = 0
+    check("祖先全透明可识别", EditorFocus.isEffectivelyHidden(tv))
+    root.alphaValue = 1
+    check("恢复可见后重新可聚焦", !EditorFocus.isEffectivelyHidden(tv))
+
+    // 焦点只在两个编辑器之间（或窗口/工具栏控件手里）接管。
+    // 查找栏 / 对话框的 field editor 也是 NSTextView，必须靠 otherEditor 区分。
+    let previous = NSTextView()
+    check("空响应者允许接管", EditorFocus.mayTakeFocus(from: nil))
+    check("另一个编辑器允许接管",
+          EditorFocus.mayTakeFocus(from: previous, otherEditor: previous))
+    check("查找栏 field editor 不抢",
+          !EditorFocus.mayTakeFocus(from: NSTextView(), otherEditor: previous))
+    check("对话框输入框 field editor 不抢",
+          !EditorFocus.mayTakeFocus(from: NSTextView()))
+    check("工具栏按钮焦点可接管", EditorFocus.mayTakeFocus(from: NSButton()))
+
+    // 没有窗口 / 目标是隐藏侧时，必须安静失败而不是碰第一响应者
+    check("空目标安全返回", !EditorFocus.handoff(to: nil))
+    check("未挂到窗口时安全返回", !EditorFocus.handoff(to: tv))
+    scroll.isHidden = true
+    check("隐藏目标安全返回", !EditorFocus.handoff(to: tv))
+    scroll.isHidden = false
+
+    // 异步入口在目标不可用时也不能抛异常
+    EditorFocus.scheduleHandoff(to: nil)
+    EditorFocus.scheduleHandoff(to: tv)
+    check("异步移交入口不抛异常", true)
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -795,6 +842,7 @@ testScrollViewZoom()
 testWheelZoom()
 testLocalization()
 testEditorModes()
+testEditorFocus()
 testCaretSizing()
 testCaretAlignment()
 testInlineSelection()

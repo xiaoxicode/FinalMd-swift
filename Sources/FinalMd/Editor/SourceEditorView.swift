@@ -23,6 +23,10 @@ struct SourceEditorView: NSViewRepresentable {
         textView.delegate = context.coordinator
 
         let (scroll, container) = SourceScrollFactory.make(textView: textView)
+        // 首帧就把显隐设对：ZStack 里源码视图是后添加的上层视图，
+        // 若等 updateNSView 才隐藏，AppKit 启动时可能先把焦点交给它。
+        scroll.isHidden = model.editorMode != .classic
+        context.coordinator.appliedHidden = model.editorMode == .classic
         context.coordinator.textView = textView
         context.coordinator.container = container
         context.coordinator.observe(scrollView: scroll)
@@ -41,18 +45,20 @@ struct SourceEditorView: NSViewRepresentable {
         let coord = context.coordinator
         let visible = model.editorMode == .classic
 
-        scrollView.isHidden = !visible
-        if scrollView.isHidden { _ = context.coordinator.textView?.resignFirstResponder() }
+        // 只在显隐真的变化时写 isHidden。
+        // 这里曾对隐藏侧调用 resignFirstResponder()：它运行在 SwiftUI 的
+        // layout / display cycle 中，AppKit 会去猜下一个响应者并抛 NSException
+        // （崩溃栈：-[NSWindow _newFirstResponderAfterResigning] → SIGABRT）。
+        // 现在焦点只由可见侧通过 NSWindow.makeFirstResponder 一次性接管。
+        if coord.appliedHidden != visible {
+            coord.appliedHidden = visible
+            scrollView.isHidden = !visible
+        }
 
         if coord.appliedMode != model.editorMode {
             coord.appliedMode = model.editorMode
             if visible {
-                // 显隐生效之后再把键盘焦点交给源码视图，否则 ⌘B / 打字
-                // 仍会落到已经藏起来的即刻视图上。
-                DispatchQueue.main.async { [weak coord] in
-                    guard let tv = coord?.textView, let window = tv.window else { return }
-                    window.makeFirstResponder(tv)
-                }
+                EditorFocus.scheduleHandoff(to: coord.textView, from: model.richTextView)
             }
         }
 
@@ -72,6 +78,8 @@ struct SourceEditorView: NSViewRepresentable {
         weak var container: SourceContainerView?
         var appliedZoom: Double = 1
         var appliedMode: EditorMode?
+        /// 最近一次写入 scroll view 的显隐状态，避免每次刷新都触发 AppKit 布局
+        var appliedHidden: Bool?
 
         init(model: AppModel) {
             self.model = model

@@ -38,9 +38,25 @@ FILES=(
   "$SRC/Sources/FinalMd/Editor/TextFormatting.swift"
   "$SRC/Sources/FinalMd/Editor/ScrollView.swift"
   "$SRC/Sources/FinalMd/Editor/SourceTextView.swift"
+  "$SRC/Sources/FinalMd/Editor/EditorFocus.swift"
   "$SRC/Sources/FinalMd/Util/ImageEmbed.swift"
   "$WORK/main.swift"
 )
+
+echo "→ 编辑模式焦点回归检查…"
+# 防回归：在 SwiftUI 的 layout / display cycle 里直接 resignFirstResponder()
+# 会让 AppKit 走 -[NSWindow _newFirstResponderAfterResigning] 猜下一个响应者，
+# 找不到候选时抛 NSException → SIGABRT（启动首帧必现）。
+# 焦点必须统一由 EditorFocus → NSWindow.makeFirstResponder(_:) 移交。
+# 只检查代码行；注释里提到这个方法名是说明文档，不算调用。
+DIRECT_RESIGN="$(grep -R --include='*.swift' -n 'resignFirstResponder()' "$SRC/Sources" \
+  | grep -vE ':[0-9]+:[[:space:]]*(//|\*)' || true)"
+if [[ -n "$DIRECT_RESIGN" ]]; then
+  echo "❌ 发现直接调用 resignFirstResponder()：请用 EditorFocus.scheduleHandoff(to:)"
+  printf '%s\n' "$DIRECT_RESIGN"
+  exit 1
+fi
+echo "  ✓ 未发现直接 resignFirstResponder()"
 
 echo "→ 编译冒烟测试…"
 swiftc \
