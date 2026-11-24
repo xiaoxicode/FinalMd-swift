@@ -37,6 +37,21 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// 打开外部 Markdown 时的策略。只作用于「从磁盘打开的文件」，
+/// FinalMd 自己新建 / 保存的文档往返稳定，本来就不会触发体检提示。
+enum ExternalFilePolicy: String, CaseIterable, Identifiable {
+    /// 检测到会被改写的扩展语法时询问用户
+    case ask
+    /// 一律用传统模式打开，原文逐字节保留
+    case classic
+    /// 保持当前模式，不提示
+    case keep
+
+    var id: String { rawValue }
+    var labelKey: String { "external.policy.\(rawValue)" }
+    static let storageKey = "finalmd.externalFilePolicy"
+}
+
 /// 工具栏回显状态
 struct ToolbarState: Equatable {
     var isBold = false
@@ -63,6 +78,7 @@ enum DialogKind: Identifiable, Equatable {
     case confirm(ConfirmSpec)
     case aiCommand
     case aiSettings
+    case embedPreview(EmbedPreview)
 
     var id: String {
         switch self {
@@ -73,6 +89,7 @@ enum DialogKind: Identifiable, Equatable {
         case .confirm(let spec): return "confirm-\(spec.title)"
         case .aiCommand: return "aiCommand"
         case .aiSettings: return "aiSettings"
+        case .embedPreview(let preview): return "embed-\(preview.title)"
         }
     }
 }
@@ -161,6 +178,24 @@ final class AppModel: ObservableObject {
     }
 
     static let appearanceKey = "finalmd.appearance"
+
+    /// 打开外部 Markdown 时的策略（询问 / 一律传统模式 / 保持当前模式）。
+    /// 属于本机偏好，不写进文档。
+    @Published var externalFilePolicy: ExternalFilePolicy = {
+        let saved = UserDefaults.standard.string(forKey: ExternalFilePolicy.storageKey) ?? ""
+        return ExternalFilePolicy(rawValue: saved) ?? .ask
+    }() {
+        didSet {
+            guard oldValue != externalFilePolicy else { return }
+            UserDefaults.standard.set(externalFilePolicy.rawValue, forKey: ExternalFilePolicy.storageKey)
+            showToast(l10n.t(externalFilePolicy.labelKey))
+        }
+    }
+
+    /// 最近打开过的目录。未命名文档里点 Obsidian 双链时，用它当笔记库根。
+    @Published private(set) var vaultRoot: String?
+    static let vaultRootKey = "finalmd.vaultRoot"
+
     @Published var toastMessage: String?
     @Published var activeDialog: DialogKind?
     @Published var findVisible = false
@@ -185,6 +220,7 @@ final class AppModel: ObservableObject {
            let mode = AppearanceMode(rawValue: saved) {
             appearanceMode = mode
         }
+        vaultRoot = UserDefaults.standard.string(forKey: Self.vaultRootKey)
         AppModel.shared = self
         applyAppearance()
     }
@@ -338,6 +374,8 @@ final class AppModel: ObservableObject {
 
     private func loadRich(_ attr: NSAttributedString, into view: MDEditorTextView) {
         EditorModeBridge.install(attr, in: view, plain: false)
+        // 换了文档，旧 Callout 的折叠状态不再对应任何块
+        view.expandAllCallouts()
         view.refreshTypingAttributes()
         view.showsLineRuling = showLineRuling
         view.needsDisplay = true
@@ -444,9 +482,107 @@ final class AppModel: ObservableObject {
             if answer == "cancel" { return }
             if answer == "save", !(await save(asNew: false)) { return }
         }
+        // 体检放在 setMarkdown 之前：用户选「取消」时原文档一个字都不动。
+        guard let useClassic = await classicModeDecision(for: result.content) else { return }
+        rememberVaultRoot(of: result.path)
         currentPath = result.path
         setMarkdown(result.content)
+        if useClassic {
+            if editorMode != .classic { editorMode = .classic }
+            showToast(l10n.t("toast.external.classic"))
+        } else {
+            showToast(l10n.t("toast.opened", ["name": docName]))
+        }
+    }
+
+    /// 返回是否用传统模式打开；nil 表示用户取消打开。
+    /// 用真实解析器跑一轮往返做差分，而不是维护一张会过时的「不支持语法」清单。
+    private func classicModeDecision(for content: String) async -> Bool? {
+        let assessment = MarkdownCompatibility.assess(content)
+        guard assessment.needsCare else { return false }
+        switch externalFilePolicy {
+        case .keep:
+            return false
+        case .classic:
+            return true
+        case .ask:
+            let answer = await confirm(ConfirmSpec(
+                title: l10n.t("dlg.external.title"),
+                message: l10n.t("dlg.external.text", [
+                    "n": String(assessment.syntaxHits.count),
+                    "lines": String(assessment.changedLines),
+                    "rate": String(format: "%.1f", assessment.retention * 100),
+                ]),
+                buttons: [
+                    ConfirmButton(id: "classic", label: l10n.t("dlg.external.classic"), style: .primary),
+                    ConfirmButton(id: "instant", label: l10n.t("dlg.external.instant"), style: .plain),
+                    ConfirmButton(id: "cancel", label: l10n.t("common.cancel"), style: .plain),
+                ]
+            ))
+            switch answer {
+            case "classic": return true
+            case "instant": return false
+            default: return nil
+            }
+        }
+    }
+
+    private func rememberVaultRoot(of path: String) {
+        vaultRoot = (path as NSString).deletingLastPathComponent
+        UserDefaults.standard.set(vaultRoot, forKey: Self.vaultRootKey)
+    }
+
+    // MARK: - Obsidian 双链 / 嵌入交互
+
+    /// ⌘+点击普通双链：打开同库笔记，并定位到 #标题 / ^块
+    func followWikiLink(_ link: MDWikiLink) {
+        if link.embedded { previewEmbed(link); return }
+        Task { await followWikiLinkAsync(link) }
+    }
+
+    private func followWikiLinkAsync(_ link: MDWikiLink) async {
+        let target = ObsidianResolver.target(from: link)
+        guard let url = ObsidianResolver.resolve(file: target.file,
+                                                 near: currentPath,
+                                                 vaultRoot: vaultRoot),
+              let content = try? String(contentsOf: url, encoding: .utf8) else {
+            showToast(l10n.t("toast.wiki.notFound", ["name": target.file]))
+            return
+        }
+        if isDirty {
+            let answer = await confirm(ConfirmSpec.unsaved(l10n, title: l10n.t("dlg.open.title")))
+            if answer == "cancel" { return }
+            if answer == "save", !(await save(asNew: false)) { return }
+        }
+        rememberVaultRoot(of: url.path)
+        currentPath = url.path
+        setMarkdown(content)
+        if editorMode != .instant { editorMode = .instant }
+        // 标题 / 块定位直接落在排版视图上，不改 storage
+        if let storage = richTextView?.textStorage {
+            let range = target.block.flatMap { ObsidianResolver.blockRange($0, in: storage) }
+                ?? target.heading.flatMap { ObsidianResolver.headingRange($0, in: storage) }
+            if let range {
+                let caret = NSRange(location: range.location, length: 0)
+                richTextView?.setSelectedRange(caret)
+                richTextView?.scrollRangeToVisible(range)
+                richTextView?.showFindIndicator(for: range)
+            }
+        }
         showToast(l10n.t("toast.opened", ["name": docName]))
+    }
+
+    /// ⌘+点击嵌入：在预览面板展开目标笔记 / 图片，不改文档内容
+    func previewEmbed(_ link: MDWikiLink) {
+        let target = ObsidianResolver.target(from: link)
+        guard let url = ObsidianResolver.resolve(file: target.file,
+                                                 near: currentPath,
+                                                 vaultRoot: vaultRoot),
+              let preview = ObsidianResolver.preview(at: url) else {
+            showToast(l10n.t("toast.wiki.notFound", ["name": target.file]))
+            return
+        }
+        activeDialog = .embedPreview(preview)
     }
 
     @discardableResult

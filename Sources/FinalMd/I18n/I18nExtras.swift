@@ -1,9 +1,10 @@
 //
 //  I18nExtras.swift
-//  FinalMd（墨写）— AI 功能文案
+//  FinalMd（墨写）— 手写补充文案（AI / 外部文件体检 / Obsidian 交互）
 //
 //  Dictionaries.swift 是 gen-i18n.js 生成的快照，不要往里塞手写词条。
-//  这里单独维护新增功能的文案：zh / en 完整，其余语言由 Localizer 回退到 en。
+//  这里单独维护新增功能的文案：AI 词条只有 zh / en，其余语言回退到 en；
+//  外部文件体检与 Obsidian 交互词条七种语言齐全。
 //
 
 import Foundation
@@ -89,6 +90,19 @@ enum I18nExtras {
             "ai.instruction.outline": "把下面的内容整理成层级清晰的 Markdown 提纲：一级结论、二级依据、三级细节，每条不超过一句话，保持原文语言，不新增信息。",
             "ai.instruction.grammar": "校正下面文字中的错别字、标点和语法问题，保持原意、术语、Markdown 结构与语言不变，不要改写风格，只输出修正后的正文。",
             "ai.instruction.translate": "把下面的内容翻译成自然、准确、专业的英文，保留 Markdown 结构、代码块、链接与术语，不要添加解释。",
+
+            // 外部 Markdown 兼容性体检 / Obsidian 交互（P1 / P3）
+            "menu.view.externalPolicy": "打开外部 Markdown 时",
+            "external.policy.ask": "每次询问",
+            "external.policy.classic": "默认传统模式",
+            "external.policy.keep": "保持当前模式",
+            "dlg.external.title": "外部 Markdown 兼容性提示",
+            "dlg.external.text": "检测到 {n} 类扩展写法；即刻模式预计改写 {lines} 行（可读字符保留率 {rate}%）。建议用传统模式打开，原文将逐字节保留。",
+            "dlg.external.classic": "用传统模式打开",
+            "dlg.external.instant": "仍用即刻模式",
+            "toast.external.classic": "已用传统模式打开，原文逐字节保留",
+            "toast.wiki.notFound": "未找到笔记 {name}",
+            "embed.empty": "（空文档）",
         ],
         "en": [
             "ai.menu": "AI Assistant",
@@ -169,6 +183,84 @@ enum I18nExtras {
             "ai.instruction.outline": "Turn the content into a clear hierarchical Markdown outline: top-level conclusions, supporting evidence, then details. One sentence per item, same language, no new information.",
             "ai.instruction.grammar": "Fix spelling, punctuation and grammar in the text below. Preserve meaning, terminology, Markdown structure and language. Do not restyle; output only the corrected text.",
             "ai.instruction.translate": "Translate the content below into natural, accurate, professional English. Preserve Markdown structure, code blocks, links and terminology. No explanations.",
+
+            // External Markdown compatibility check / Obsidian interactions (P1 / P3)
+            "menu.view.externalPolicy": "When Opening External Markdown",
+            "external.policy.ask": "Ask Every Time",
+            "external.policy.classic": "Always Classic Mode",
+            "external.policy.keep": "Keep Current Mode",
+            "dlg.external.title": "External Markdown Compatibility",
+            "dlg.external.text": "Detected {n} kinds of extended syntax; Instant Mode is expected to rewrite {lines} lines (readable-character retention {rate}%). Classic Mode is recommended so the source is preserved byte for byte.",
+            "dlg.external.classic": "Open in Classic Mode",
+            "dlg.external.instant": "Use Instant Mode Anyway",
+            "toast.external.classic": "Opened in Classic Mode; source bytes preserved",
+            "toast.wiki.notFound": "Note not found: {name}",
+            "embed.empty": "(Empty document)",
+        ],
+        "ja": [
+            "menu.view.externalPolicy": "外部 Markdown を開くとき",
+            "external.policy.ask": "毎回確認する",
+            "external.policy.classic": "常に従来モード",
+            "external.policy.keep": "現在のモードを維持",
+            "dlg.external.title": "外部 Markdown の互換性",
+            "dlg.external.text": "拡張構文を {n} 種類検出しました。即刻モードでは {lines} 行が書き換えられる見込みです（可読文字の保持率 {rate}%）。原文をそのまま保つには従来モードをお勧めします。",
+            "dlg.external.classic": "従来モードで開く",
+            "dlg.external.instant": "即刻モードで開く",
+            "toast.external.classic": "従来モードで開きました。原文はそのままです",
+            "toast.wiki.notFound": "ノートが見つかりません: {name}",
+            "embed.empty": "（空のドキュメント）",
+        ],
+        "ko": [
+            "menu.view.externalPolicy": "외부 Markdown을 열 때",
+            "external.policy.ask": "매번 묻기",
+            "external.policy.classic": "항상 기존 모드",
+            "external.policy.keep": "현재 모드 유지",
+            "dlg.external.title": "외부 Markdown 호환성",
+            "dlg.external.text": "확장 구문 {n}종을 감지했습니다. 즉시 모드에서 {lines}줄이 바뀔 것으로 예상됩니다(가독 문자 유지율 {rate}%). 원문을 그대로 보존하려면 기존 모드를 권장합니다.",
+            "dlg.external.classic": "기존 모드로 열기",
+            "dlg.external.instant": "즉시 모드로 열기",
+            "toast.external.classic": "기존 모드로 열었습니다. 원문이 그대로 보존됩니다",
+            "toast.wiki.notFound": "노트를 찾을 수 없습니다: {name}",
+            "embed.empty": "(빈 문서)",
+        ],
+        "fr": [
+            "menu.view.externalPolicy": "À l'ouverture d'un Markdown externe",
+            "external.policy.ask": "Demander à chaque fois",
+            "external.policy.classic": "Toujours le mode classique",
+            "external.policy.keep": "Conserver le mode actuel",
+            "dlg.external.title": "Compatibilité Markdown externe",
+            "dlg.external.text": "{n} types de syntaxe étendue détectés ; le mode instantané devrait réécrire {lines} lignes (taux de conservation des caractères lisibles : {rate}%). Le mode classique est recommandé pour préserver la source octet par octet.",
+            "dlg.external.classic": "Ouvrir en mode classique",
+            "dlg.external.instant": "Ouvrir quand même en mode instantané",
+            "toast.external.classic": "Ouvert en mode classique ; source inchangée",
+            "toast.wiki.notFound": "Note introuvable : {name}",
+            "embed.empty": "(Document vide)",
+        ],
+        "de": [
+            "menu.view.externalPolicy": "Beim Öffnen externer Markdown-Dateien",
+            "external.policy.ask": "Jedes Mal fragen",
+            "external.policy.classic": "Immer klassischer Modus",
+            "external.policy.keep": "Aktuellen Modus behalten",
+            "dlg.external.title": "Kompatibilität externer Markdown-Dateien",
+            "dlg.external.text": "{n} erweiterte Syntaxarten erkannt; der Sofort-Modus würde voraussichtlich {lines} Zeilen umschreiben (Erhaltungsrate lesbarer Zeichen: {rate}%). Der klassische Modus wird empfohlen, damit der Quelltext bytegenau erhalten bleibt.",
+            "dlg.external.classic": "Im klassischen Modus öffnen",
+            "dlg.external.instant": "Trotzdem im Sofort-Modus öffnen",
+            "toast.external.classic": "Im klassischen Modus geöffnet; Quelltext unverändert",
+            "toast.wiki.notFound": "Notiz nicht gefunden: {name}",
+            "embed.empty": "(Leeres Dokument)",
+        ],
+        "es": [
+            "menu.view.externalPolicy": "Al abrir Markdown externo",
+            "external.policy.ask": "Preguntar siempre",
+            "external.policy.classic": "Siempre modo clásico",
+            "external.policy.keep": "Mantener modo actual",
+            "dlg.external.title": "Compatibilidad de Markdown externo",
+            "dlg.external.text": "Se detectaron {n} tipos de sintaxis extendida; el modo instantáneo reescribiría {lines} líneas (retención de caracteres legibles: {rate}%). Se recomienda el modo clásico para conservar el original byte a byte.",
+            "dlg.external.classic": "Abrir en modo clásico",
+            "dlg.external.instant": "Abrir igualmente en modo instantáneo",
+            "toast.external.classic": "Abierto en modo clásico; original intacto",
+            "toast.wiki.notFound": "Nota no encontrada: {name}",
+            "embed.empty": "(Documento vacío)",
         ],
     ]
 }

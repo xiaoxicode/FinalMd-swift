@@ -75,6 +75,8 @@ struct ContentView: View {
             AICommandView()
         case .aiSettings:
             AISettingsView()
+        case .embedPreview(let preview):
+            EmbedPreviewView(preview: preview)
         }
     }
 }

@@ -112,6 +112,16 @@ struct AppCommands: Commands {
                     }
                 }
             }
+            Menu(l10n.t("menu.view.externalPolicy")) {
+                ForEach(ExternalFilePolicy.allCases) { policy in
+                    Button {
+                        model.externalFilePolicy = policy
+                    } label: {
+                        Text((model.externalFilePolicy == policy ? "✓ " : "    ")
+                             + l10n.t(policy.labelKey))
+                    }
+                }
+            }
             Divider()
             Button(l10n.t("menu.view.zoomIn")) { model.perform(.zoomIn) }
                 .keyboardShortcut("+", modifiers: .command)

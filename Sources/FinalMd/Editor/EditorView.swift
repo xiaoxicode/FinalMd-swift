@@ -64,6 +64,17 @@ struct EditorView: NSViewRepresentable {
             model.markDirty()
         }
 
+        // Obsidian 交互：⌘+点击双链跳转 / 嵌入预览 / Callout 折叠
+        textView.onWikiLinkActivated = { [weak model] link in
+            model?.followWikiLink(link)
+        }
+        textView.onEmbedActivated = { [weak model] link in
+            model?.previewEmbed(link)
+        }
+        textView.onCalloutToggle = { [weak textView] id in
+            textView?.toggleCallout(id: id)
+        }
+
         model.richTextView = textView
         model.textView = textView
         model.loadInitialContentIfNeeded()
@@ -150,6 +161,8 @@ struct EditorView: NSViewRepresentable {
             pageView?.layout()
             // Markdown 快捷输入规则：输入 "# " 立刻变标题
             (textView as? MDEditorTextView)?.applyInputRules()
+            // storage 变了，旧的临时属性范围可能已失效，按块 ID 重新套折叠状态
+            (textView as? MDEditorTextView)?.reapplyFoldVisuals()
             model.refreshToolbar()
         }
 
@@ -168,6 +181,17 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
     var onImageDoubleClick: ((MDImageAttachment) -> Void)?
     var onDropImageFiles: (([URL]) -> Void)?
     var onDropImages: (([NSImage]) -> Void)?
+
+    /// ⌘+点击 Obsidian 双链 / 嵌入 / Callout 折叠箭头
+    var onWikiLinkActivated: ((MDWikiLink) -> Void)?
+    var onEmbedActivated: ((MDWikiLink) -> Void)?
+    var onCalloutToggle: ((Int) -> Void)?
+
+    /// 折叠的 Callout 块 ID。只影响渲染，不写进 NSTextStorage，
+    /// 因此序列化、存盘、undo 历史都不会看到「折叠」这件事。
+    private var foldedCalloutIDs: Set<Int> = []
+    private var appliedFoldRanges: [NSRange] = []
+    private static let foldedAttribute = NSAttributedString.Key("finalmd.folded")
 
     /// 正在执行回车换行。期间 didChangeSelection 会因插入点移动而触发，
     /// 若不拦住，syncTypingAttributesFromCaret 会用插入点前一个字符的属性
@@ -597,9 +621,27 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
         setSelectedRange(NSRange(location: paraStart, length: 0))
     }
 
-    // MARK: 双击图片 → 回到图表编辑
+    // MARK: ⌘+点击 Obsidian 交互 / 双击图片 → 回到图表编辑
 
     override func mouseDown(with event: NSEvent) {
+        // 即刻模式是编辑器，直接单击跳转会和选中文本冲突，所以用 ⌘+点击。
+        if event.modifierFlags.contains(.command),
+           let storage = textStorage, storage.length > 0 {
+            let point = convert(event.locationInWindow, from: nil)
+            var index = characterIndexForInsertion(at: point)
+            index = min(max(index, 0), storage.length - 1)
+            let attrs = storage.attributes(at: index, effectiveRange: nil)
+            if let wiki = attrs[.mdWikiLink] as? MDWikiLink {
+                if wiki.embedded { onEmbedActivated?(wiki) } else { onWikiLinkActivated?(wiki) }
+                return
+            }
+            if let id = attrs[.mdCalloutID] as? Int,
+               let fold = attrs[.mdCalloutFold] as? String, !fold.isEmpty {
+                onCalloutToggle?(id)
+                return
+            }
+        }
+
         super.mouseDown(with: event)
         guard event.clickCount == 2, let storage = textStorage, storage.length > 0 else { return }
         let point = convert(event.locationInWindow, from: nil)
@@ -608,6 +650,55 @@ final class MDEditorTextView: NSTextView, InlineTypingMemory {
         if let attachment = storage.attribute(.attachment, at: index, effectiveRange: nil) as? MDImageAttachment {
             onImageDoubleClick?(attachment)
         }
+    }
+
+    // MARK: Callout 折叠（纯视觉，storage 不变）
+
+    func toggleCallout(id: Int) {
+        if foldedCalloutIDs.contains(id) { foldedCalloutIDs.remove(id) }
+        else { foldedCalloutIDs.insert(id) }
+        reapplyFoldVisuals()
+    }
+
+    /// 换文档 / 导出前调用：折叠状态全部清空
+    func expandAllCallouts() {
+        foldedCalloutIDs.removeAll()
+        reapplyFoldVisuals()
+    }
+
+    /// 用 NSLayoutManager 的临时属性隐藏折叠行：
+    /// 不替换字符、不写 storage，所以 Markdown 序列化永远是完整原文，
+    /// 也不会在 undo 栈里留下「折叠」这一步。
+    func reapplyFoldVisuals() {
+        guard let layout = layoutManager, let storage = textStorage else { return }
+        for r in appliedFoldRanges where NSMaxRange(r) <= storage.length {
+            let glyphs = layout.glyphRange(forCharacterRange: r, actualCharacterRange: nil)
+            for g in glyphs.location..<NSMaxRange(glyphs) where g < layout.numberOfGlyphs {
+                layout.setNotShownAttribute(false, forGlyphAt: g)
+            }
+            layout.removeTemporaryAttribute(.foregroundColor, forCharacterRange: r)
+            layout.removeTemporaryAttribute(.font, forCharacterRange: r)
+            layout.removeTemporaryAttribute(Self.foldedAttribute, forCharacterRange: r)
+        }
+        appliedFoldRanges.removeAll()
+        guard !foldedCalloutIDs.isEmpty, storage.length > 0 else {
+            needsDisplay = true
+            return
+        }
+
+        for r in CalloutFolding.hiddenRanges(in: storage, foldedIDs: foldedCalloutIDs) {
+            layout.addTemporaryAttributes([
+                .foregroundColor: NSColor.clear,
+                .font: NSFont.systemFont(ofSize: 1),
+                Self.foldedAttribute: true,
+            ], forCharacterRange: r)
+            appliedFoldRanges.append(r)
+            let glyphs = layout.glyphRange(forCharacterRange: r, actualCharacterRange: nil)
+            for g in glyphs.location..<NSMaxRange(glyphs) where g < layout.numberOfGlyphs {
+                layout.setNotShownAttribute(true, forGlyphAt: g)
+            }
+        }
+        needsDisplay = true
     }
 
     // MARK: 拖入图片

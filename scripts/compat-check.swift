@@ -163,10 +163,14 @@ func retention(_ src: String, _ out: String) -> Double {
 func blockTypes(_ a: NSAttributedString) -> Set<String> {
     var out = Set<String>()
     guard a.length > 0 else { return out }
-    a.enumerateAttribute(.mdBlockType,
-                         in: NSRange(location: 0, length: a.length),
-                         options: []) { value, _, _ in
+    let full = NSRange(location: 0, length: a.length)
+    a.enumerateAttribute(.mdBlockType, in: full, options: []) { value, _, _ in
         if let s = value as? String { out.insert(s) }
+    }
+    // 缩进代码块用 raw 块承载（为了逐字保住前导空格），但结构上它就是 code。
+    // 不映射的话 CommonMark 里预期 <pre><code> 的用例会被误判成「结构丢失」。
+    a.enumerateAttribute(.mdRawKind, in: full, options: []) { value, _, _ in
+        if (value as? String) == MDRawKind.indentedCode.rawValue { out.insert("code") }
     }
     return out
 }
@@ -353,6 +357,7 @@ let summary: [String: Any] = [
     "file_converged": fileConverged,
     "case_converged": caseConverged,
     "avg_retention": avg(fileResults.compactMap { $0["retention"] as? Double }),
+    "avg_structure": avg(caseResults.compactMap { $0["structure"] as? Double }),
     "avg_ms": avg(fileResults.compactMap { Double($0["ms"] as? Int ?? 0) }),
     "raw_blocks_total": rawTotal,
     "raw_blocks_kept": rawKept,

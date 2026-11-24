@@ -60,6 +60,17 @@ enum MarkdownParser {
                 continue
             }
 
+            // 缩进代码块（CommonMark 4 空格 / tab）。只在块首识别：段落里出现
+            // 缩进行属于 lazy continuation，CommonMark 规定不能打断段落。
+            // 也不能抢走「4 空格 + 列表标记」这种嵌套列表项，交给列表分支处理。
+            // 判定要在 HTML 块 / 链接定义之后：那两者已自己排除了 4 空格开头。
+            if listItemInfo(line) == nil, let end = indentedCodeEnd(in: lines, from: i) {
+                out.append(rawBlock(Array(lines[i..<end]), kind: .indentedCode, id: nextRawID))
+                nextRawID += 1
+                i = end
+                continue
+            }
+
             // 围栏代码块
             if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
                 let fence = String(trimmed.prefix(3))
@@ -527,6 +538,37 @@ enum MarkdownParser {
             || (t.hasPrefix("(") && t.hasSuffix(")"))
     }
 
+    /// CommonMark 缩进代码块：一行以 4 个空格 / tab 开头即可开启，
+    /// 后续缩进行与块内空行都属于同一块；遇到第一个非缩进非空行结束。
+    /// 返回块结束后的行号（exclusive），尾部空行不并入（否则每往返一次多一空行）。
+    private static func indentedCodeEnd(in lines: [String], from start: Int) -> Int? {
+        guard start < lines.count, isIndentedCodeLine(lines[start]) else { return nil }
+        var j = start
+        var lastContent = start
+        var sawContent = false
+        while j < lines.count {
+            let line = lines[j]
+            if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                j += 1
+                continue
+            }
+            guard isIndentedCodeLine(line) else { break }
+            sawContent = true
+            lastContent = j
+            j += 1
+        }
+        return sawContent ? lastContent + 1 : nil
+    }
+
+    private static func isIndentedCodeLine(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        // 缩进的 "> ..." 在 FinalMd 里一直是引用块（常见于列表项内的嵌套引用），
+        // 不能因为前面有 4 个空格就把它降级成代码源码、丢掉引用排版。
+        guard !trimmed.isEmpty, !trimmed.hasPrefix(">") else { return false }
+        if line.hasPrefix("\t") { return true }
+        return line.prefix(while: { $0 == " " }).count >= 4
+    }
+
     /// 把整块原始行原封不动放进 storage：不走 InlineParser，也不做任何转义。
     /// 每一行（含空行）都带同一个 blockID，序列化时据此拼回一整块。
     private static func rawBlock(_ lines: [String], kind: MDRawKind, id: Int) -> NSAttributedString {
@@ -538,9 +580,11 @@ enum MarkdownParser {
             content.removeLast()
         }
         guard !content.isEmpty else { return NSAttributedString() }
+        let style = DocTheme.paragraphStyle(for: .raw)
+        if kind == .indentedCode { style.textBlocks = [DocTheme.codeTextBlock] }
         let attrs: [NSAttributedString.Key: Any] = [
             .font: DocTheme.monospacedFont(size: DocTheme.codeFontSize),
-            .paragraphStyle: DocTheme.paragraphStyle(for: .raw),
+            .paragraphStyle: style,
             .foregroundColor: DocTheme.textDim,
             .mdBlockType: MDBlockType.raw.rawValue,
             .mdRawKind: kind.rawValue,

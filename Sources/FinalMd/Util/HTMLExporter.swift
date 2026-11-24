@@ -45,7 +45,18 @@ enum HTMLExporter {
             case .raw(let source, let kind):
                 // 原始 HTML 原样进正文；frontmatter 与引用式链接定义是元数据，
                 // 不渲染成可见内容（否则 YAML 会被当成正文印出来）。
-                if kind == .html { body += source + "\n" }
+                if kind == .html {
+                    body += source + "\n"
+                } else if kind == .indentedCode {
+                    // 4 空格 / tab 是 Markdown 的语法前缀，导出 HTML 时要去掉一层
+                    let code = source.split(separator: "\n", omittingEmptySubsequences: false)
+                        .map { line -> String in
+                            if line.hasPrefix("\t") { return String(line.dropFirst()) }
+                            let n = min(line.prefix(while: { $0 == " " }).count, 4)
+                            return String(line.dropFirst(n))
+                        }.joined(separator: "\n")
+                    body += "<pre><code>\(escape(code))</code></pre>\n"
+                }
             case .callout(let lines, let kind, let fold):
                 let lower = kind.lowercased()
                 var title = lines.first ?? ""

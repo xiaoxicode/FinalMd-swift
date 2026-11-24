@@ -1148,6 +1148,166 @@ func testObsidianSyntax() {
     check("Callout HTML：内容在", calloutHTML.contains("请备份"))
 }
 
+// MARK: - 外部文件兼容性体检（P1）
+
+func testExternalCompatibility() {
+    let simple = "# 标题\n\n正文 **粗体** 与 [链接](https://example.com)\n"
+    let a = MarkdownCompatibility.assess(simple)
+    check("体检：FinalMd 自建文档不打扰", !a.needsCare)
+    check("体检：自建文档 0 行改写", a.changedLines == 0)
+    check("体检：自建文档字符保留率 100%", a.retention > 0.999)
+
+    let complex = "Title\n=====\n\nText with a hard break.  \nSee [^note].\n"
+        + "\n$$x^2$$\n\n    indented <b>raw</b>\n\n[^note]: a footnote definition\n"
+    let b = MarkdownCompatibility.assess(complex)
+    check("体检：扩展语法文件需要提示", b.needsCare)
+    check("体检：改写行数可检出", b.changedLines > 0)
+    check("体检：命中 Setext 标题", b.syntaxHits.contains("setext"))
+    check("体检：命中数学公式", b.syntaxHits.contains("math"))
+    check("体检：命中脚注", b.syntaxHits.contains("footnote"))
+    check("体检：不把已支持语法列为风险", !b.syntaxHits.contains("wikilink"))
+    check("体检：单行列表符号规范化不打扰",
+          !MarkdownCompatibility.assess("* only one item\n").needsCare)
+
+    check("体检：重排不误报", MarkdownCompatibility.changedLineCount("A\nB\n", "B\nA\n") == 0)
+    check("体检：列表符号统一可检出", MarkdownCompatibility.changedLineCount("* a\n* b\n", "- a\n- b\n") == 2)
+    check("体检：字符保留率顺序匹配", MarkdownCompatibility.retainedCharacters("abc", "axbyc") == 1.0)
+    check("体检：字符丢失可检出", MarkdownCompatibility.retainedCharacters("abcdef", "abc") == 0.5)
+    equal("体检：CRLF 归一", MarkdownCompatibility.normalize("a\r\nb\r"), "a\nb\n")
+    equal("体检：剥掉 BOM", MarkdownCompatibility.normalize("\u{FEFF}# T\n"), "# T\n")
+
+    let keys = [
+        "menu.view.externalPolicy", "external.policy.ask", "external.policy.classic",
+        "external.policy.keep", "dlg.external.title", "dlg.external.text",
+        "dlg.external.classic", "dlg.external.instant", "toast.external.classic",
+        "toast.wiki.notFound", "embed.empty",
+    ]
+    for lang in I18nDictionary.supportedLanguages {
+        check("外部文件文案 \(lang.code) 七语言齐全",
+              keys.allSatisfy { I18nExtras.table[lang.code]?[$0] != nil })
+    }
+    check("体检文案占位符替换",
+          Localizer.translate("zh", "dlg.external.text",
+                              ["n": "2", "lines": "7", "rate": "98.5"]).contains("7"))
+}
+
+// MARK: - 4 空格缩进代码块（P2）
+
+func testIndentedCodeBlocks() {
+    let src = "    hello <world>\n    second [line]\n"
+    equal("缩进代码块：逐字往返", roundTrip(src), src)
+    check("缩进代码块：往返稳定", stable(src))
+    check("缩进代码块：尖括号不转义", !roundTrip(src).contains("\\<"))
+    check("缩进代码块：方括号不转义", !roundTrip(src).contains("\\["))
+
+    let tab = "\tfunc a()\n\treturn b()\n"
+    equal("缩进代码块：tab 逐字往返", roundTrip(tab), tab)
+
+    let withBlank = "    one\n\n    two\n"
+    check("缩进代码块：块内空行稳定", stable(withBlank))
+    check("缩进代码块：块内空行保留", roundTrip(withBlank).contains("one\n\n"))
+
+    let attr = MarkdownParser.parse(src)
+    equal("缩进代码块：块类型为 raw",
+          attr.attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String ?? "", "raw")
+    equal("缩进代码块：kind 为 indentedCode",
+          attr.attribute(.mdRawKind, at: 0, effectiveRange: nil) as? String ?? "", "indentedCode")
+    check("缩进代码块：共享块 ID",
+          attr.attribute(.mdRawID, at: 0, effectiveRange: nil) is Int)
+
+    let html = HTMLExporter.document(from: attr, title: "T", language: "zh")
+    check("缩进代码块：HTML 输出 pre/code", html.contains("<pre><code>"))
+    check("缩进代码块：HTML 转义尖括号", html.contains("hello &lt;world&gt;"))
+    check("缩进代码块：HTML 去掉一层缩进", !html.contains("<pre><code>    hello"))
+
+    let nested = "- item\n    - nested\n"
+    check("缩进代码块：嵌套列表内容仍在", roundTrip(nested).contains("nested"))
+    check("缩进代码块：不抢嵌套列表项",
+          (MarkdownParser.parse(nested).attribute(.mdRawKind, at: 0, effectiveRange: nil) as? String) == nil)
+    check("缩进代码块：不打断段落",
+          (MarkdownParser.parse("para\n    continuation\n")
+            .attribute(.mdRawKind, at: 0, effectiveRange: nil) as? String) == nil)
+
+    let twice = "    a\n\ntext\n\n    b\n"
+    check("缩进代码块：相邻块不粘连", stable(twice))
+    check("缩进代码块：两块都在",
+          roundTrip(twice).contains("    a") && roundTrip(twice).contains("    b"))
+
+    let rawHTML = "    <table>\n      <tr><td>x</td></tr>\n    </table>\n"
+    equal("缩进代码块：真实语料的缩进 HTML 逐字", roundTrip(rawHTML), rawHTML)
+    check("缩进代码块：缩进 HTML 稳定", stable(rawHTML))
+
+    let def = "    [not]: /url\n"
+    equal("缩进代码块：缩进链接定义逐字", roundTrip(def), def)
+}
+
+// MARK: - 双链跳转 / 嵌入展开 / Callout 折叠（P3）
+
+func testObsidianInteractions() {
+    _ = NSApplication.shared
+    let md = "# Alpha\n\nBody\n\n## Beta\n\nTail ^blk1\n"
+    let storage = MarkdownParser.parse(md)
+
+    let link = MDWikiLink(raw: "[[Alpha#Beta]]", target: "Alpha",
+                          suffix: "#Beta", alias: "", embedded: false)
+    let t = ObsidianResolver.target(from: link)
+    equal("双链解析：文件", t.file, "Alpha")
+    equal("双链解析：标题", t.heading ?? "", "Beta")
+    check("双链解析：无块 ID", t.block == nil)
+    check("双链解析：非嵌入", !t.embedded)
+    check("标题定位：命中", ObsidianResolver.headingRange("Beta", in: storage) != nil)
+    check("标题定位：大小写不敏感", ObsidianResolver.headingRange("beta", in: storage) != nil)
+    check("标题定位：不命中不存在的标题", ObsidianResolver.headingRange("Gamma", in: storage) == nil)
+    check("块定位：命中 ^blk1", ObsidianResolver.blockRange("blk1", in: storage) != nil)
+    check("块定位：不命中不存在的块", ObsidianResolver.blockRange("nope", in: storage) == nil)
+
+    let embed = MDWikiLink(raw: "![[Note#^blk1]]", target: "Note",
+                           suffix: "#^blk1", alias: "", embedded: true)
+    let e = ObsidianResolver.target(from: embed)
+    equal("双链解析：块 ID", e.block ?? "", "blk1")
+    check("双链解析：嵌入标记", e.embedded)
+
+    let dir = NSTemporaryDirectory() + "finalmd-smoke-\(UUID().uuidString)"
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let note = dir + "/Alpha.md"
+    try? "# Alpha\n\nNote body\n".write(toFile: note, atomically: true, encoding: .utf8)
+    let found = ObsidianResolver.resolve(file: "Alpha", near: dir + "/other.md", vaultRoot: nil)
+    equal("库内解析：找到同名笔记", found?.lastPathComponent ?? "", "Alpha.md")
+    check("库内解析：不存在的笔记返回 nil",
+          ObsidianResolver.resolve(file: "Missing", near: dir + "/other.md", vaultRoot: nil) == nil)
+    check("库内解析：拒绝 .. 路径",
+          ObsidianResolver.resolve(file: "../secret", near: dir + "/other.md", vaultRoot: nil) == nil)
+    let preview = found.flatMap { ObsidianResolver.preview(at: $0) }
+    equal("嵌入预览：标题", preview?.title ?? "", "Alpha.md")
+    check("嵌入预览：读到内容", preview?.text.contains("Note body") == true)
+    check("嵌入预览：非图片", preview?.isImage == false)
+    try? FileManager.default.removeItem(atPath: dir)
+
+    // 折叠是纯视觉：隐藏范围由纯函数给出，临时属性不改 storage / 序列化
+    let callout = "> [!NOTE]- 标题\n> 第一行\n> 第二行\n"
+    let parsed = MarkdownParser.parse(callout)
+    let before = MarkdownSerializer.markdown(from: parsed)
+    let id = parsed.attribute(.mdCalloutID, at: 0, effectiveRange: nil) as? Int ?? -1
+    let ranges = CalloutFolding.hiddenRanges(in: parsed, foldedIDs: [id])
+    check("折叠：有两条隐藏范围", ranges.count == 2)
+    check("折叠：首行标题不隐藏", !ranges.contains { $0.location == 0 })
+    check("折叠：范围不含段落换行", ranges.allSatisfy { r in
+        !(parsed.string as NSString).substring(with: r).contains("\n")
+    })
+    check("折叠：未折叠时无范围", CalloutFolding.hiddenRanges(in: parsed, foldedIDs: []).isEmpty)
+    check("折叠：不折叠其它块", CalloutFolding.hiddenRanges(in: parsed, foldedIDs: [id + 999]).isEmpty)
+
+    let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 420, height: 320))
+    tv.textStorage?.setAttributedString(parsed)
+    for r in ranges {
+        tv.layoutManager?.addTemporaryAttributes([.foregroundColor: NSColor.clear],
+                                                  forCharacterRange: r)
+    }
+    equal("折叠：临时属性不改 storage 文本", tv.textStorage?.string ?? "", parsed.string)
+    equal("折叠：临时属性不改序列化",
+          MarkdownSerializer.markdown(from: tv.textStorage ?? parsed), before)
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -1167,6 +1327,9 @@ testEditorFocus()
 testExternalCorpusRegressions()
 testRawPassthroughBlocks()
 testObsidianSyntax()
+testExternalCompatibility()
+testIndentedCodeBlocks()
+testObsidianInteractions()
 testCaretSizing()
 testCaretAlignment()
 testInlineSelection()

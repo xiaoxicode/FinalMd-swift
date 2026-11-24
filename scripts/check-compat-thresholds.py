@@ -66,18 +66,34 @@ if "--update-baseline" in sys.argv:
     s = R["summary"]
     B.setdefault("required_features_100",
                  ["wikilink", "embed", "callout", "task"])
-    # 阈值必须向下取整，四舍五入会把 0.8299 写成 0.83 而当场卡住自己
+    # 缩进代码块还受「列表项内嵌套」语义限制，无法要求 100%，
+    # 但不能比本次实测低（52/57 → 53/57）。
+    B.setdefault("min_feature_rates", {"indented": 0.0})
+    # 阈值必须向下取整：53/57 = 0.9298，手写成 0.93 会当场卡住自己
     def floor3(v):
+        return math.floor(v * 1000) / 1000
         return math.floor(v * 1000) / 1000
     B["thresholds"] = {
         "files": s["files"],
         "spec_cases": s["spec_cases"],
         "avg_retention": floor3(s["avg_retention"]),
+        "avg_structure": floor3(s["avg_structure"]),
         "raw_exact_rate": floor3(s["raw_exact_rate"]),
         "file_stable": s["file_stable"],
         "file_converged": s["file_converged"],
         "case_stable": s["case_stable"],
         "case_converged": s["case_converged"],
+    }
+    det = collections.Counter()
+    pre = collections.Counter()
+    for f in R["files"]:
+        for k in f["detected"]:
+            det[k] += 1
+        for k in f["preserved"]:
+            pre[k] += 1
+    B["min_feature_rates"] = {
+        key: floor3(pre[key] / det[key] if det[key] else 0.0)
+        for key in B["min_feature_rates"]
     }
     with open(BASELINE_PATH, "w", encoding="utf-8") as f:
         json.dump(B, f, ensure_ascii=False, indent=2)
@@ -164,6 +180,22 @@ for key in required:
         fail(f"{name} 保留率倒退：{p}/{d}（要求 100%）")
     else:
         ok(f"{name}：{p}/{d}，逐字保留 100%")
+w("")
+
+w("## 2c. 低频语法的最低保留率")
+
+# 有些语法（如列表项内的 4 空格缩进代码）还受解析器层级限制，做不到 100%，
+# 但仍要守住本次达到的水平，防止被改回去。
+for key, minimum in B.get("min_feature_rates", {}).items():
+    d, p = detected[key], preserved[key]
+    rate = (p / d) if d else 0.0
+    name = labels.get(key, key)
+    if d == 0:
+        fail(f"{name}：语料里没有命中样本（{key}）")
+    elif rate + 1e-9 < minimum:
+        fail(f"{name} 保留率倒退：{p}/{d} = {rate:.3f}（下限 {minimum}）")
+    else:
+        ok(f"{name}：{p}/{d} = {rate:.3f}（下限 {minimum}）")
 w("")
 
 w("## 3. 与上一版逐文件对比")

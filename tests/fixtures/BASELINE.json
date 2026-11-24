@@ -1,13 +1,14 @@
 {
-  "note": "FinalMd 兼容性回归阈值。CI 上由 scripts/check-compat-thresholds.py 读取；指标提升后用 python3 scripts/check-compat-thresholds.py --update-baseline 更新本文件。语料数与规范用例数必须完全相等，其余指标不得低于阈值；required_features_100 列出的扩展语法必须逐字保留 100%。",
+  "note": "FinalMd 兼容性回归阈值。CI 上由 scripts/check-compat-thresholds.py 读取；指标提升后用 python3 scripts/check-compat-thresholds.py --update-baseline 更新本文件。语料数与规范用例数必须完全相等，其余指标不得低于阈值；required_features_100 列出的扩展语法必须逐字保留 100%，min_feature_rates 列出因容器块语义暂做不到 100% 的语法下限（按实测向下取整，避免浮点误判）。",
   "thresholds": {
     "files": 207,
     "spec_cases": 1327,
-    "avg_retention": 0.829,
-    "raw_exact_rate": 0.866,
-    "file_stable": 183,
+    "avg_retention": 0.836,
+    "avg_structure": 0.947,
+    "raw_exact_rate": 0.992,
+    "file_stable": 184,
     "file_converged": 195,
-    "case_stable": 1301,
+    "case_stable": 1305,
     "case_converged": 1323
   },
   "max_retention_drop_per_file": 0.005,
@@ -16,5 +17,8 @@
     "embed",
     "callout",
     "task"
-  ]
+  ],
+  "min_feature_rates": {
+    "indented": 0.929
+  }
 }

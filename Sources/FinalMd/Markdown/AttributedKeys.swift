@@ -94,11 +94,15 @@ final class MDWikiLink: NSObject {
 // MARK: - 原样透传块类型
 
 /// 透传块在 HTML 导出时的处理方式不同：
-/// frontmatter 与链接定义是元数据（不进正文），原始 HTML 要原样放进 <body>。
+/// frontmatter 与链接定义是元数据（不进正文），原始 HTML 要原样放进 <body>，
+/// 缩进代码块去缩进后包成 <pre><code>。
 enum MDRawKind: String {
     case frontmatter
     case html
     case definition
+    /// CommonMark 4 空格 / tab 缩进代码块。按原始行逐字保存，
+    /// 序列化时不能丢掉前导空格，否则下一轮会被当成普通段落。
+    case indentedCode
 }
 
 // MARK: - 块级类型
