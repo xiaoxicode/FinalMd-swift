@@ -462,6 +462,324 @@ func testEditorModes() {
     check("模式切换清空 undo 不崩溃", true)
 }
 
+// MARK: - 插入点（光标）尺寸随字号缩放
+
+func testCaretSizing() {
+    let body = DocTheme.bodyFont
+    let h1 = DocTheme.documentFont(size: DocTheme.headingFontSize(1), weight: .bold)
+    let code = DocTheme.monospacedFont(size: DocTheme.codeFontSize)
+
+    let bodySize = DocTheme.caretSize(for: body)
+    let h1Size = DocTheme.caretSize(for: h1)
+    let codeSize = DocTheme.caretSize(for: code)
+
+    check("H1 光标明显高于正文光标", h1Size.height > bodySize.height * 1.5)
+    check("代码块光标矮于正文光标", codeSize.height < bodySize.height)
+    check("光标高度与字号基本成比例",
+          abs(h1Size.height / bodySize.height - h1.pointSize / body.pointSize) < 0.15)
+    check("H1 光标比正文更粗", h1Size.width > bodySize.width)
+    check("正文光标宽度为 1pt", bodySize.width == 1)
+
+    // 六级标题字号逐级递减，光标高度也必须逐级递减（不能卡在固定值）
+    var previous = CGFloat.greatestFiniteMagnitude
+    for level in 1...6 {
+        let font = DocTheme.documentFont(size: DocTheme.headingFontSize(level), weight: .bold)
+        let height = DocTheme.caretSize(for: font).height
+        check("H\(level) 光标高度不超过上一级", height <= previous + 0.001)
+        previous = height
+    }
+}
+
+// MARK: - 插入点纵向对齐（不能浮在文字上方）
+
+func testCaretAlignment() {
+    // 实测：16pt 正文 + lineHeightMultiple 1.8，行片段 y=0..32.4，基线 y=29.4。
+    // 多出来的行距全加在行片段顶部，所以按「行片段中线」居中会把光标画到文字上方。
+    let body = DocTheme.bodyFont
+    let bodyBaseline: CGFloat = 29.4
+    let fragmentMidY: CGFloat = 16.2
+    let textTop = bodyBaseline - body.ascender
+    let textBottom = bodyBaseline - body.descender
+    let size = DocTheme.caretSize(for: body)
+
+    let fixed = DocTheme.caretRect(baselineY: bodyBaseline, x: 72, font: body)
+    check("正文光标顶边与文字顶边齐平", abs(fixed.minY - textTop) < 1)
+    check("正文光标底边与文字底边齐平", abs(fixed.maxY - textBottom) < 1)
+    check("正文光标高度仍按字号计算", abs(fixed.height - size.height) < 0.001)
+    check("正文光标宽度仍按字号计算", abs(fixed.width - size.width) < 0.001)
+    check("正文光标保持插入点 x", fixed.minX == 72)
+
+    let oldTop = fragmentMidY - size.height / 2
+    check("修复后正文光标不再偏上", fixed.minY - oldTop > 3)
+
+    // 标题 30.4pt + lineHeightMultiple 1.35：行片段 0..40.5，基线 36.5
+    let h1 = DocTheme.documentFont(size: DocTheme.headingFontSize(1), weight: .bold)
+    let h1Baseline: CGFloat = 36.5
+    let h1MidY: CGFloat = 20.25
+    let h1Size = DocTheme.caretSize(for: h1)
+    let h1Fixed = DocTheme.caretRect(baselineY: h1Baseline, x: 0, font: h1)
+    check("标题光标顶边与文字顶边齐平", abs(h1Fixed.minY - (h1Baseline - h1.ascender)) < 1)
+    check("标题光标底边与文字底边齐平", abs(h1Fixed.maxY - (h1Baseline - h1.descender)) < 1)
+    check("修复后标题光标不再偏上", h1Fixed.minY - (h1MidY - h1Size.height / 2) > 3)
+
+    // 换到下一行时，光标应随基线等量下移（段落间距 / 多行场景）
+    let shifted = DocTheme.caretRect(baselineY: bodyBaseline + 42.4, x: 0, font: body)
+    check("光标跟随所在行基线整体下移", abs((shifted.minY - fixed.minY) - 42.4) < 0.001)
+
+    // 小字号（代码块）也应贴住同一基线的字身，而不是悬在行片段中间
+    let code = DocTheme.monospacedFont(size: DocTheme.codeFontSize)
+    let codeRect = DocTheme.caretRect(baselineY: bodyBaseline, x: 0, font: code)
+    check("代码块光标顶部不高于正文字身顶部", codeRect.minY > textTop)
+    check("代码块光标底部贴近同一基线", abs(codeRect.maxY - textBottom) < 3)
+}
+
+// MARK: - 行内样式作用范围（凸显标记回归）
+
+/// 把 [NSRange] 压成 "起点:长度,起点:长度"，便于断言
+func rangesDesc(_ rs: [NSRange]) -> String {
+    rs.map { "\($0.location):\($0.length)" }.joined(separator: ",")
+}
+
+func testInlineSelection() {
+    // 索引： 0-9 = ABCDEFGHIJ，10 = \n，11-20 = 0123456789，21 = \n，22-24 = 末尾行
+    let s = "ABCDEFGHIJ\n0123456789\n末尾行" as NSString
+
+    // 核心回归：只选中间 3 个字，前后没选的字绝不能被标记
+    equal("部分选区只切出选中字符", rangesDesc(InlineSelection.slices(NSRange(location: 2, length: 3), in: s)), "2:3")
+    equal("整行全选不含段落终结符", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: 10), in: s)), "0:10")
+
+    // 段落终结符不能承载 backgroundColor，否则 AppKit 会在行尾画出色块
+    equal("跨行选区按行切分并跳过换行符", rangesDesc(InlineSelection.slices(NSRange(location: 8, length: 6), in: s)), "8:2,11:3")
+    equal("全篇选区逐行切分", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: s.length), in: s)), "0:10,11:10,22:3")
+    equal("只选中换行符时没有作用范围", rangesDesc(InlineSelection.slices(NSRange(location: 10, length: 1), in: s)), "")
+    equal("选区以行尾换行结束时不带换行符", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: 3), in: "AB\n" as NSString)), "0:2")
+
+    equal("空选区不改动任何文字", rangesDesc(InlineSelection.slices(NSRange(location: 5, length: 0), in: s)), "")
+    equal("越界选区裁剪到文档末尾", rangesDesc(InlineSelection.slices(NSRange(location: 20, length: 50), in: s)), "20:1,22:3")
+
+    // 附件 / 软换行没有可见字身，也不该被高亮
+    equal("图片附件占位符被跳过", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: 3), in: "A\u{FFFC}B" as NSString)), "0:1,2:1")
+    equal("软换行被跳过", rangesDesc(InlineSelection.slices(NSRange(location: 0, length: 5), in: "AB\u{2028}CD" as NSString)), "0:2,3:2")
+
+    // 端到端：给选中的 3 个字符打上凸显，检查属性与 Markdown 输出都只覆盖选区
+    let attr = NSMutableAttributedString(attributedString: MarkdownParser.parse("ABCDEFGHIJ\n"))
+    let color = NSColor(hex: "#fff3a3")!
+    for r in InlineSelection.slices(NSRange(location: 2, length: 3), in: attr.string as NSString) {
+        attr.addAttribute(.backgroundColor, value: color, range: r)
+        attr.addAttribute(.mdHighlight, value: color, range: r)
+    }
+    check("选中的 3 个字符都带凸显", (2...4).allSatisfy {
+        attr.attribute(.mdHighlight, at: $0, effectiveRange: nil) != nil
+    })
+    check("选区之前的字符没有凸显", attr.attribute(.mdHighlight, at: 1, effectiveRange: nil) == nil)
+    check("选区之后的字符没有凸显", attr.attribute(.mdHighlight, at: 5, effectiveRange: nil) == nil)
+    check("这一行行尾没有凸显", attr.attribute(.mdHighlight, at: 9, effectiveRange: nil) == nil)
+
+    let md = MarkdownSerializer.markdown(from: attr)
+    let span = "<span style=\"background-color:#fff3a3\">"
+    check("序列化后 span 只包住选中文字", md.contains("AB\(span)CDE</span>FGHIJ"))
+    check("整行只出现一对凸显 span", md.components(separatedBy: span).count - 1 == 1)
+
+    // 回归：选区正好到行尾时，旧逻辑会把 \n 一起涂上背景色，
+    // 于是 AppKit 在行尾画出色块，<span> 还会跨到下一行。
+    let lineEnd = NSMutableAttributedString(attributedString: MarkdownParser.parse("ABCDEF\nSECOND\n"))
+    let nl = (lineEnd.string as NSString).range(of: "\n").location
+    for r in InlineSelection.slices(NSRange(location: 2, length: 4), in: lineEnd.string as NSString) {
+        lineEnd.addAttribute(.mdHighlight, value: color, range: r)
+    }
+    check("选区到行尾时换行符没有凸显", lineEnd.attribute(.mdHighlight, at: nl, effectiveRange: nil) == nil)
+    check("选区到行尾时 span 在换行前闭合", MarkdownSerializer.markdown(from: lineEnd).contains("CDEF</span>"))
+
+    // 跨行选区：两行各自只标记选中的部分，换行符与未选字符都不带属性
+    let multi = NSMutableAttributedString(attributedString: MarkdownParser.parse("ABC\nDEF\n"))
+    let slices = InlineSelection.slices(NSRange(location: 1, length: 5), in: multi.string as NSString)
+    equal("跨行选区切成两段", rangesDesc(slices), "1:2,4:2")
+    for r in slices { multi.addAttribute(.mdHighlight, value: color, range: r) }
+    check("跨行选区的换行符没有凸显", multi.attribute(.mdHighlight, at: 3, effectiveRange: nil) == nil)
+    check("第二行未选中的字符没有凸显", multi.attribute(.mdHighlight, at: 6, effectiveRange: nil) == nil)
+}
+
+// MARK: - 真实 NSTextView 上的行内样式（集成验证）
+
+func testInlineStyleOnTextView() {
+    let hl = NSColor(hex: "#fff3a3")!
+
+    func make(_ text: String) -> NSTextView {
+        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 480, height: 320))
+        tv.isEditable = true
+        tv.isRichText = true
+        tv.string = text
+        tv.typingAttributes = EditorStyle.defaultTyping
+        return tv
+    }
+
+    /// 列出带该属性的所有连续段，格式 "起点:长度,…"
+    func runs(_ tv: NSTextView, _ key: NSAttributedString.Key) -> String {
+        guard let st = tv.textStorage else { return "" }
+        var out: [String] = []
+        st.enumerateAttribute(key, in: NSRange(location: 0, length: st.length), options: []) { v, r, _ in
+            if v != nil { out.append("\(r.location):\(r.length)") }
+        }
+        return out.joined(separator: ",")
+    }
+
+    // 选中第一行中间 3 个字符：凸显只应落在 2:3，前后与下一行都不带属性
+    let a = make("ABCDEFGHIJ\nSECOND LINE\n")
+    a.setSelectedRange(NSRange(location: 2, length: 3))
+    a.setHighlight(hl)
+    equal("真实视图：凸显只覆盖选中字符", runs(a, .mdHighlight), "2:3")
+
+    // 选区跨到下一行：按行切分，换行符不带属性
+    let b = make("ABCDEFGHIJ\nSECOND LINE\n")
+    b.setSelectedRange(NSRange(location: 8, length: 8))
+    b.setHighlight(hl)
+    equal("真实视图：跨行凸显跳过换行符", runs(b, .mdHighlight), "8:2,11:5")
+
+    // 同一入口下的其它行内样式也不扩散
+    let c = make("ABCDEFGHIJ\nSECOND LINE\n")
+    c.setSelectedRange(NSRange(location: 2, length: 3))
+    c.setTextColor(NSColor(hex: "#d64545"))
+    equal("真实视图：字体色只覆盖选中字符", runs(c, .mdTextColor), "2:3")
+
+    let d = make("ABCDEFGHIJ\nSECOND LINE\n")
+    d.setSelectedRange(NSRange(location: 2, length: 3))
+    d.toggleUnderline()
+    equal("真实视图：下划线只覆盖选中字符", runs(d, .underlineStyle), "2:3")
+
+    // 清除凸显只作用于当前选区，之前打在别处的凸显要保留
+    let e = make("ABCDEFGHIJ\nSECOND LINE\n")
+    e.setSelectedRange(NSRange(location: 2, length: 3)); e.setHighlight(hl)
+    e.setSelectedRange(NSRange(location: 6, length: 2)); e.setHighlight(hl)
+    e.setSelectedRange(NSRange(location: 2, length: 3)); e.setHighlight(nil)
+    equal("真实视图：清除凸显不影响选区外", runs(e, .mdHighlight), "6:2")
+
+    // 无选区时不涂改任何已有文字，只决定「接下来输入的字」
+    let f = make("ABCDEFGHIJ\n")
+    f.setSelectedRange(NSRange(location: 5, length: 0))
+    f.setHighlight(hl)
+    equal("真实视图：无选区不改动已有文字", runs(f, .mdHighlight), "")
+    check("真实视图：无选区时输入属性带凸显", f.typingAttributes[.mdHighlight] != nil)
+
+    // 块级样式仍走段落级范围，未被本次改动破坏
+    let g = make("ABCDEFGHIJ\nSECOND LINE\n")
+    g.setSelectedRange(NSRange(location: 2, length: 0))
+    g.applyBlockStyle(.heading(1))
+    equal("真实视图：块样式仍作用于整段", runs(g, .mdBlockType), "0:11")
+}
+
+// MARK: - 自定义大模型协议
+
+func testAIProtocol() {
+    // 端点归一化
+    let endpoint = { (raw: String) -> String in
+        AIEndpoint.normalize(raw)?.absoluteString ?? "<nil>"
+    }
+    equal("AI 端点：/v1 自动补路径", endpoint("https://api.openai.com/v1"),
+          "https://api.openai.com/v1/chat/completions")
+    equal("AI 端点：尾部斜杠", endpoint("https://api.openai.com/v1/"),
+          "https://api.openai.com/v1/chat/completions")
+    equal("AI 端点：完整路径不重复追加", endpoint("https://api.openai.com/v1/chat/completions"),
+          "https://api.openai.com/v1/chat/completions")
+    equal("AI 端点：裸域名补 https", endpoint("api.deepseek.com"),
+          "https://api.deepseek.com/v1/chat/completions")
+    equal("AI 端点：本机 http 保留", endpoint("http://127.0.0.1:11434/v1"),
+          "http://127.0.0.1:11434/v1/chat/completions")
+    equal("AI 端点：自建网关前缀", endpoint("https://gw.example.com/api"),
+          "https://gw.example.com/api/v1/chat/completions")
+    equal("AI 端点：空串无效", endpoint(""), "<nil>")
+    equal("AI 端点：无 host 无效", endpoint("not a url"), "<nil>")
+    equal("AI 端点：非 http 协议无效", endpoint("ftp://example.com"), "<nil>")
+
+    // 请求构造
+    let url = AIEndpoint.normalize("https://api.openai.com/v1")!
+    let cfg = AIRequestConfig(model: "gpt-4o-mini", temperature: 0.3, timeout: 60,
+                              systemPrompt: "SYS", apiKey: "sk-test", endpoint: url)
+    let req = try? AIProtocol.makeRequest(cfg, instruction: "润色", content: "原文")
+    check("AI 请求：构造成功", req != nil)
+    if let req {
+        equal("AI 请求：POST", req.httpMethod ?? "", "POST")
+        equal("AI 请求：Content-Type", req.value(forHTTPHeaderField: "Content-Type") ?? "", "application/json")
+        equal("AI 请求：Authorization", req.value(forHTTPHeaderField: "Authorization") ?? "", "Bearer sk-test")
+        let body = (try? JSONSerialization.jsonObject(with: req.httpBody ?? Data())) as? [String: Any]
+        equal("AI 请求：model", body?["model"] as? String ?? "", "gpt-4o-mini")
+        check("AI 请求：非流式", (body?["stream"] as? Bool) == false)
+        let messages = body?["messages"] as? [[String: Any]] ?? []
+        check("AI 请求：system + user 两条消息", messages.count == 2)
+        equal("AI 请求：第一条是 system", messages.first?["role"] as? String ?? "", "system")
+        equal("AI 请求：第二条是 user", messages.last?["role"] as? String ?? "", "user")
+        equal("AI 请求：指令与正文分隔", messages.last?["content"] as? String ?? "", "润色\n\n---\n\n原文")
+    }
+    let noKey = AIRequestConfig(model: "m", temperature: 0, timeout: 10,
+                                systemPrompt: "", apiKey: "", endpoint: url)
+    check("AI 请求：空密钥不带 Authorization",
+          (try? AIProtocol.makeRequest(noKey, instruction: "x", content: "y"))?
+            .value(forHTTPHeaderField: "Authorization") == nil)
+    let noModel = AIRequestConfig(model: " ", temperature: 0, timeout: 10,
+                                  systemPrompt: "", apiKey: "", endpoint: url)
+    var threwMissingModel = false
+    do { _ = try AIProtocol.makeRequest(noModel, instruction: "x", content: "y") }
+    catch AIProtocolError.missingModel { threwMissingModel = true }
+    catch {}
+    check("AI 请求：空模型名被拦下", threwMissingModel)
+
+    // 响应解析（含各家网关的返回形态）
+    func parse(_ json: String) -> String {
+        (try? AIProtocol.parseContent(from: Data(json.utf8))) ?? "<throw>"
+    }
+    equal("AI 响应：标准 choices", parse(#"{"choices":[{"message":{"content":"你好"}}]}"#), "你好")
+    equal("AI 响应：分段数组 content",
+          parse(#"{"choices":[{"message":{"content":[{"type":"text","text":"A"},{"text":"B"}]}}]}"#), "AB")
+    equal("AI 响应：顶层 content", parse(#"{"content":"顶层"}"#), "顶层")
+    equal("AI 响应：旧式 choices.text", parse(#"{"choices":[{"text":"旧式"}]}"#), "旧式")
+    var threwAPI = false
+    do { _ = try AIProtocol.parseContent(from: Data(#"{"error":{"message":"key invalid"}}"#.utf8)) }
+    catch AIProtocolError.api(let msg) { threwAPI = msg == "key invalid" }
+    catch {}
+    check("AI 响应：服务端 error 抛出带原文", threwAPI)
+    var threwInvalid = false
+    do { _ = try AIProtocol.parseContent(from: Data("not json".utf8)) }
+    catch AIProtocolError.invalidJSON { threwInvalid = true }
+    catch {}
+    check("AI 响应：非法 JSON 被识别", threwInvalid)
+    check("AI 响应：缺 content 被识别", parse(#"{"choices":[{}]}"#) == "<throw>")
+
+    // 结果清理
+    equal("AI 结果：剥掉 markdown 围栏",
+          AIProtocol.sanitize("```markdown\n# 标题\n正文\n```\n"), "# 标题\n正文")
+    equal("AI 结果：普通文本原样保留", AIProtocol.sanitize("  # 标题\n\n```\ncode\n```  "),
+          "# 标题\n\n```\ncode\n```")
+    equal("AI 结果：去首尾空白", AIProtocol.sanitize("\n\n正文\n\n"), "正文")
+
+    // HTTP 状态分类
+    check("AI 状态：200 成功", AIStatusKind.classify(200) == .ok)
+    check("AI 状态：401 鉴权失败", AIStatusKind.classify(401) == .unauthorized)
+    check("AI 状态：403 鉴权失败", AIStatusKind.classify(403) == .unauthorized)
+    check("AI 状态：404 端点错误", AIStatusKind.classify(404) == .notFound)
+    check("AI 状态：429 限流", AIStatusKind.classify(429) == .rateLimited)
+    check("AI 状态：503 服务端错误", AIStatusKind.classify(503) == .serverError)
+    check("AI 状态：302 其它", AIStatusKind.classify(302) == .other(302))
+
+    // 预设与文案
+    check("AI 预设：7 项含 agent", AIPresets.ids.count == 7 && AIPresets.ids.contains("agent"))
+    check("AI 预设：custom 指令为空",
+          AIPresets.instruction(for: "custom") { Localizer.translate("en", $0) }.isEmpty)
+    let agent = AIPresets.instruction(for: "agent") { Localizer.translate("zh", $0) }
+    check("AI 预设：agent 指令含验收标准与防臆造", agent.contains("验收标准") && agent.contains("不编造"))
+    let polish = AIPresets.instruction(for: "polish") { Localizer.translate("en", $0) }
+    check("AI 预设：英文润色指令非空", !polish.isEmpty)
+    let zhPresets: [AIPreset] = AIPresets.all { Localizer.translate("zh", $0) }
+    let titlesOK: Bool = zhPresets.allSatisfy { !$0.title.isEmpty && $0.title != $0.id }
+    check("AI 预设：中英标题都齐", titlesOK)
+    let zhKeys: Set<String> = Set(I18nExtras.table["zh"]?.keys.map { String($0) } ?? [])
+    let enKeys: Set<String> = Set(I18nExtras.table["en"]?.keys.map { String($0) } ?? [])
+    check("AI 文案：zh / en 词条一一对应", zhKeys == enKeys)
+    equal("AI 文案：中文", Localizer.translate("zh", "ai.menu"), "AI 助手")
+    equal("AI 文案：英文", Localizer.translate("en", "ai.menu"), "AI Assistant")
+    equal("AI 文案：其它语言回退英文", Localizer.translate("ja", "ai.menu"), "AI Assistant")
+    check("AI 文案：既有词条未受影响", Localizer.translate("zh", "common.save") == "保存")
+    equal("AI 文案：变量替换仍生效", Localizer.translate("en", "ai.err.http", [:]), "Request failed")
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -477,6 +795,11 @@ testScrollViewZoom()
 testWheelZoom()
 testLocalization()
 testEditorModes()
+testCaretSizing()
+testCaretAlignment()
+testInlineSelection()
+testInlineStyleOnTextView()
+testAIProtocol()
 
 print("")
 if failureDetails.isEmpty {

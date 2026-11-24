@@ -65,9 +65,9 @@ final class Localizer: ObservableObject {
 
     static func translate(_ lang: String, _ key: String, _ vars: [String: String] = [:]) -> String {
         let l = normalize(lang)
-        var s = I18nDictionary.table[l]?[key]
-        if s == nil { s = I18nDictionary.table[fallback]?[key] }
-        if s == nil { s = I18nDictionary.table["zh"]?[key] }
+        var s = lookup(l, key)
+        if s == nil { s = lookup(fallback, key) }
+        if s == nil { s = lookup("zh", key) }
         guard var text = s else { return key }
         if !vars.isEmpty {
             for (name, value) in vars {
@@ -75,6 +75,11 @@ final class Localizer: ObservableObject {
             }
         }
         return text
+    }
+
+    /// 生成快照 + 手写补充词条。后者只有 zh / en，其它语言沿既有链路回退到 en。
+    private static func lookup(_ lang: String, _ key: String) -> String? {
+        I18nDictionary.table[lang]?[key] ?? I18nExtras.table[lang]?[key]
     }
 
     /// 导出 HTML 时写进 <html lang> 的语言标签

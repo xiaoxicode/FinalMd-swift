@@ -13,6 +13,7 @@ struct AppCommands: Commands {
 
     @ObservedObject var model: AppModel
     @ObservedObject var l10n: Localizer
+    @ObservedObject var ai: AIController
 
     var body: some Commands {
         // MARK: 文件
@@ -50,9 +51,10 @@ struct AppCommands: Commands {
                 .keyboardShortcut("v", modifiers: .command)
             Button(l10n.t("menu.edit.selectAll")) { send("selectAll:") }
                 .keyboardShortcut("a", modifiers: .command)
-        }
-
-        CommandGroup(before: .textEditing) {
+            Divider()
+            // 与剪贴板组合并，而不是单独 CommandGroup(before: .textEditing)：
+            // 旧版 SwiftUI 的 CommandsBuilder.buildBlock 最多接受 10 个顶层元素，
+            // 新增「AI 助手」菜单后已到上限，再拆一组会在 CI 上报 extra argument in call。
             Button(l10n.t("menu.edit.find")) { model.perform(.find) }
                 .keyboardShortcut("f", modifiers: .command)
         }
@@ -133,6 +135,21 @@ struct AppCommands: Commands {
                     }
                 }
             }
+        }
+
+        // MARK: AI 助手
+        CommandMenu(ai.t("ai.menu")) {
+            Button(ai.t("ai.command.menu")) { ai.openCommand() }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+            Divider()
+            Button(ai.t("ai.quick.polish")) {
+                ai.openCommand(preset: "polish", autoRun: true)
+            }
+            Button(ai.t("ai.quick.agent")) {
+                ai.openCommand(preset: "agent", autoRun: true)
+            }
+            Divider()
+            Button(ai.t("ai.settings.menu")) { ai.openSettings() }
         }
 
         // MARK: 语言

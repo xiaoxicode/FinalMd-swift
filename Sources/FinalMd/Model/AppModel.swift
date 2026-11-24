@@ -61,6 +61,8 @@ enum DialogKind: Identifiable, Equatable {
     case table
     case chart
     case confirm(ConfirmSpec)
+    case aiCommand
+    case aiSettings
 
     var id: String {
         switch self {
@@ -69,6 +71,8 @@ enum DialogKind: Identifiable, Equatable {
         case .table: return "table"
         case .chart: return "chart"
         case .confirm(let spec): return "confirm-\(spec.title)"
+        case .aiCommand: return "aiCommand"
+        case .aiSettings: return "aiSettings"
         }
     }
 }

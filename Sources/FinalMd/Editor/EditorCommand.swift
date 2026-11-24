@@ -139,27 +139,24 @@ extension AppModel {
         }
     }
 
-    /// 行内代码：切换等宽字体 + 灰底
+    /// 行内代码：切换等宽字体 + 灰底（与其它行内样式一样只作用于选中的字符）
     private func toggleInlineCode() {
-        guard let tv = textView, let storage = tv.textStorage else { return }
-        let ranges = tv.targetRanges()
+        guard let tv = textView else { return }
         let shouldAdd = !tv.hasAttribute(.mdInlineCode)
-        guard tv.shouldChangeText(in: ranges[0], replacementString: nil) else { return }
-        storage.beginEditing()
-        for r in ranges {
-            if shouldAdd {
-                let attrs = codeAttributes(storage.attributes(at: r.location, effectiveRange: nil))
-                storage.addAttributes(attrs, range: r)
-            } else {
-                storage.removeAttribute(.mdInlineCode, range: r)
-                storage.removeAttribute(.backgroundColor, range: r)
-                let size = (storage.attribute(.font, at: r.location, effectiveRange: nil) as? NSFont)?.pointSize
-                    ?? DocTheme.bodyFontSize
-                storage.addAttribute(.font, value: DocTheme.documentFont(size: size), range: r)
-                storage.addAttribute(.foregroundColor, value: DocTheme.text, range: r)
+        tv.performInlineStyle { storage, ranges in
+            for r in ranges {
+                if shouldAdd {
+                    let attrs = codeAttributes(storage.attributes(at: r.location, effectiveRange: nil))
+                    storage.addAttributes(attrs, range: r)
+                } else {
+                    storage.removeAttribute(.mdInlineCode, range: r)
+                    storage.removeAttribute(.backgroundColor, range: r)
+                    let size = (storage.attribute(.font, at: r.location, effectiveRange: nil) as? NSFont)?.pointSize
+                        ?? DocTheme.bodyFontSize
+                    storage.addAttribute(.font, value: DocTheme.documentFont(size: size), range: r)
+                    storage.addAttribute(.foregroundColor, value: DocTheme.text, range: r)
+                }
             }
         }
-        storage.endEditing()
-        tv.didChangeText()
     }
 }

@@ -23,7 +23,10 @@ fi
 
 FILES=(
   "$SRC/Sources/FinalMd/I18n/Dictionaries.swift"
+  "$SRC/Sources/FinalMd/I18n/I18nExtras.swift"
   "$SRC/Sources/FinalMd/I18n/Localizer.swift"
+  "$SRC/Sources/FinalMd/AI/AIProtocol.swift"
+  "$SRC/Sources/FinalMd/AI/AIPresets.swift"
   "$SRC/Sources/FinalMd/Markdown/AttributedKeys.swift"
   "$SRC/Sources/FinalMd/Markdown/Typography.swift"
   "$SRC/Sources/FinalMd/Markdown/InlineParser.swift"
@@ -31,6 +34,8 @@ FILES=(
   "$SRC/Sources/FinalMd/Markdown/MarkdownSerializer.swift"
   "$SRC/Sources/FinalMd/Markdown/EditorMode.swift"
   "$SRC/Sources/FinalMd/Model/ChartConfig.swift"
+  "$SRC/Sources/FinalMd/Editor/InlineSelection.swift"
+  "$SRC/Sources/FinalMd/Editor/TextFormatting.swift"
   "$SRC/Sources/FinalMd/Editor/ScrollView.swift"
   "$SRC/Sources/FinalMd/Editor/SourceTextView.swift"
   "$SRC/Sources/FinalMd/Util/ImageEmbed.swift"

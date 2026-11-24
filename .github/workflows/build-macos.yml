@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    name: 编译并打包 墨写.app
+    name: 编译并打包 FinalMd.app
     runs-on: macos-15
 
     steps:
@@ -35,12 +35,26 @@ jobs:
 
       - name: 校验 bundle 结构
         run: |
-          APP="build/墨写.app"
-          test -x "$APP/Contents/MacOS/墨写" || { echo "❌ 缺少可执行文件"; exit 1; }
+          APP="build/FinalMd.app"
+          test -x "$APP/Contents/MacOS/FinalMd" || { echo "❌ 缺少可执行文件"; exit 1; }
           test -f "$APP/Contents/Info.plist" || { echo "❌ 缺少 Info.plist"; exit 1; }
           test -f "$APP/Contents/Resources/AppIcon.icns" || { echo "❌ 缺少图标"; exit 1; }
+          # 本地化显示名：中文「墨写」，其余语言回退英文 FinalMd
+          for L in en zh zh-Hans zh-Hant; do
+            test -f "$APP/Contents/Resources/$L.lproj/InfoPlist.strings" || { echo "❌ 缺少 $L 本地化显示名"; exit 1; }
+          done
+          iconv -f UTF-16 -t UTF-8 "$APP/Contents/Resources/zh-Hans.lproj/InfoPlist.strings" | grep -q '"CFBundleDisplayName" = "墨写"'
+          iconv -f UTF-16 -t UTF-8 "$APP/Contents/Resources/en.lproj/InfoPlist.strings" | grep -q '"CFBundleDisplayName" = "FinalMd"'
+          test "$(plutil -extract CFBundleDisplayName raw -o - "$APP/Contents/Info.plist")" = "FinalMd" || { echo "❌ 默认名应为 FinalMd"; exit 1; }
+          test "$(plutil -extract CFBundleDevelopmentRegion raw -o - "$APP/Contents/Info.plist")" = "en" || { echo "❌ 回退语言应为 en"; exit 1; }
+          echo "默认名 / 回退语言：FinalMd / en"
           echo "版本：$(plutil -extract CFBundleShortVersionString raw -o - "$APP/Contents/Info.plist")"
           echo "最低系统：$(plutil -extract LSMinimumSystemVersion raw -o - "$APP/Contents/Info.plist")"
+          # 签名必须真的有效：CI 上 codesign 失败若被静默吞掉，产出的 app 在 macOS 上会提示「已损坏」
+          codesign --verify --deep --strict "$APP" || { echo "❌ 签名无效，app 无法打开"; exit 1; }
+          # 网络权限必须真的签进 bundle，否则公证版里自定义大模型请求会失败
+          codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q "com.apple.security.network.client" || {
+            echo "❌ 缺少 network.client entitlement"; exit 1; }
           codesign -dv "$APP" 2>&1 | head -3 || true
           du -sh "$APP"
 
@@ -62,11 +76,14 @@ jobs:
       - name: 打成 zip 并记录校验和
         id: dist
         run: |
-          VERSION="$(plutil -extract CFBundleShortVersionString raw -o - build/墨写.app/Contents/Info.plist)"
+          VERSION="$(plutil -extract CFBundleShortVersionString raw -o - build/FinalMd.app/Contents/Info.plist)"
           ZIP="FinalMd-macOS-${VERSION}-${GITHUB_SHA::7}.zip"
-          ditto -c -k --sequesterRsrc --keepParent "build/墨写.app" "$ZIP"
+          # 不要 --sequesterRsrc：它生成的 __MACOSX/._* AppleDouble 文件被第三方解压工具
+          # 解进 bundle 后会破坏代码签名，表现出来就是「已损坏，无法打开」。
+          ditto -c -k --keepParent "build/FinalMd.app" "$ZIP"
           shasum -a 256 "$ZIP" | tee "$ZIP.sha256"
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "::notice::未配置 Developer ID 时产物为 ad-hoc 签名，下载后若被 Gatekeeper 拦截，请先执行 xattr -dr com.apple.quarantine FinalMd.app"
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
@@ -101,7 +118,7 @@ jobs:
           else
             # 创建偶尔会因 GitHub 侧抖动报 500（release 可能已建好但附件没挂上），
             # 这时退回上传模式，避免整个构建被判失败
-            gh release create "$GITHUB_REF_NAME" --title "墨写 $GITHUB_REF_NAME" \
+            gh release create "$GITHUB_REF_NAME" --title "FinalMd $GITHUB_REF_NAME" \
               "${NOTES[@]}" "$ZIP" "$ZIP.sha256" \
               || gh release upload "$GITHUB_REF_NAME" "$ZIP" "$ZIP.sha256" --clobber
           fi

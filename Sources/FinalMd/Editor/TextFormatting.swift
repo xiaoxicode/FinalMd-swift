@@ -16,6 +16,14 @@ enum BlockStyle: Hashable {
     case code
 }
 
+/// 无选区时开启的行内样式需要被记住，防止切焦点触发的 didChangeSelection
+/// 把 typingAttributes 重算掉。由 MDEditorTextView 实现，NSTextView 扩展
+/// 只依赖这个协议，便于单独编译测试。
+protocol InlineTypingMemory: AnyObject {
+    func rememberInlineTyping(_ attrs: [NSAttributedString.Key: Any])
+    func clearPendingInlineTyping()
+}
+
 // MARK: - 输入属性（typingAttributes）
 
 /// 根据块样式构造一份完整的 typingAttributes。
@@ -80,6 +88,41 @@ extension NSTextView {
         needsDisplay = true
     }
 
+    /// 行内样式统一入口：只作用于选中的字符，绝不扩到整段。
+    ///
+    /// `performEdit` 走的是段落级 `targetRanges()`，那是给标题 / 列表 / 对齐
+    /// 用的；加粗 / 颜色 / 凸显这类行内样式若也用它，选中一行中间几个字就会
+    /// 把整行一起涂色。这里改用 `InlineSelection.slices` 精确切出选区。
+    ///
+    /// 无选区时不动任何已有文字（旧实现会把整段涂色）。把同一套属性改动
+    /// 施加到一个占位字符上，再把结果写回 typingAttributes，于是「先点高亮
+    /// 再敲字」依然生效，且不会误伤已有内容。
+    func performInlineStyle(_ apply: (NSMutableAttributedString, [NSRange]) -> Void) {
+        let sel = selectedRange()
+        if sel.length == 0 {
+            let proto = NSMutableAttributedString(string: " ", attributes: typingAttributes)
+            apply(proto, [NSRange(location: 0, length: 1)])
+            let attrs = proto.attributes(at: 0, effectiveRange: nil)
+            typingAttributes = attrs
+            // 弹面板 / 切焦点时 didChangeSelection 会把 typingAttributes 重算掉，
+            // 记下位置让「刚打开的样式」在光标没移动时不被冲掉。
+            (self as? InlineTypingMemory)?.rememberInlineTyping(attrs)
+            updateInsertionPointStateAndRestartTimer(true)
+            return
+        }
+        guard let storage = textStorage else { return }
+        let ranges = InlineSelection.slices(sel, in: storage.string as NSString)
+        guard !ranges.isEmpty else { return }
+        (self as? InlineTypingMemory)?.clearPendingInlineTyping()
+        let union = ranges.reduce(ranges[0]) { NSUnionRange($0, $1) }
+        guard shouldChangeText(in: union, replacementString: nil) else { return }
+        storage.beginEditing()
+        apply(storage, ranges)
+        storage.endEditing()
+        didChangeText()
+        needsDisplay = true
+    }
+
     /// 需要作用的段落范围（光标时取整个段落）。
     /// 段落范围保留结尾的 \n：段落级属性（段落样式 / 块类型）必须写到段落终结符上，
     /// 回车换行才能继承上一行的模式，修改显示模式后接着输入才会跟随新模式（Word 行为）。
@@ -113,18 +156,39 @@ extension NSTextView {
             let font = storage.attribute(.font, at: max(sel.location - 1, 0), effectiveRange: nil) as? NSFont
             return font?.fontDescriptor.symbolicTraits.contains(trait) ?? false
         }
-        var all = true
-        storage.enumerateAttribute(.font, in: sel, options: []) { value, _, stop in
-            let font = value as? NSFont ?? DocTheme.bodyFont
-            if !font.fontDescriptor.symbolicTraits.contains(trait) { all = false; stop.pointee = true }
+        // 只看选中的可见字符；段落终结符不参与开关方向判定。
+        let ranges = InlineSelection.slices(sel, in: storage.string as NSString)
+        guard !ranges.isEmpty else { return false }
+        for r in ranges {
+            var all = true
+            storage.enumerateAttribute(.font, in: r, options: []) { value, _, stop in
+                let font = value as? NSFont ?? DocTheme.bodyFont
+                if !font.fontDescriptor.symbolicTraits.contains(trait) { all = false; stop.pointee = true }
+            }
+            guard all else { return false }
         }
-        return all
+        return true
     }
 
     func hasAttribute(_ key: NSAttributedString.Key) -> Bool {
         guard let storage = textStorage, storage.length > 0 else { return false }
-        let loc = max(selectedRange().location - 1, 0)
-        return storage.attribute(key, at: loc, effectiveRange: nil) != nil
+        let sel = selectedRange()
+        if sel.length == 0 {
+            let loc = max(sel.location - 1, 0)
+            return storage.attribute(key, at: loc, effectiveRange: nil) != nil
+        }
+        // 选区内所有可见字符都带该属性才算「已开启」。
+        // 旧实现只看插入点前一个字符，跨样式选区会把 toggle 方向判反。
+        let ranges = InlineSelection.slices(sel, in: storage.string as NSString)
+        guard !ranges.isEmpty else { return false }
+        for r in ranges {
+            var all = true
+            storage.enumerateAttribute(key, in: r, options: []) { value, _, stop in
+                if value == nil { all = false; stop.pointee = true }
+            }
+            guard all else { return false }
+        }
+        return true
     }
 
     func currentBlockType() -> MDBlockType {
@@ -151,7 +215,7 @@ extension NSTextView {
 
     func toggleTrait(_ trait: NSFontDescriptor.SymbolicTraits) {
         let shouldAdd = !hasTrait(trait)
-        performEdit { storage, ranges in
+        performInlineStyle { storage, ranges in
             for r in ranges {
                 storage.enumerateAttribute(.font, in: r, options: []) { value, range, _ in
                     let font = value as? NSFont ?? DocTheme.bodyFont
@@ -178,7 +242,7 @@ extension NSTextView {
 
     func toggleUnderline() {
         let shouldAdd = !hasAttribute(.underlineStyle)
-        performEdit { storage, ranges in
+        performInlineStyle { storage, ranges in
             for r in ranges {
                 if shouldAdd {
                     storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: r)
@@ -191,7 +255,7 @@ extension NSTextView {
 
     func toggleStrike() {
         let shouldAdd = !hasAttribute(.strikethroughStyle)
-        performEdit { storage, ranges in
+        performInlineStyle { storage, ranges in
             for r in ranges {
                 if shouldAdd {
                     storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: r)
@@ -203,7 +267,7 @@ extension NSTextView {
     }
 
     func setTextColor(_ color: NSColor?) {
-        performEdit { storage, ranges in
+        performInlineStyle { storage, ranges in
             for r in ranges {
                 if let color {
                     // 文档里存原色，屏幕上显示按当前外观调整过的动态色
@@ -218,7 +282,7 @@ extension NSTextView {
     }
 
     func setHighlight(_ color: NSColor?) {
-        performEdit { storage, ranges in
+        performInlineStyle { storage, ranges in
             for r in ranges {
                 if let color {
                     storage.addAttribute(.backgroundColor, value: DocTheme.displayHighlight(color), range: r)
@@ -232,7 +296,7 @@ extension NSTextView {
     }
 
     func clearFormatting() {
-        performEdit { storage, ranges in
+        performInlineStyle { storage, ranges in
             for r in ranges {
                 storage.enumerateAttribute(.font, in: r, options: []) { value, range, _ in
                     let font = value as? NSFont ?? DocTheme.bodyFont
@@ -353,6 +417,8 @@ extension NSTextView {
     /// 保证改完模式紧接着输入的文字跟随新模式（Word 行为）。
     /// 空文档或空段落没有字符可取时，用 fallbackStyle（或默认正文）构造。
     func refreshTypingAttributes(fallbackStyle: BlockStyle? = nil) {
+        // 切换标题/代码块会换字号，插入点要立刻跟着重算，不等下一次闪烁
+        defer { updateInsertionPointStateAndRestartTimer(true) }
         guard let storage = textStorage, storage.length > 0 else {
             typingAttributes = fallbackStyle.map { EditorStyle.typing(for: $0) } ?? EditorStyle.defaultTyping
             return

@@ -12,6 +12,8 @@ struct ContentView: View {
 
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var l10n: Localizer
+    @EnvironmentObject var ai: AIController
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,6 +47,11 @@ struct ContentView: View {
             dialog(for: kind)
                 .environmentObject(model)
                 .environmentObject(l10n)
+                .environmentObject(ai)
+        }
+        .onAppear {
+            // AppDelegate 在点 Dock 图标时用它重建 / 唤醒主窗口
+            WindowBridge.shared.reopen = { [openWindow] in openWindow(id: "main") }
         }
     }
 
@@ -64,6 +71,10 @@ struct ContentView: View {
                 model.activeDialog = nil
                 model.confirmHandler?(answer)
             }
+        case .aiCommand:
+            AICommandView()
+        case .aiSettings:
+            AISettingsView()
         }
     }
 }
