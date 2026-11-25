@@ -170,6 +170,14 @@ enum MarkdownSerializer {
         return pieces.joined() + "\n"
     }
 
+    /// 空段落若是表格单元格，不能按「空行」跳过：
+    /// Parser 会为空格子生成带 NSTextTableBlock 的空段落并占住 row/col，
+    /// 序列化时跳过它就会让后续单元格行号错位，每往返一次多出一个 `|  |` 空行。
+    private static func isTableCellParagraph(_ attrs: [NSAttributedString.Key: Any]) -> Bool {
+        guard let style = attrs[.paragraphStyle] as? NSParagraphStyle else { return false }
+        return style.textBlocks.contains { $0 is NSTextTableBlock }
+    }
+
     // MARK: 块切分
 
     static func blocks(from attr: NSAttributedString) -> [DocBlock] {
@@ -219,7 +227,8 @@ enum MarkdownSerializer {
                 continue
             }
 
-            if para.length == 0, (attrs[.mdBlockType] as? String) != MDBlockType.callout.rawValue { continue }
+            if para.length == 0, !isTableCellParagraph(attrs),
+               (attrs[.mdBlockType] as? String) != MDBlockType.callout.rawValue { continue }
 
             // Obsidian Callout：连续且同 ID 的行聚合成一个块，逐行写回。
             // 行内强调已真解析成富文本，未编辑时靠快照逐字输出原行。
@@ -243,7 +252,7 @@ enum MarkdownSerializer {
                 continue
             }
 
-            if para.length == 0 { continue }
+            if para.length == 0, !isTableCellParagraph(attrs) { continue }
 
             // 附件（图片 / 分割线）
             if let attachment = attrs[.attachment] {
@@ -269,8 +278,11 @@ enum MarkdownSerializer {
                 let row = tableBlock.startingRow
                 let col = tableBlock.startingColumn
                 while tableRows.count <= row { tableRows.append([]) }
-                while tableRows[row].count <= col { tableRows[row].append(NSAttributedString(string: "")) }
-                tableRows[row][col] = para
+                // Parser 为每个 cell 追加一个末尾 \n，于是「内容段落 + 空段落」会先后出现；
+                // 只保留第一次收集到的内容，后续空段落不能覆盖（否则整表被清空）。
+                // 行首缺列时用空 cell 补齐，保持列号与 NSTextTableBlock 一致。
+                while tableRows[row].count < col { tableRows[row].append(NSAttributedString(string: "")) }
+                if tableRows[row].count == col { tableRows[row].append(para) }
                 if row == 0, (attrs[.mdTableHeader] as? Bool) == true { tableHeader = true }
                 continue
             }
@@ -462,10 +474,14 @@ enum InlineSerializer {
                 out += closingMarkdown(mark)
             }
             // 打开新增的标记（由外到内）
-            for mark in marks.sorted(by: { $0.order < $1.order }) where !active.contains(mark) {
+            let sortedMarks = marks.sorted(by: { $0.order < $1.order })
+            for mark in sortedMarks where !active.contains(mark) {
                 out += openingMarkdown(mark)
             }
-            active = marks
+            // active 必须与打开顺序一致：关闭时按 reversed() 由内到外输出。
+            // 若存未排序的 marks，链接与强调并存时会先关链接再关强调，
+            // 把 `**` 写到 `](url)` 后面，每次往返都搬一次家。
+            active = sortedMarks
 
             out += text
         }
@@ -547,8 +563,9 @@ enum InlineSerializer {
             }
 
             for mark in active.reversed() where !marks.contains(mark) { out += closingHTML(mark) }
-            for mark in marks.sorted(by: { $0.order < $1.order }) where !active.contains(mark) { out += openingHTML(mark) }
-            active = marks
+            let sortedMarks = marks.sorted(by: { $0.order < $1.order })
+            for mark in sortedMarks where !active.contains(mark) { out += openingHTML(mark) }
+            active = sortedMarks
 
             out += text
         }

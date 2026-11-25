@@ -72,6 +72,13 @@ func testInline() {
     equal("链接", roundTrip("[文字](https://a.com)\n"), "[文字](https://a.com)\n")
     equal("嵌套强调", roundTrip("**粗 _斜_**\n"), "**粗 _斜_**\n")
     check("行内往返稳定", stable("**粗体** 与 *斜体* 与 `code`\n"))
+    // 标记必须按嵌套顺序开 / 关：以前 active 存的是未排序的 marks，
+    // 关闭时先关链接后关强调，把 `**` 写到 `](url)` 后面，每次往返搬一次家。
+    equal("链接内粗体不搬家", roundTrip("[**sponsor**](https://a.com)\n"),
+          "[**sponsor**](https://a.com)\n")
+    equal("链接内斜体不搬家", roundTrip("An [*emphasized link*](/url).\n"),
+          "An [*emphasized link*](/url).\n")
+    check("链接内强调往返稳定", stable("[**a**](https://a.com) 和 [*b*](/b).\n"))
 }
 
 func testBlocks() {
@@ -97,6 +104,12 @@ func testTable() {
     equal("表格往返", roundTrip(input), input)
     check("表格往返稳定", stable(input))
     check("表头不输出加粗", !roundTrip(input).contains("**"))
+    // 空表头曾让序列化器跳过空格子，行号错位后每轮多写一个 `|  |`；
+    // 真实语料 quarto/callouts.qmd、joplin/README.md、multimarkdown/README.md 都中招。
+    let emptyHeader = "|       |       |\n| :---: | :---: |\n| a | b |\n| c | d |\n"
+    check("空表头表格往返稳定", stable(emptyHeader))
+    check("空表头后数据不丢", roundTrip(emptyHeader).contains("| a | b |"))
+    check("空表头不无限加列", !roundTrip(emptyHeader).contains("|  |  |  |"))
 }
 
 func testImageAndChart() {

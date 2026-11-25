@@ -240,6 +240,10 @@ func exercise(_ md: String) -> [String: Any] {
     let a3 = MarkdownParser.parse(out2)
     step("serialize #3")
     let out3 = MarkdownSerializer.markdown(from: a3)
+    step("parse #4")
+    let a4 = MarkdownParser.parse(out3)
+    step("serialize #4")
+    let out4 = MarkdownSerializer.markdown(from: a4)
     step("blockTypes")
     let bl = Array(blockTypes(a1)).sorted()
     step("retention")
@@ -249,9 +253,11 @@ func exercise(_ md: String) -> [String: Any] {
     return [
         // 一次稳定：所见即所得编辑器输出的 Markdown 再解析后完全一致
         "stable": out1 == out2,
-        // 收敛：允许第一轮规范化（空行 / 列表符号 / frontmatter 重排），
-        // 但第二轮起必须稳定；不收敛才意味着真正会持续改写文件。
-        "converged": (out1 == out2) || (out2 == out3),
+        // 收敛：允许前几轮规范化（空行 / 列表符号 / 强调与链接边界），
+        // 只要四轮内出现连续两轮一致即视为收敛。
+        // 实测有文件要到第 3 轮才稳定（如 kramdown markdown_attr），
+        // 只看三轮会把它误报成「持续改写」；真正不收敛的文件四轮后仍在变。
+        "converged": (out1 == out2) || (out2 == out3) || (out3 == out4),
         "identical": md.trimmingCharacters(in: .whitespacesAndNewlines)
             == out1.trimmingCharacters(in: .whitespacesAndNewlines),
         "retention": ret,
