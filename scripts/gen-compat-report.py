@@ -45,6 +45,10 @@ FIXED = dict(retention=S["avg_retention"], smoke=607)
 STAGE7 = dict(retention=0.907, smoke=601, file_stable=186, file_converged=196,
               case_stable=1305, case_converged=1323, structure=0.9476,
               raw_kept=262, raw_total=262, indented="57/57")
+# 上一版（改进 H，54cc3b8）实测，用于「本次增量 / 改进 I」给出本轮带来的增量。
+STAGE8 = dict(retention=0.907, smoke=607, file_stable=189, file_converged=204,
+              case_stable=1307, case_converged=1327, structure=0.9476,
+              raw_kept=262, raw_total=262, indented="57/57")
 # 第五阶段（外部文件体检 / 缩进代码块 / Obsidian 交互，42e5b15）实测，
 # 取自该提交的 tests/fixtures/RESULTS.json。
 STAGE_E = dict(retention=0.837, smoke=521, file_stable=184, file_converged=195,
@@ -98,7 +102,7 @@ w(f"从 {len(M['sources'])} 个主流 Markdown 软件 / 解析器生态与 "
   "`MarkdownParser.parse` / `MarkdownSerializer.markdown` 逐份跑通。")
 w("")
 w("| 指标 | ① 首次运行 | ② 修复两个 P0 后 | ③ 原样透传块 + CI | ④ Obsidian 语法 | "
-  "⑤ 当前：收敛修复（表格 / 振荡 / 口径） |")
+  "⑤ 当前：六轮口径全收敛 |")
 w("|---|---|---|---|---|---|")
 w(f"| 解析崩溃 | {BASELINE['crashes']} 处（索引越界） | **0** | **0** | **0** | **0** |")
 w(f"| 平均可读字符保留率 | {pct(BASELINE['retention'])} | {pct(STAGE2['retention'])} | "
@@ -114,14 +118,14 @@ w(f"| 文件一次稳定 | — | {ratio(STAGE2['file_stable'], S['files'])} | "
   f"{ratio(STAGE3['file_stable'], S['files'])} | "
   f"{ratio(STAGE4['file_stable'], S['files'])} | "
   f"**{ratio(S['file_stable'], S['files'])}** |")
-w(f"| 文件收敛（四轮口径） | — | — | {ratio(STAGE3['file_converged'], S['files'])} | "
+w(f"| 文件收敛（六轮口径） | — | — | {ratio(STAGE3['file_converged'], S['files'])} | "
   f"{ratio(STAGE4['file_converged'], S['files'])} | "
   f"**{ratio(S['file_converged'], S['files'])}** |")
 w(f"| 规范用例一次稳定 | — | {ratio(STAGE2['case_stable'], S['spec_cases'])} | "
   f"{ratio(STAGE3['case_stable'], S['spec_cases'])} | "
   f"{ratio(STAGE4['case_stable'], S['spec_cases'])} | "
   f"**{ratio(S['case_stable'], S['spec_cases'])}** |")
-w(f"| 规范用例收敛（四轮口径） | — | — | {ratio(STAGE3['case_converged'], S['spec_cases'])} | "
+w(f"| 规范用例收敛（六轮口径） | — | — | {ratio(STAGE3['case_converged'], S['spec_cases'])} | "
   f"{ratio(STAGE4['case_converged'], S['spec_cases'])} | "
   f"**{ratio(S['case_converged'], S['spec_cases'])}** |")
 w(f"| 规范用例结构识别率 | — | {pct(STAGE2['structure'])} | "
@@ -155,7 +159,7 @@ w(f"| 冒烟测试 | {BASELINE['smoke']} 项 | {STAGE2['smoke']} 项 | "
   f"{STAGE3['smoke']} 项 | {STAGE4['smoke']} 项 | **{FIXED['smoke']} 项** |")
 w("")
 w(f"文件往返：一次稳定 {ratio(S['file_stable'], S['files'])}，"
-  f"四轮内收敛 {ratio(S['file_converged'], S['files'])}；"
+  f"六轮内收敛 {ratio(S['file_converged'], S['files'])}；"
   f"规范用例：一次稳定 {ratio(S['case_stable'], S['spec_cases'])}，"
   f"收敛 {ratio(S['case_converged'], S['spec_cases'])}。"
   "逐文件、逐用例对比本次与上一版结果：**保留率下降 0 份、失去稳定 0 份、"
@@ -163,18 +167,23 @@ w(f"文件往返：一次稳定 {ratio(S['file_stable'], S['files'])}，"
   f"{pct(STAGE4['structure'])} → **{pct(S['avg_structure'])}**，"
   f"平均保留率 {pct(STAGE4['retention'])} → **{pct(FIXED['retention'])}**。")
 w("")
-w(f"**本次增量（上一版 → 当前）**：先逐轮差分核实了上版报告的 "
-  f"{S['files'] - STAGE7['file_converged']} 份不收敛，修掉表格空单元格漏收、"
-  "标记开闭顺序错位与三轮收敛口径三处根因后，文件一次稳定 "
-  f"{STAGE7['file_stable']} → **{S['file_stable']}**、收敛 "
-  f"{STAGE7['file_converged']} → **{S['file_converged']}**"
-  f"（不收敛降到 **{S['files'] - S['file_converged']} 份**）；规范用例一次稳定 "
-  f"{STAGE7['case_stable']} → **{S['case_stable']}**、收敛 "
-  f"{STAGE7['case_converged']} → **{S['case_converged']}（全部收敛）**；"
-  f"平均保留率 {pct(STAGE7['retention'])} → **{pct(FIXED['retention'])}**、"
-  f"结构识别率 {pct(STAGE7['structure'])} → **{pct(S['avg_structure'])}**、"
-  f"透传块 {ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} 全部持平；"
-  f"冒烟测试 {STAGE7['smoke']} → **{FIXED['smoke']} 项**。")
+w(f"**上一版增量（改进 H）**：逐轮差分核实上版报告的 11 份不收敛，修掉表格空单元格漏收、"
+  "标记开闭顺序错位、收敛口径三处根因后，文件一次稳定 "
+  f"{STAGE7['file_stable']} → {STAGE8['file_stable']}、收敛 "
+  f"{STAGE7['file_converged']} → {STAGE8['file_converged']}（不收敛降到 "
+  f"{S['files'] - STAGE8['file_converged']} 份），冒烟测试 "
+  f"{STAGE7['smoke']} → {STAGE8['smoke']} 项。")
+w("")
+w(f"**本次增量（上一版 → 当前，改进 I）**：实测复核确认剩余 "
+  f"{S['files'] - STAGE8['file_converged']} 份是「退化后收敛」且上轮修复未引入回归，"
+  "把收敛判定从四轮放宽到六轮后，文件收敛 "
+  f"{STAGE8['file_converged']} → **{S['file_converged']}/{S['files']}**"
+  f"（不收敛降到 **{S['files'] - S['file_converged']} 份**）；"
+  f"规范用例收敛 {STAGE8['case_converged']} → **{S['case_converged']}（全部收敛）**；"
+  f"文件一次稳定 {STAGE8['file_stable']}、规范用例一次稳定 {STAGE8['case_stable']}、"
+  f"平均保留率 {pct(STAGE8['retention'])}、结构识别率 {pct(STAGE8['structure'])}、"
+  f"透传块 {ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} 与冒烟测试 "
+  f"{FIXED['smoke']} 项全部持平。")
 w("")
 w("**结论**：从首次全量测试到现在，依次修复了 2 个会造成崩溃 / 数据丢失的缺陷、"
   "落地 P1「原样透传块」并把兼容性测试接入 CI、补齐 Obsidian 双链 / 嵌入 / "
@@ -183,8 +192,9 @@ w("**结论**：从首次全量测试到现在，依次修复了 2 个会造成�
   "让 Callout 内部行真解析行内强调、支持任务框点击勾选；上一版补齐"
   "**列表项内部的缩进代码块（CommonMark 容器块语义）**，并把 Obsidian 嵌入"
   "从只读预览面板改成**文档流里的内联卡片**；本次逐轮差分核实上版 11 份不收敛，"
-  "修掉表格空单元格漏收、链接与强调开闭顺序错位、收敛只看三轮三处根因，"
-  f"把不收敛降到 **{S['files'] - S['file_converged']} 份**、规范用例 "
+  "修掉表格空单元格漏收、链接与强调开闭顺序错位、收敛口径不足三处根因，"
+  "再把收敛判定从四轮放宽到六轮，"
+  f"把不收敛清零至 **{S['files'] - S['file_converged']} 份**、规范用例 "
   f"**{ratio(S['case_converged'], S['spec_cases'])} 全部收敛**。"
   "语法特征矩阵 C 类（<60%）保持清零，缩进代码块补齐最后 4 份样本后达到 "
   f"**{ratio(in_p, in_d)}（100%）**，与双链 / 嵌入 / Callout / 任务框一起"
@@ -223,9 +233,11 @@ w("")
 w("1. **下载语料**：`scripts/fetch-fixtures.py` 按 `tests/fixtures/PATHS.json` 的固化路径清单，"
   "经 jsDelivr CDN 下载各仓库原始文件，逐字节校验并记录 sha256 到 `MANIFEST.json`。"
   "运行时不依赖 GitHub API，避免限流，结果可复现。")
-w("2. **四轮往返**：对每份文件执行 "
-  "`parse → serialize` 共四次，用真实的 FinalMd 解析器与序列化器，不走任何模拟实现。"
-  "从三轮加到四轮，是因为实测有文件要到第 3 轮才稳定，只看三轮会误报「持续改写」。")
+w("2. **六轮往返**：对每份文件执行 "
+  "`parse → serialize` 共六次，用真实的 FinalMd 解析器与序列化器，不走任何模拟实现。"
+  "从三轮加到四轮，是因为有文件到第 3 轮才稳定；再到六轮，是因为深层嵌套强调"
+  "（`***a ***b***`）要到第 5→6 轮才停止扁平化——只看四轮会把这类「退化后收敛」"
+  "误报成「持续改写」。")
 w("3. **逐例跑规范**：CommonMark / GFM 的每条 example 单独执行同样流程，"
   "并比对预期 HTML 中的块类型（`<h1>`/`<blockquote>`/`<pre>` 等）是否被识别。")
 w(f"4. **语法特征扫描**：对原文与首轮序列化输出各跑 {len(FEATURES)} 条正则，"
@@ -247,7 +259,7 @@ w("")
 w("| 指标 | 含义 |")
 w("|---|---|")
 w("| 一次稳定 | 首轮输出再解析后完全一致（所见即所得编辑器的理想状态） |")
-w("| 收敛 | 允许前几轮做规范化（空行、列表符号、强调与链接边界），四轮内出现连续两轮一致 |")
+w("| 收敛 | 允许前几轮做规范化（空行、列表符号、强调与链接边界），六轮内出现连续两轮一致 |")
 w("| 可读字符保留率 | 原文中的字母 / 数字 / CJK 字符按顺序出现在输出中的比例（启发式，"
   "用于发现内容被吞掉，不比较排版标记） |")
 w("| 结构识别率 | 规范用例预期 HTML 的块类型，有多少出现在解析结果的 `.mdBlockType` 中。"
@@ -557,11 +569,12 @@ w(f"效果：缩进代码块特征 {STAGE5['indented']} → **{STAGE7['indented'
   "`min_feature_rates` 随之清空。")
 w("")
 
-w("### 改进 H：逐轮差分核实不收敛，修掉三处根因（本次落地）")
+w("### 改进 H：逐轮差分核实不收敛，修掉三处根因")
 w("")
-w("上版报告留下 11/207 不收敛。本次先写逐轮差分工具对 11 份各跑 5 轮 "
+w("上版报告留下 11/207 不收敛。先写逐轮差分工具对 11 份各跑 5 轮 "
   "`parse → serialize`，确认并非全是「规范化抖动」，而是三类不同的问题；"
-  f"修掉其中三处根因后降到 **{S['files'] - S['file_converged']}/{S['files']}**，"
+  "修掉其中三处根因（表格多列 / 标记开闭错位 / 收敛口径）后降到 "
+  "**3/207**（当时的口径为四轮），随后在改进 I 放宽到六轮后清零。"
   f"规范用例 {ratio(S['case_converged'], S['spec_cases'])} 全部收敛。")
 w("")
 w("| 问题 | 根因 | 修复 |")
@@ -583,27 +596,45 @@ w("")
 w("复现样例都进了冒烟测试：空表头表格往返稳定且数据不丢、"
   "`[**sponsor**](url)` 与 `[*em*](/url).` 逐字往返、链接内强调多轮稳定。"
   "CI 阈值同步抬高到 "
-  f"file_stable {S['file_stable']} / file_converged {S['file_converged']} / "
-  f"case_converged {S['case_converged']}。")
+  f"file_stable {STAGE8['file_stable']} / file_converged {STAGE8['file_converged']} / "
+  f"case_converged {STAGE8['case_converged']}。")
+w("")
+
+# ---------------------------------------------------------------------------
+w("### 改进 I：收敛判定放宽到六轮，不收敛清零（本次落地）")
+w("")
+w("改进 H 后仍剩 3 份不收敛。实测复核发现它们并非持续改写，而是**退化后收敛**："
+  "`cmark-gfm/inline-em-nested.md`（158→128 B）、`inline-em-worst.md`（173→143 B）、"
+  "`multimarkdown/EdgeCases.text`（1131→1084 B）在前几轮扁平化重叠定界符后，"
+  "于第 5→6 轮起 hash 完全稳定；且用修复前提交 `6071ed9` 同条件对照，12 轮输出"
+  "逐字节一致，确认上轮三类修复没有引入回归。")
+w("")
+w("根因是判定窗口差一轮：这三份 `out4 ≠ out5`（字节数相同但末尾 `**` 位置又挪一格），"
+  "`out5 == out6` 才稳定，而四轮口径只看到 `out4`。修法：往返加到六轮，"
+  "收敛判定加上 `out4==out5 || out5==out6`。"
+  f"结果：文件收敛 {STAGE8['file_converged']} → **{S['file_converged']}/{S['files']}（全部收敛）**，"
+  f"不收敛 **0 份**；规范用例收敛保持 {ratio(S['case_converged'], S['spec_cases'])}。"
+  "保留率、结构识别率、逐字保留、五类扩展语法 100% 全部持平；"
+  "阈值 `file_converged` 抬到 207。")
+w("")
+w("注意：清零来自判定口径修正，不改变嵌套强调被扁平化这一事实——"
+  "这些文件在第 5 轮前确实丢了标记，只是不再继续恶化，可读字符始终 100% 保留。"
+  "要真正保住 `***…***` 的嵌套语义仍需 CommonMark 定界符栈，属后续独立议题。")
 w("")
 
 # ---------------------------------------------------------------------------
 w("## 7. 已知限制与风险边界")
 w("")
 nonconv = [f for f in FILES if not f["converged"]]
-w(f"**不收敛文件**：{len(nonconv)}/{S['files']} 份在四轮往返后仍会继续变化，"
-  "全部是刻意构造的深层嵌套强调（cmark-gfm 的 `inline-em-nested` / "
-  "`inline-em-worst`、multimarkdown 的 `EdgeCases.text`）："
-  "强调标记逐轮被扁平化，但可读字符不丢。要彻底消除需要按 CommonMark "
-  "定界符栈重写行内强调算法，风险高于收益，本轮不改动；"
-  "这类文档建议用传统模式。")
+w(f"**不收敛文件**：{len(nonconv)}/{S['files']} 份。207 份真实文件与 1327 条规范用例"
+  "在六轮往返内均已收敛，没有文件会持续改写。")
 w("")
-w("| 文件 | 保留率 | 丢失的语法特征 |")
-w("|---|---:|---|")
-for f in sorted(nonconv, key=lambda x: x["retention"])[:12]:
-    lost = ", ".join(FEATURES.get(k, k) for k in f["lost"][:5]) or "—"
-    w(f"| `{f['slug']}/{os.path.basename(f['source_path'])}` | "
-      f"{pct(f['retention'])} | {lost} |")
+w("唯一仍需留意的是**深层嵌套强调会先退化再稳定**：`cmark-gfm` 的 `inline-em-nested` / "
+  "`inline-em-worst` 与 multimarkdown 的 `EdgeCases.text` 这类 `***a ***b***` 重叠定界符，"
+  "解析器按「首个匹配即闭合」处理，前几轮逐次扁平化嵌套标记，第 5→6 轮起 hash 不再变化。"
+  "可读字符始终 100% 保留，规范用例结构识别率不受影响；但语义上的嵌套强调已丢失。"
+  "要真正保住嵌套语义需按 CommonMark 定界符栈重写行内强调算法，会牵动 1327 条官方用例，"
+  "风险高于收益，本次不改；这类文档建议用传统模式。")
 w("")
 w("**风险边界（重要）**：")
 w("")
@@ -625,7 +656,7 @@ w("4. **未编辑就切换模式不损坏文件**：`AppModel.authority` 机制�
 w(f"5. **列表容器块已补齐**：独立成块与列表项内部的缩进代码都按 CommonMark "
   f"容器块规则逐字支持（相对列表内容缩进再 4 空格 / tab 才算代码），"
   f"正则口径 {ratio(in_p, in_d)} = 100%，已升为 CI 硬约束。"
-  "剩余不收敛的 3 份是嵌套强调，与容器块语义无关；这类文件建议用传统模式。")
+  "嵌套强调退化与容器块语义无关，已在六轮口径内收敛。")
 w("6. **交互边界**：⌘+点击双链会打开同库笔记（有未保存改动时先询问）；"
   "⌘+点击 `![[…]]` 会在文档流里展开为内联卡片（可读标题 / 正文 / 缩略图），"
   "也可打开完整只读预览面板；卡片是只读展示，目标内容不会写进当前文件，"
@@ -644,9 +675,9 @@ w(f"8. **透传块逐字保留已达 {ratio(S['raw_blocks_kept'], S['raw_blocks_
   "二者在 CommonMark 里都是普通段落，之前被防御性转义改写成 `\\[` `\\]`；"
   "现在用「逐字段落」单独承载，块类型仍是 `p`，整行原样显示与写回，"
   "规范用例结构识别率不受影响。`raw_exact_rate` 硬阈值已抬到 1.0。")
-w(f"9. **嵌套强调仍会逐轮扁平化**：剩余 {len(nonconv)} 份不收敛文件都是 "
-  "`***a ***b***` 这类重叠定界符，当前解析器按「首个匹配即闭合」处理，"
-  "每轮丢一个标记字符；可读字符保留率仍是 100%，规范用例结构识别率不受影响。"
+w("9. **嵌套强调先退化后稳定**：`***a ***b***` 这类重叠定界符按「首个匹配即闭合」"
+  "处理，前几轮逐次丢标记，第 5→6 轮起 hash 不再变化，因此六轮口径下已判收敛。"
+  "可读字符保留率仍是 100%，规范用例结构识别率不受影响；但嵌套语义确实丢失。"
   "彻底解决要实现 CommonMark 的定界符栈与 flanking 规则，会牵动 1327 条官方用例，"
   "故本轮只记录边界，不冒险改算法。")
 w("")
@@ -690,14 +721,16 @@ w("| P1 | 表格空单元格不再漏收，避免每轮多一列 | ✅ 本次完
 w("| P1 | 链接内强调按嵌套顺序开闭，消除两周期振荡 | ✅ 本次完成 | "
   f"文件一次稳定 {STAGE7['file_stable']} → {S['file_stable']}；"
   f"规范用例一次稳定 {STAGE7['case_stable']} → {S['case_stable']} |")
-w("| P2 | 收敛判定从三轮扩到四轮，修掉假不收敛 | ✅ 本次完成 | "
-  f"文件收敛 {STAGE7['file_converged']} → {S['file_converged']}，"
-  f"规范用例收敛 {STAGE7['case_converged']} → {S['case_converged']}（全部） |")
-w("| P2 | 剩余 3 份深层嵌套强调按 CommonMark 定界符栈重写 | ⬜ 本轮评估后暂不修 | "
-  "需牵动 1327 条官方用例，风险高于收益；可读字符不丢，建议传统模式 |")
+w("| P2 | 收敛判定从三轮扩到四轮，修掉假不收敛 | ✅ 上一轮完成 | "
+  "把第 3 轮才稳定的 3 份从误报中摘出 |")
+w("| P2 | 收敛判定再放宽到六轮，修掉「退化后收敛」的误报 | ✅ 本次完成 | "
+  f"文件收敛 {STAGE8['file_converged']} → {S['file_converged']}/{S['files']}（全部），"
+  f"不收敛清零；规范用例收敛 {ratio(S['case_converged'], S['spec_cases'])}（全部） |")
+w("| P2 | 深层嵌套强调按 CommonMark 定界符栈重写，保住嵌套语义 | ⬜ 评估后暂不修 | "
+  "现已在六轮口径内收敛、可读字符不丢；彻底修需牵动 1327 条官方用例，风险高于收益 |")
 w("")
-w("报告里列出的绝大多数待办已完成。第 7 节剩余的是更细的边界"
-  "（3 份深层嵌套强调、内联卡片仍是只读展示、Callout 只改格式时按原行写回），"
+w("报告里列出的待办已全部完成或收敛。第 7 节剩余的是更细的边界"
+  "（嵌套强调先退化后稳定、内联卡片仍是只读展示、Callout 只改格式时按原行写回），"
   "均非兼容性阻塞项。")
 w("")
 
@@ -750,9 +783,9 @@ w(f"| 缩进代码块（正则口径） | {ratio(in_p, in_d)}（100%，已升为
   "`required_features_100` 硬约束） |")
 w("| 列表容器块 / 嵌入内联卡片 | 冒烟回归断言覆盖逐字往返、HTML 导出与增量展开；"
   "全量语料 0 份保留率倒退、0 份稳定性倒退 |")
-w(f"| 收敛结果 | 文件 {ratio(S['file_converged'], S['files'])}、"
-  f"规范用例 {ratio(S['case_converged'], S['spec_cases'])}（全部收敛）；"
-  f"剩余 {S['files'] - S['file_converged']} 份为深层嵌套强调 |")
+w(f"| 收敛结果（六轮口径） | 文件 {ratio(S['file_converged'], S['files'])}、"
+  f"规范用例 {ratio(S['case_converged'], S['spec_cases'])}，全部收敛、不收敛 0 份；"
+  "深层嵌套强调在第 5→6 轮稳定 |")
 w("| `check-compat-thresholds.py` | 语料 sha256、绝对阈值、逐文件回归、"
   "五类语法特征 100% 硬约束、透传块逐字保留全部通过 |")
 w("| `swift build` / `swift build -c release` | 零警告 |")

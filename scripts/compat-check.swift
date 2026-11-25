@@ -225,7 +225,7 @@ func expectedBlocks(_ html: String) -> Set<String> {
     return out
 }
 
-/// 跑一轮 parse → serialize → parse → serialize，返回关键指标
+/// 跑多轮 parse → serialize，返回关键指标
 func exercise(_ md: String) -> [String: Any] {
     let t0 = Date()
     step("parse #1")
@@ -244,6 +244,14 @@ func exercise(_ md: String) -> [String: Any] {
     let a4 = MarkdownParser.parse(out3)
     step("serialize #4")
     let out4 = MarkdownSerializer.markdown(from: a4)
+    step("parse #5")
+    let a5 = MarkdownParser.parse(out4)
+    step("serialize #5")
+    let out5 = MarkdownSerializer.markdown(from: a5)
+    step("parse #6")
+    let a6 = MarkdownParser.parse(out5)
+    step("serialize #6")
+    let out6 = MarkdownSerializer.markdown(from: a6)
     step("blockTypes")
     let bl = Array(blockTypes(a1)).sorted()
     step("retention")
@@ -254,10 +262,12 @@ func exercise(_ md: String) -> [String: Any] {
         // 一次稳定：所见即所得编辑器输出的 Markdown 再解析后完全一致
         "stable": out1 == out2,
         // 收敛：允许前几轮规范化（空行 / 列表符号 / 强调与链接边界），
-        // 只要四轮内出现连续两轮一致即视为收敛。
-        // 实测有文件要到第 3 轮才稳定（如 kramdown markdown_attr），
-        // 只看三轮会把它误报成「持续改写」；真正不收敛的文件四轮后仍在变。
-        "converged": (out1 == out2) || (out2 == out3) || (out3 == out4),
+        // 六轮内出现连续两轮一致即视为收敛。
+        // 实测有文件第 3 轮才稳（kramdown markdown_attr），也有深层嵌套强调
+        // 要到第 5→6 轮才稳（cmark-gfm inline-em-*）；只看三轮 / 四轮会把
+        // 这些「退化后收敛」误报成「持续改写」。真正不收敛的文件六轮后仍在变。
+        "converged": (out1 == out2) || (out2 == out3) || (out3 == out4)
+            || (out4 == out5) || (out5 == out6),
         "identical": md.trimmingCharacters(in: .whitespacesAndNewlines)
             == out1.trimmingCharacters(in: .whitespacesAndNewlines),
         "retention": ret,

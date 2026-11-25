@@ -72,7 +72,8 @@ jobs:
         # required_features_100 五类语法特征（双链 / 嵌入 / Callout /
         # 任务框 / 缩进代码块）100% 逐字保留；
         # min_feature_rates（当前为空，预留给未来低频语法）；
-        # 四轮往返的收敛判定（三轮会误报第 3 轮才稳定的文件）；
+        # 六轮往返的收敛判定（三轮 / 四轮会分别误报第 3 轮才稳定、
+        # 第 5→6 轮才稳定的「退化后收敛」文件）；
         # 以及相对上一版的逐文件保留率 / 稳定性倒退。
         run: python3 scripts/check-compat-thresholds.py
 
