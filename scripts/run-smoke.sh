@@ -29,6 +29,7 @@ FILES=(
   "$SRC/Sources/FinalMd/AI/AIPresets.swift"
   "$SRC/Sources/FinalMd/Markdown/AttributedKeys.swift"
   "$SRC/Sources/FinalMd/Markdown/Typography.swift"
+  "$SRC/Sources/FinalMd/Markdown/EmphasisStack.swift"
   "$SRC/Sources/FinalMd/Markdown/InlineParser.swift"
   "$SRC/Sources/FinalMd/Markdown/MarkdownParser.swift"
   "$SRC/Sources/FinalMd/Markdown/MarkdownSerializer.swift"

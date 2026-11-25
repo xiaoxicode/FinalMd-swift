@@ -66,6 +66,15 @@ extension NSAttributedString.Key {
     static let mdCalloutSource = NSAttributedString.Key("finalmd.calloutSource")
     /// Callout 行解析后的显示文字快照，用来判断用户是否编辑过这一行。
     static let mdCalloutDisplay = NSAttributedString.Key("finalmd.calloutDisplay")
+    /// 含强调的行内源码快照。CommonMark 的 `***a ***b***` 是树形嵌套，
+    /// 而富文本只有粗/斜两个 trait，无法表达嵌套层级。存下原行 + 解析后的
+    /// 显示文字：未编辑时逐字输出原行（语义与写法全保住），编辑后才按 trait 重建。
+    static let mdEmphasisSource = NSAttributedString.Key("finalmd.emphasisSource")
+    /// 强调行解析后的显示文字快照，用来判断用户是否编辑过这一行。
+    static let mdEmphasisDisplay = NSAttributedString.Key("finalmd.emphasisDisplay")
+    /// 强调行解析后的粗/斜体指纹：只改格式不改文字时也要让快照失效，
+    /// 否则用户按 ⌘B 后的改动会被旧源码盖掉（与 Callout 的同类边界）。
+    static let mdEmphasisTraits = NSAttributedString.Key("finalmd.emphasisTraits")
 }
 
 // MARK: - Obsidian 双链

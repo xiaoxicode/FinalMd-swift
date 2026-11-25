@@ -6,9 +6,9 @@
     "avg_retention": 0.907,
     "avg_structure": 0.947,
     "raw_exact_rate": 1.0,
-    "file_stable": 189,
+    "file_stable": 200,
     "file_converged": 207,
-    "case_stable": 1307,
+    "case_stable": 1325,
     "case_converged": 1327
   },
   "max_retention_drop_per_file": 0.005,

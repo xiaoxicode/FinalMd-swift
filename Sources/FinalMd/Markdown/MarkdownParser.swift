@@ -758,7 +758,43 @@ enum MarkdownParser {
         ]
         let attributed = InlineParser.parse(text, base: attrs)
         attrs[.mdBlockType] = MDBlockType.paragraph.rawValue
-        return finalized(attributed, with: attrs)
+        return withEmphasisSnapshot(finalized(attributed, with: attrs),
+                                    source: text, display: attributed.string)
+    }
+
+    /// 给块级行打强调快照：CommonMark 的 `***a ***b***` 是树形嵌套，
+    /// 富文本的粗/斜两个 trait 无法还原层级。未编辑时序列化器逐字输出原文，
+    /// 编辑后才按 trait 重建。只在顶层块构造调用，链接 label 等递归子串不经过这里。
+    private static func withEmphasisSnapshot(_ block: NSAttributedString,
+                                             source: String,
+                                             display: String) -> NSAttributedString {
+        // 没有强调定界符就不打，避免给纯文本行多带属性
+        guard source.contains("*") || source.contains("_") else { return block }
+        let out = NSMutableAttributedString(attributedString: block)
+        // 只覆盖正文部分：末尾的 \n 是 finalized 追加的，不参与显示比对
+        let bodyLength = min(display.utf16.count, out.length)
+        guard bodyLength > 0 else { return block }
+        let range = NSRange(location: 0, length: bodyLength)
+        out.addAttribute(.mdEmphasisSource, value: source, range: range)
+        out.addAttribute(.mdEmphasisDisplay, value: display, range: range)
+        out.addAttribute(.mdEmphasisTraits, value: emphasisFingerprint(out, length: bodyLength),
+                         range: range)
+        return out
+    }
+
+    /// 逐 UTF16 字符编码粗 / 斜体状态：B=粗、I=斜、X=粗斜、-=无。
+    /// 与显示文字一起比对，确保「只改格式不改文字」也能让快照失效。
+    private static func emphasisFingerprint(_ attr: NSAttributedString, length: Int) -> String {
+        var out = ""
+        out.reserveCapacity(length)
+        for i in 0..<length {
+            let font = attr.attribute(.font, at: i, effectiveRange: nil) as? NSFont
+            let traits = font?.fontDescriptor.symbolicTraits ?? []
+            let bold = traits.contains(.bold)
+            let italic = traits.contains(.italic)
+            out.append(bold ? (italic ? "X" : "B") : (italic ? "I" : "-"))
+        }
+        return out
     }
 
     /// 逐字段落：块类型与外观都跟普通段落一致，但不走 InlineParser /
@@ -786,7 +822,8 @@ enum MarkdownParser {
         let attributed = InlineParser.parse(text, base: attrs)
         attrs[.mdBlockType] = type.rawValue
         attrs[.mdStructuralBold] = true   // 标题的字重是排版自带的，序列化时不输出 **
-        return finalized(attributed, with: attrs)
+        return withEmphasisSnapshot(finalized(attributed, with: attrs),
+                                    source: text, display: attributed.string)
     }
 
     private static func quoteBlock(_ text: String) -> NSAttributedString {
@@ -799,7 +836,8 @@ enum MarkdownParser {
         ]
         let attributed = InlineParser.parse(text, base: attrs)
         attrs[.mdBlockType] = MDBlockType.quote.rawValue
-        return finalized(attributed, with: attrs)
+        return withEmphasisSnapshot(finalized(attributed, with: attrs),
+                                    source: text, display: attributed.string)
     }
 
     /// Obsidian Callout：每行走 InlineParser 做真正的行内解析。
@@ -913,6 +951,17 @@ enum MarkdownParser {
                                                  indent: item.indent),
                                range: range)
             entry.addAttribute(.mdBlockType, value: MDBlockType.paragraph.rawValue, range: range)
+            // 列表项正文的强调也要保真：快照只打在 bullet 之后的 content 上，
+            // 序列化时剥掉 "- " 得到的 body 继承这些属性，显示未变就逐字输出。
+            if content.contains("*") || content.contains("_"), attributed.length > 0 {
+                let bodyRange = NSRange(location: bullet.length, length: attributed.length)
+                entry.addAttribute(.mdEmphasisSource, value: content, range: bodyRange)
+                entry.addAttribute(.mdEmphasisDisplay, value: attributed.string, range: bodyRange)
+                entry.addAttribute(.mdEmphasisTraits,
+                                   value: emphasisFingerprint(attributed,
+                                                              length: attributed.length),
+                                   range: bodyRange)
+            }
             entry.append(NSAttributedString(string: "\n", attributes: attrs))
             out.append(entry)
 

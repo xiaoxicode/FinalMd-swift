@@ -170,6 +170,22 @@ enum MarkdownSerializer {
         return pieces.joined() + "\n"
     }
 
+    /// 与 MarkdownParser 的 emphasisFingerprint 同口径：B=粗、I=斜、X=粗斜、-=无。
+    /// 用来判断强调行是否「只改了格式没改文字」——这种情况快照必须失效，
+    /// 否则用户按 ⌘B / ⌘I 的改动会被旧源码盖掉。
+    static func emphasisFingerprint(_ attr: NSAttributedString) -> String {
+        var out = ""
+        out.reserveCapacity(attr.length)
+        for i in 0..<attr.length {
+            let font = attr.attribute(.font, at: i, effectiveRange: nil) as? NSFont
+            let traits = font?.fontDescriptor.symbolicTraits ?? []
+            let bold = traits.contains(.bold)
+            let italic = traits.contains(.italic)
+            out.append(bold ? (italic ? "X" : "B") : (italic ? "I" : "-"))
+        }
+        return out
+    }
+
     /// 空段落若是表格单元格，不能按「空行」跳过：
     /// Parser 会为空格子生成带 NSTextTableBlock 的空段落并占住 row/col，
     /// 序列化时跳过它就会让后续单元格行号错位，每往返一次多出一个 `|  |` 空行。
@@ -397,6 +413,20 @@ enum InlineSerializer {
         if attr.length > 0,
            attr.attribute(.mdVerbatimLine, at: 0, effectiveRange: nil) as? Bool == true {
             return attr.string
+        }
+        // 强调行：CommonMark 的定界符栈是树形嵌套，粗/斜两个 trait 无法还原。
+        // 显示文字与解析快照一致 = 用户没编辑过，逐字输出原行；一致才走这里，
+        // 一旦编辑就交给下面的 trait 重建，绝不拿旧源码盖掉输入（P1 的教训）。
+        // 只在块级入口生效：链接 label / 删除线 body 是递归 parse 的子串，若也
+        // 短路会把 `[**x**](url)` 截成 `**x**`。块级属性由 finalized 打上。
+        if attr.length > 0,
+           attr.attribute(.mdBlockType, at: 0, effectiveRange: nil) != nil,
+           let source = attr.attribute(.mdEmphasisSource, at: 0, effectiveRange: nil) as? String,
+           let display = attr.attribute(.mdEmphasisDisplay, at: 0, effectiveRange: nil) as? String,
+           let traits = attr.attribute(.mdEmphasisTraits, at: 0, effectiveRange: nil) as? String,
+           attr.string == display,
+           MarkdownSerializer.emphasisFingerprint(attr) == traits {
+            return source
         }
         var out = ""
         var active: [Mark] = []

@@ -79,6 +79,73 @@ func testInline() {
     equal("链接内斜体不搬家", roundTrip("An [*emphasized link*](/url).\n"),
           "An [*emphasized link*](/url).\n")
     check("链接内强调往返稳定", stable("[**a**](https://a.com) 和 [*b*](/b).\n"))
+
+    // CommonMark §6.4 定界符栈：重叠定界符要按 flanking + 最近匹配 + rule of 9/10
+    // 配对，旧的「首个匹配即闭合」会把 `***a ***b***` 每轮换一种切分、逐轮扁平化。
+    let nested = "***this ***is ***a ***bunch*** of*** nested*** emphases***"
+    equal("深层嵌套强调逐字保真", roundTrip(nested + "\n"), nested + "\n")
+    check("深层嵌套强调六轮稳定", stable(nested + "\n"))
+    equal("rule of 3：***foo** bar* 逐字保真", roundTrip("***foo** bar*\n"), "***foo** bar*\n")
+    equal("rule of 3：*foo **bar*** 逐字保真", roundTrip("*foo **bar***\n"), "*foo **bar***\n")
+    // 同一个 run 可贡献多层：***a*** = <em><strong>a</strong></em> → a 粗斜
+    let emStrong = MarkdownParser.parse("***a***\n")
+    let aLoc = (emStrong.string as NSString).range(of: "a").location
+    if aLoc != NSNotFound {
+        let f = emStrong.attribute(.font, at: aLoc, effectiveRange: nil) as? NSFont
+        let tr = f?.fontDescriptor.symbolicTraits ?? []
+        check("CommonMark：***a*** 的内容粗斜",
+              tr.contains(.bold) && tr.contains(.italic))
+    } else {
+        check("CommonMark：***a*** 的内容可定位", false)
+    }
+    equal("纯强嵌套逐字保真",
+          roundTrip("__this __is __a __bunch__ of__ nested__ emphases__\n"),
+          "__this __is __a __bunch__ of__ nested__ emphases__\n")
+
+    // 语义必须按 CommonMark 解析，而不是「整段全粗斜」：
+    // `***foo** bar*` → <em><strong>foo</strong> bar</em> → foo 粗斜 / bar 斜。
+    let cmDoc = MarkdownParser.parse("***foo** bar*\n")
+    let fooRange = (cmDoc.string as NSString).range(of: "foo")
+    let barRange = (cmDoc.string as NSString).range(of: "bar")
+    if fooRange.location != NSNotFound, barRange.location != NSNotFound {
+        let fooFont = cmDoc.attribute(.font, at: fooRange.location, effectiveRange: nil) as? NSFont
+        let barFont = cmDoc.attribute(.font, at: barRange.location, effectiveRange: nil) as? NSFont
+        check("CommonMark：foo 粗体",
+              fooFont?.fontDescriptor.symbolicTraits.contains(.bold) == true)
+        check("CommonMark：foo 斜体",
+              fooFont?.fontDescriptor.symbolicTraits.contains(.italic) == true)
+        check("CommonMark：bar 仅斜体",
+              barFont?.fontDescriptor.symbolicTraits.contains(.italic) == true
+                && barFont?.fontDescriptor.symbolicTraits.contains(.bold) != true)
+    } else {
+        check("CommonMark：foo/bar 可定位", false)
+    }
+
+    // 语义回归：与 commonmark.js 0.31.2 权威 HTML 逐字符对照的边界用例。
+    // 这几个曾因 rule of 3 公式写错、缺 removeDelimitersBetween / openers_bottom 而配错。
+    func inlineHTML(_ md: String) -> String {
+        let base: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 14)]
+        return InlineSerializer.html(InlineParser.parse(md, base: base))
+    }
+    equal("CM：`**foo*` → 字面星号 + 斜体", inlineHTML("**foo*"), "*<em>foo</em>")
+    equal("CM：`*foo**` → 斜体 + 字面星号", inlineHTML("*foo**"), "<em>foo</em>*")
+    equal("CM：`__foo_` → 字面下划线 + 斜体", inlineHTML("__foo_"), "_<em>foo</em>")
+    // 注：两层同类型 em 叠加在富文本里只有单个 italic 位，HTML 只还原成一层 <em>，
+    // 但显示语义（整段斜体）正确，且源码快照保证原文逐字往返。
+    equal("CM：`__foo_ bar_` → 整段斜体", inlineHTML("__foo_ bar_"), "<em>foo bar</em>")
+    equal("CM：`*foo *bar**` → 整段斜体", inlineHTML("*foo *bar**"), "<em>foo bar</em>")
+    equal("CM：`*foo _bar* baz_` → 中间下划线字面",
+          inlineHTML("*foo _bar* baz_"), "<em>foo _bar</em> baz_")
+
+    // 未配对定界符按字面保留：`* foo` 不是强调，不能被吞成转义或空串
+    equal("未配对星号按字面", roundTrip("a * b\n"), "a * b\n")
+
+    // 只改格式不改文字时，强调快照必须失效，否则用户按 ⌘B / ⌘I 的改动会被旧源码盖掉
+    let edited = NSMutableAttributedString(attributedString: MarkdownParser.parse("**粗体**\n"))
+    let target = (edited.string as NSString).range(of: "粗体")
+    edited.addAttribute(.font, value: DocTheme.bodyFont, range: target)
+    let editedOut = MarkdownSerializer.markdown(from: edited)
+    check("改格式后不输出旧源码", !editedOut.contains("**粗体**"))
 }
 
 func testBlocks() {

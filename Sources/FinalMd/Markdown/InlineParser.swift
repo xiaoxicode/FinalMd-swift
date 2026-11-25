@@ -11,10 +11,16 @@ import AppKit
 
 enum InlineParser {
 
-    /// 把一段行内 Markdown 渲染成带属性的字符串
+    /// 把一段行内 Markdown 渲染成带属性的字符串。
+    ///
+    /// 强调走 CommonMark §6.4 定界符栈：先由 `EmphasisStack` 一次性算出每个
+    /// 定界符的配对与每个字符的粗/斜体，再交给扫描器渲染。旧的「首个匹配即
+    /// 闭合」在 `***a ***b***` 这类重叠 run 上每轮换一种切分，嵌套语义被压平。
     static func parse(_ text: String, base: [NSAttributedString.Key: Any]) -> NSAttributedString {
-        var scanner = Scanner(chars: Array(text), base: base)
-        return scanner.render(stop: nil)
+        let chars = Array(text)
+        let plan = EmphasisStack.plan(chars)
+        var scanner = Scanner(chars: chars, base: base, plan: plan)
+        return scanner.render()
     }
 
     // MARK: - 扫描器
@@ -22,34 +28,48 @@ enum InlineParser {
     private struct Scanner {
         let chars: [Character]
         let base: [NSAttributedString.Key: Any]
+        let plan: EmphasisStack.Plan
         var pos = 0
 
         var isAtEnd: Bool { pos >= chars.count }
 
-        mutating func render(stop: String?) -> NSAttributedString {
+        mutating func render() -> NSAttributedString {
             let out = NSMutableAttributedString()
             var plain = [Character]()
+            // 普通文字的强调 trait 由 EmphasisStack 按字符给出；连续相同 trait
+            // 的字符合并成一段，减少属性 run 数量。
+            var plainBold = false
+            var plainItalic = false
 
             func flushPlain() {
                 guard !plain.isEmpty else { return }
-                out.append(NSAttributedString(string: String(plain), attributes: base))
+                var attrs = base
+                if plainBold { attrs[.font] = FontTraits.adding(.bold, to: base[.font]) }
+                if plainItalic { attrs[.font] = FontTraits.adding(.italic, to: attrs[.font]) }
+                out.append(NSAttributedString(string: String(plain), attributes: attrs))
                 plain.removeAll()
             }
 
-            while !isAtEnd {
-                // 遇到停止分隔符（** / __ / * / _ / ~~ ）就结束本层
-                if let stop, matches(stop) { return out.appendingFlush(plain, base) }
-                guard !isAtEnd else { break }
+            /// 追加一个普通字符，并按定界符栈算出的 trait 分组
+            func appendPlain(_ c: Character, at index: Int) {
+                let bold = plan.bold.contains(index)
+                let italic = plan.italic.contains(index)
+                if !plain.isEmpty, bold != plainBold || italic != plainItalic { flushPlain() }
+                plainBold = bold
+                plainItalic = italic
+                plain.append(c)
+            }
 
+            while !isAtEnd {
                 let c = chars[pos]
 
                 // 转义
                 if c == "\\" {
                     if pos + 1 < chars.count {
-                        plain.append(chars[pos + 1])
+                        appendPlain(chars[pos + 1], at: pos + 1)
                         pos += 2
                     } else {
-                        plain.append("\\")
+                        appendPlain("\\", at: pos)
                         pos += 1
                     }
                     continue
@@ -63,7 +83,7 @@ enum InlineParser {
                         out.append(NSAttributedString(string: code, attributes: codeAttributes(base)))
                         pos = end + 1
                     } else {
-                        plain.append("`")
+                        appendPlain("`", at: pos)
                         pos += 1
                     }
                     continue
@@ -92,7 +112,7 @@ enum InlineParser {
                     // 不是完整图片语法（如 ![[]] 嵌入、裸 ![）：readDelimited 已经
                     // 把 pos 推过右括号，必须回滚，否则方括号里的文字会被整段吞掉。
                     pos = saved
-                    plain.append(c)
+                    appendPlain(c, at: pos)
                     pos += 1
                     continue
                 }
@@ -138,27 +158,36 @@ enum InlineParser {
                     // 引用式链接 [1]、Obsidian 双链 [[...]]、任务框 [ ] 等
                     // 都要按字面文本保留，不能因为后面没有 (url) 就吃掉内容。
                     pos = saved
-                    plain.append(c)
+                    appendPlain(c, at: pos)
                     pos += 1
                     continue
                 }
 
-                // 强调 ** __ * _ ~~
-                if let (mark, len) = emphasis(at: pos) {
-                    flushPlain()
-                    pos += len
-                    var inner = base
-                    switch mark {
-                    case .bold: inner[.font] = FontTraits.adding(.bold, to: base[.font])
-                    case .italic: inner[.font] = FontTraits.adding(.italic, to: base[.font])
-                    case .strike: inner[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+                // 强调定界符：CommonMark 定界符栈已算好哪些字符被配对消耗。
+                // 被消耗的不显示（trait 已打在内容上）；未配对的按字面文本保留，
+                // 例如 `* foo` 或行尾孤立的 `**`，不能再走递归配对。
+                if c == "*" || c == "_" {
+                    if plan.skipped.contains(pos) {
+                        flushPlain()
+                        pos += 1
+                    } else {
+                        appendPlain(c, at: pos)
+                        pos += 1
                     }
-                    var sub = Scanner(chars: chars, base: inner)
-                    sub.pos = pos
-                    let rendered = sub.render(stop: mark.delimiter)
-                    pos = sub.pos + len
-                    out.append(rendered)
                     continue
+                }
+
+                // 删除线 ~~ 不属于 CommonMark 强调，仍按成对扫描处理（GFM 扩展）
+                if c == "~", pos + 1 < chars.count, chars[pos + 1] == "~" {
+                    if let end = find("~~", from: pos + 2) {
+                        flushPlain()
+                        var inner = base
+                        inner[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+                        let body = String(chars[(pos + 2)..<end])
+                        out.append(InlineParser.parse(body, base: inner))
+                        pos = end + 2
+                        continue
+                    }
                 }
 
                 // HTML 标签
@@ -167,12 +196,12 @@ enum InlineParser {
                     if let handled = handleTag(into: out) {
                         if handled { continue }
                     }
-                    plain.append(c)
+                    appendPlain(c, at: pos)
                     pos += 1
                     continue
                 }
 
-                plain.append(c)
+                appendPlain(c, at: pos)
                 pos += 1
             }
 
