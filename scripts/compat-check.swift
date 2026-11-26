@@ -40,8 +40,70 @@ func readText(_ path: String) -> String {
     return String(decoding: d, as: UTF8.self)
 }
 
+/// 正则命中。必须走 NSRegularExpression（UTF-16 语义），不能用
+/// `String.range(of:options:.regularExpression)`——后者按 Swift 字位簇匹配，
+/// `\r\n` 是**单个** Character，`[^=\n]` 不排除它，CRLF 文件里
+/// `==[^=\n]+==` 会从 `[========]` 跨行贯通到下一个 `==`（editormd/001 的
+/// highlight 假阳性即此因）。NSRegularExpression 看到的是两个码位，行为正确。
 func hit(_ s: String, _ pattern: String) -> Bool {
-    s.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+    guard let re = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+        return s.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+    let ns = s as NSString
+    return re.firstMatch(in: s, range: NSRange(location: 0, length: ns.length)) != nil
+}
+
+/// 把 Setext 标题下划线行（纯 `=` / `-` 串紧跟段落行）替换为空行。
+/// 仅供 hr 特征检测预处理：`Title\n---` 的下划线按 CommonMark §4.3 是
+/// Setext 标题而非分割线；特征正则不剔除会把这类文件误报成「hr 丢失」
+/// （cmark/006 等 6 份 README 全部因此误报，真 `<hr>` 数为 0）。
+/// 前导行是块开始（列表/引用/围栏/标题/分割线/HTML）时不剔除——那类
+/// `---` 才是真分割线。
+func stripSetextUnderlines(_ s: String) -> String {
+    var lines = s.components(separatedBy: "\n")
+    var fence: String?
+    var prevParagraphLike = false
+    for i in lines.indices {
+        let raw = lines[i]
+        let t = raw.trimmingCharacters(in: .whitespaces)
+        if let f = fence {
+            if t.count >= f.count, t.allSatisfy({ $0 == f.first }) { fence = nil }
+            continue
+        }
+        if let r = t.range(of: "^(`{3,}|~{3,})", options: .regularExpression) {
+            fence = String(t[r])
+            continue
+        }
+        let isUnderline = t.range(of: "^[-=]+$", options: .regularExpression) != nil
+        if isUnderline, prevParagraphLike {
+            lines[i] = ""
+            continue // 下划线行本身不算段落行
+        }
+        let isBlockStart = t.isEmpty
+            || t.hasPrefix(">")
+            || t.range(of: "^(#{1,6}\\s|[-*+]\\s|\\d+[.)]\\s)", options: .regularExpression) != nil
+            || t.range(of: "^([-*_])\\s*(\\1\\s*){2,}$", options: .regularExpression) != nil
+            || t.range(of: "^(`{3,}|~{3,})", options: .regularExpression) != nil
+            || t.hasPrefix("<")
+        prevParagraphLike = !isBlockStart
+    }
+    return lines.joined(separator: "\n")
+}
+
+/// 主题分割线行（`* * *` / `- - -` / `***` 等）替换为空行。
+/// 仅供 ul/ol 特征检测预处理：空格分隔的分割线会被 `^\s*[-*+]\s+\S`
+/// 误计成无序列表，序列化成 `---` 后又假报「列表丢失」
+/// （cmark-gfm/006、joplin/001 等 4 份全部因此误报）。
+/// 混用字符的 `* - *` 不是分割线（CommonMark §4.3），保留为列表。
+func stripThematicBreaks(_ s: String) -> String {
+    var lines = s.components(separatedBy: "\n")
+    for i in lines.indices {
+        let t = lines[i].trimmingCharacters(in: .whitespaces)
+        if hit(t, "^([-*_])(\\s*\\1){2,}$") {
+            lines[i] = ""
+        }
+    }
+    return lines.joined(separator: "\n")
 }
 
 struct Feature {
@@ -74,8 +136,9 @@ let features: [Feature] = [
             preserve: [#"(?m)^\s*[-*+]\s+\[[ xX]\]"#]),
     Feature(key: "footnote", label: "脚注", detect: #"(?m)^\[\^[^\]]+\]:|\[\^[^\]]+\]"#,
             preserve: [#"(?m)^\[\^[^\]]+\]:|\[\^[^\]]+\]"#]),
-    Feature(key: "refdef", label: "引用式链接定义", detect: #"(?m)^\s{0,3}\[[^\]]+\]:\s*\S+"#,
-            preserve: [#"(?m)^\s{0,3}\[[^\]]+\]:\s*\S+"#]),
+    Feature(key: "refdef", label: "引用式链接定义",
+            detect: #"(?m)^[ \t]{0,3}\[[^\]]+\]:[ \t]*\S+"#,
+            preserve: [#"(?m)^[ \t]{0,3}\[[^\]]+\]:[ \t]*\S+"#]),
     Feature(key: "code", label: "行内代码", detect: #"`[^`\n]+`"#,
             preserve: [#"`[^`\n]+`"#]),
     Feature(key: "bold", label: "粗体", detect: #"\*\*[^\n*]+\*\*|__[^\n_]+__"#,
@@ -86,8 +149,10 @@ let features: [Feature] = [
             preserve: [#"==[^=\n]+=="#, #"<mark"#, #"background-color"#]),
     Feature(key: "link", label: "行内链接", detect: #"\[[^\]\n]+\]\([^)\n]+\)"#,
             preserve: [#"\[[^\]\n]+\]\([^)\n]+\)"#]),
-    Feature(key: "image", label: "图片", detect: #"!\[[^\]\n]*\]\([^)\n]+\)"#,
-            preserve: [#"!\[[^\]\n]*\]\([^)\n]+\)"#]),
+    Feature(key: "image", label: "图片",
+            detect: #"!\[[^\]\n]*\]\((?:[^)\s\n]|\\ )+\)|!\[[^\]\n]*\]\(<[^>\n]+>\)"#,
+            preserve: [#"!\[[^\]\n]*\]\((?:[^)\s\n]|\\ )+\)|!\[[^\]\n]*\]\(<[^>\n]+>\)"#,
+                     #"!\[[^\]\n]*\]\([^)\n]+\)"#]),
     Feature(key: "autolink", label: "尖括号自动链接", detect: #"<https?://[^>\n]+>"#,
             preserve: [#"<https?://[^>\n]+>"#]),
     Feature(key: "htmlblock", label: "原始 HTML 块",
@@ -116,7 +181,9 @@ let features: [Feature] = [
     Feature(key: "diagram", label: "Mermaid / 图表围栏",
             detect: #"(?m)^\s*```(?:mermaid|flow|graph|plantuml|vega|echarts|dot)"#,
             preserve: [#"(?m)^\s*```(?:mermaid|flow|graph|plantuml|vega|echarts|dot)"#]),
-    Feature(key: "toc", label: "[TOC] 目录", detect: #"\[TOC\]"#, preserve: [#"\[TOC\]"#]),
+    Feature(key: "toc", label: "[TOC] 目录",
+            detect: #"(?m)^[ \t]{0,3}\[TOC\][ \t]*$"#,
+            preserve: [#"(?m)^[ \t]{0,3}\[TOC\][ \t]*$"#, #"\[TOC\]"#]),
     Feature(key: "qmdchunk", label: "Quarto 代码单元格",
             detect: #"(?m)^\s*```\{[a-zA-Z0-9_-]+\}"#,
             preserve: [#"(?m)^\s*```\{[a-zA-Z0-9_-]+\}"#]),
@@ -182,23 +249,29 @@ func blockTypes(_ a: NSAttributedString) -> Set<String> {
 /// 这里直接比对原文里三类透传块的**整行字节**是否出现在序列化输出中，
 /// 作为 CI 的硬阈值，防止 P1 原样透传块以后被改回「解析后重排」。
 func exactPassthrough(_ md: String, _ out: String) -> (total: Int, kept: Int, missed: [String]) {
-    let lines = md.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+    // CRLF 文件（editormd 等）解析时会归一成 \n 再写回，比对前同样归一，
+    // 否则整行带 \r 的透传块会被误判成丢失。
+    let normalizedMD = md.replacingOccurrences(of: "\r\n", with: "\n")
+        .replacingOccurrences(of: "\r", with: "\n")
+    let normalizedOut = out.replacingOccurrences(of: "\r\n", with: "\n")
+        .replacingOccurrences(of: "\r", with: "\n")
+    let lines = normalizedMD.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
     var total = 0
     var kept = 0
     var missed: [String] = []
     func record(_ line: String) {
         total += 1
-        if out.contains(line) { kept += 1 } else { missed.append(line) }
+        if normalizedOut.contains(line) { kept += 1 } else { missed.append(line) }
     }
 
-    // frontmatter：要求开闭分隔符之间的整块（含内部空行与缩进）原样出现
-    if lines.first?.trimmingCharacters(in: .whitespaces) == "---",
-       let close = lines.dropFirst().firstIndex(where: {
-           let t = $0.trimmingCharacters(in: .whitespaces)
-           return t == "---" || t == "..."
-       }) {
+    // frontmatter：要求开闭分隔符之间的整块（含内部空行与缩进）原样出现。
+    // 判定直接调用 Parser.frontmatterEnd（同一实现），保证检测与解析口径
+    // 永远一致——旧的独立 key 正则会把 `__Advertisement :)__` 的笑脸冒号
+    // 误判成 YAML key，让「两条分割线夹一段正文」假报丢失（markdown-it/004）。
+    if let end = MarkdownParser.frontmatterEnd(in: lines, from: 0), end > 1 {
         total += 1
-        if out.contains(lines[0...close].joined(separator: "\n")) { kept += 1 }
+        // end 是闭合分隔行的下一行号；整块含闭合行本身
+        if normalizedOut.contains(lines[0..<end].joined(separator: "\n")) { kept += 1 }
         else { missed.append("(frontmatter 整块)") }
     }
 
@@ -307,9 +380,25 @@ for (i, f) in files.enumerated() {
     var detected: [String] = []
     var preserved: [String] = []
     var lost: [String] = []
-    for feat in features where hit(md, feat.detect) {
+    for feat in features {
+        // hr：剔除 Setext 下划线再检测，防止 `Title\n---` 被误计为分割线。
+        // ul/ol：剔除主题分割线（`* * *` 这类空格分隔的 hr）再检测，防止
+        // 分割线被误计为列表、序列化成 `---` 后又假报「列表丢失」。
+        var srcText = md
+        var outText = out1
+        switch feat.key {
+        case "hr":
+            srcText = stripSetextUnderlines(md)
+            outText = stripSetextUnderlines(out1)
+        case "ul", "ol":
+            srcText = stripThematicBreaks(md)
+            outText = stripThematicBreaks(out1)
+        default:
+            break
+        }
+        guard hit(srcText, feat.detect) else { continue }
         detected.append(feat.key)
-        if feat.preserve.contains(where: { hit(out1, $0) }) {
+        if feat.preserve.contains(where: { hit(outText, $0) }) {
             preserved.append(feat.key)
         } else {
             lost.append(feat.key)

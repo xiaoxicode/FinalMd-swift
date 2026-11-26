@@ -31,6 +31,19 @@ extension NSAttributedString.Key {
     static let mdTableHeader = NSAttributedString.Key("finalmd.tableHeader")
     /// 代码块语言（```swift 里的 swift）
     static let mdCodeLanguage = NSAttributedString.Key("finalmd.codeLanguage")
+    /// 代码块终结换行：内容里每个 \n 都是普通字符，仅块尾这个 \n 带此标记。
+    /// blocks() 靠它区分「相邻两个代码块」与「一个代码块的多个段落」，
+    /// 否则 "~~~\n~~~\n~~~" 这类相邻空代码块会被并成一块。
+    static let mdCodeEnd = NSAttributedString.Key("finalmd.codeEnd")
+    /// 空代码块占位标记：显示需要非空段落，空内容存 " " 并打此标记，
+    /// 提取时还原为 ""（否则 HTML 导出多印一个空格）。
+    static let mdCodeEmpty = NSAttributedString.Key("finalmd.codeEmpty")
+    /// 引用块原始源码（去掉 "> " 前缀的正文）。HTML 导出按块递归重解析它，
+    /// 才能还原 **粗体** / 围栏 / 嵌套列表等内层语法——引用在存储里只是单段富文本。
+    static let mdQuoteSource = NSAttributedString.Key("finalmd.quoteSource")
+    /// 引用块原始行（含 `>` 标记与懒续行原文）：未编辑时序列化逐字写回，
+    /// 保住懒续行缩进与 `>>` 紧写形式（mdQuoteSource 是剥掉标记的递归解析源）。
+    static let mdQuoteRaw = NSAttributedString.Key("finalmd.quoteRaw")
     /// 用户显式设置的字体颜色（NSColor）。与 .foregroundColor 成对写入，
     /// 序列化时只读这个键，避免把「默认正文色」误判成用户设的颜色而输出多余的 span
     static let mdTextColor = NSAttributedString.Key("finalmd.textColor")
@@ -39,6 +52,10 @@ extension NSAttributedString.Key {
     /// 结构性加粗：标题/表头靠字号+字重呈现，但这层加粗不是用户敲的 **，
     /// 打上标记后才能在「标题改回正文」时准确剥掉，避免把 # 标题 变成 **正文**
     static let mdStructuralBold = NSAttributedString.Key("finalmd.structuralBold")
+    /// 用户手写强调（`**x**` / `<strong>`）产生的粗体。表头 / 标题的排版加粗
+    /// 会打 mdStructuralBold 抑制 `**` 回写，但用户粗体必须保住记号，
+    /// 否则 `**bold**` 进表头一轮就被吞掉。
+    static let mdUserBold = NSAttributedString.Key("finalmd.userBold")
     /// 原样透传块的类型（MDRawKind.rawValue）。frontmatter / 原始 HTML / 引用式链接定义
     /// 这类外部语法 FinalMd 不渲染，但必须逐字保住，不能在保存时被拆行或转义。
     static let mdRawKind = NSAttributedString.Key("finalmd.rawKind")
@@ -66,15 +83,85 @@ extension NSAttributedString.Key {
     static let mdCalloutSource = NSAttributedString.Key("finalmd.calloutSource")
     /// Callout 行解析后的显示文字快照，用来判断用户是否编辑过这一行。
     static let mdCalloutDisplay = NSAttributedString.Key("finalmd.calloutDisplay")
+    /// Callout 行解析后的格式指纹（与 mdEmphasisTraits 同口径）。
+    /// 只改格式不改文字时也要让快照失效：否则 ⌘B / ⌘I 的改动会被旧源码盖掉。
+    /// 是否按指纹重建由 MarkdownSerializer.calloutFormatEdits 开关决定。
+    static let mdCalloutTraits = NSAttributedString.Key("finalmd.calloutTraits")
     /// 含强调的行内源码快照。CommonMark 的 `***a ***b***` 是树形嵌套，
     /// 而富文本只有粗/斜两个 trait，无法表达嵌套层级。存下原行 + 解析后的
     /// 显示文字：未编辑时逐字输出原行（语义与写法全保住），编辑后才按 trait 重建。
     static let mdEmphasisSource = NSAttributedString.Key("finalmd.emphasisSource")
     /// 强调行解析后的显示文字快照，用来判断用户是否编辑过这一行。
     static let mdEmphasisDisplay = NSAttributedString.Key("finalmd.emphasisDisplay")
-    /// 强调行解析后的粗/斜体指纹：只改格式不改文字时也要让快照失效，
-    /// 否则用户按 ⌘B 后的改动会被旧源码盖掉（与 Callout 的同类边界）。
+    /// 强调行解析后的格式指纹（粗/斜/下划线/删除线/行内代码/字体色/高亮/链接）：
+    /// 只改格式不改文字时也要让快照失效，否则用户按 ⌘B / 改色后的改动会被旧源码盖掉
+    /// （与 Callout 的同类边界）。
     static let mdEmphasisTraits = NSAttributedString.Key("finalmd.emphasisTraits")
+    /// 逐行源码快照（三个平行 [String]）：整块被编辑时按**行粒度**重建——
+    /// 文本与指纹都未变的行逐字写回，只有被改过的行才按富文本重建。
+    /// 仅当每行「独立解析的显示 == 块内显示行」（自包含，无跨行强调/链接）时才打。
+    static let mdLineSources = NSAttributedString.Key("finalmd.lineSources")
+    static let mdLineDisplays = NSAttributedString.Key("finalmd.lineDisplays")
+    static let mdLineTraits = NSAttributedString.Key("finalmd.lineTraits")
+    /// 引用逐行快照：source 是含 `>` 前缀与懒续行缩进的原始行，
+    /// 编辑某一行不再改写兄弟行的写法（围栏 / `>>` / 缩进逐字保留）。
+    static let mdQuoteLineSources = NSAttributedString.Key("finalmd.quoteLineSources")
+    static let mdQuoteLineDisplays = NSAttributedString.Key("finalmd.quoteLineDisplays")
+    static let mdQuoteLineTraits = NSAttributedString.Key("finalmd.quoteLineTraits")
+    /// 显示行 ↔ 源行组映射（[[dispIdx, rawStart, rawEnd, contentIdx]]）：
+    /// 跨行构造吞掉换行时（内层围栏被行内解析成代码 span）按组对齐，
+    /// 编辑只替换内容行，围栏等结构行逐字保留。
+    static let mdQuoteLineMap = NSAttributedString.Key("finalmd.quoteLineMap")
+    /// 行内 HTML 原样透传片段（`<img …>`、`<code>…</code>`、`<a href><img></a>` 等
+    /// 不渲染成富文本的部分）。显示文字就是源码本身，序列化逐字写回，
+    /// 不经 escapeMarkdown，避免 `<` `>` `[` `]` 被防御性转义改写。
+    static let mdInlineHTML = NSAttributedString.Key("finalmd.inlineHTML")
+    /// 链接 / 图片的 title（`[t](u "title")` 里引号包住的部分）。
+    /// 不存进 .link，否则 NSLink 点击会带着 title 拼进 URL；序列化时单独写回。
+    static let mdLinkTitle = NSAttributedString.Key("finalmd.linkTitle")
+}
+
+// MARK: - 格式指纹
+
+/// 逐字符编码格式状态：粗 / 斜体（B / I / X / -）+ 下划线 / 删除线 / 行内代码 /
+/// 字体色 / 高亮 / 链接增量，用 U+1 分隔。解析器存入 `mdEmphasisTraits`，
+/// 序列化器重算后比对，确保「只改格式不改文字」也能让源码快照失效——
+/// 否则用户按 ⌘B / 改色后的改动会被旧源码盖掉。
+func mdFormattingFingerprint(_ attr: NSAttributedString, length: Int) -> String {
+    var out = ""
+    out.reserveCapacity(length * 2)
+    for i in 0..<length {
+        let font = attr.attribute(.font, at: i, effectiveRange: nil) as? NSFont
+        let traits = font?.fontDescriptor.symbolicTraits ?? []
+        let bold = traits.contains(.bold)
+        let italic = traits.contains(.italic)
+        out.append(bold ? (italic ? "X" : "B") : (italic ? "I" : "-"))
+        var extra = ""
+        if let u = attr.attribute(.underlineStyle, at: i, effectiveRange: nil) as? Int, u != 0 {
+            extra += "u"
+        }
+        if let s = attr.attribute(.strikethroughStyle, at: i, effectiveRange: nil) as? Int, s != 0 {
+            extra += "s"
+        }
+        if (attr.attribute(.mdInlineCode, at: i, effectiveRange: nil) as? Bool) == true {
+            extra += "c"
+        }
+        if let color = attr.attribute(.mdTextColor, at: i, effectiveRange: nil) as? NSColor {
+            extra += "t" + color.hexString
+        }
+        if let hl = attr.attribute(.mdHighlight, at: i, effectiveRange: nil) as? NSColor {
+            extra += "h" + hl.hexString
+        }
+        if let link = attr.attribute(.link, at: i, effectiveRange: nil) {
+            extra += "l\(link)"
+            if let t = attr.attribute(.mdLinkTitle, at: i, effectiveRange: nil) as? String, !t.isEmpty {
+                extra += "|\(t)"
+            }
+        }
+        out.append(extra)
+        out.append("\u{1}")
+    }
+    return out
 }
 
 // MARK: - Obsidian 双链
@@ -209,6 +296,13 @@ final class MDImageAttachment: NSTextAttachment {
     /// title 属性——图表把配置编码后存在这里，随 .md 一起走
     var mdTitle: String
 
+    /// HTML 导出用的替代文字：按 CommonMark 以标签内容的纯文本渲染
+    /// （`![alt with *em*](x)` 的 alt 是 "alt with em"）。
+    /// .alt 本身保留原始写法，供 Markdown 逐字往返。
+    var altPlainText: String {
+        InlineParser.parse(alt, base: [:]).string
+    }
+
     /// 最大显示宽度（点）
     var maxWidth: CGFloat = 640
 
@@ -219,10 +313,28 @@ final class MDImageAttachment: NSTextAttachment {
         super.init(data: nil, ofType: nil)
         if let image {
             self.image = image
+        } else if let url = URL(string: src), url.scheme == "http" || url.scheme == "https" {
+            // 远程图片异步加载：解析期绝不做同步网络 IO——连接黑洞会把整篇
+            // 文档解析挂死（codimd 语料的远程截图 URL 即触发）。先空占位，
+            // 取到图再刷新附件并广播通知。
+            loadRemoteImage(from: url)
         } else {
             self.image = Self.image(from: src)
         }
         self.attachmentCell = MDImageAttachmentCell(owning: self)
+    }
+
+    /// 远程图片加载完成后广播（编辑器可据此触发重排）
+    static let imageLoadedNotification = Notification.Name("finalmd.mdImageAttachmentLoaded")
+
+    private func loadRemoteImage(from url: URL) {
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let self, let data, let img = NSImage(data: data) else { return }
+            DispatchQueue.main.async {
+                self.image = img
+                NotificationCenter.default.post(name: Self.imageLoadedNotification, object: self)
+            }
+        }.resume()
     }
 
     required init?(coder: NSCoder) {
@@ -241,7 +353,8 @@ final class MDImageAttachment: NSTextAttachment {
         coder.encode(mdTitle, forKey: "mdTitle")
     }
 
-    /// 从 data URL / 普通 URL / 文件路径解析出 NSImage
+    /// 从 data URL / 文件路径解析出 NSImage。
+    /// http(s) 远程图不在此同步加载（连接黑洞会挂死解析）——init 里异步取。
     static func image(from src: String) -> NSImage? {
         if src.hasPrefix("data:"), let comma = src.firstIndex(of: ",") {
             let meta = String(src[src.startIndex..<comma])
@@ -250,9 +363,6 @@ final class MDImageAttachment: NSTextAttachment {
                 return nil
             }
             return NSImage(data: data)
-        }
-        if let url = URL(string: src), url.scheme == "http" || url.scheme == "https" {
-            return NSImage(contentsOf: url)
         }
         return NSImage(contentsOfFile: src)
     }

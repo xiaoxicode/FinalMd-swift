@@ -322,7 +322,8 @@ extension NSTextView {
                  .mdTaskBox,
                  .mdVerbatimLine,
                  .mdCalloutSource,
-                 .mdCalloutDisplay].forEach { storage.removeAttribute($0, range: r) }
+                 .mdCalloutDisplay,
+                 .mdCalloutTraits].forEach { storage.removeAttribute($0, range: r) }
                 storage.addAttribute(.foregroundColor, value: DocTheme.text, range: r)
             }
         }
@@ -415,6 +416,7 @@ extension NSTextView {
                         storage.removeAttribute(.mdCalloutFold, range: r)
                         storage.removeAttribute(.mdCalloutSource, range: r)
                         storage.removeAttribute(.mdCalloutDisplay, range: r)
+                        storage.removeAttribute(.mdCalloutTraits, range: r)
                     }
                     storage.removeAttribute(.mdVerbatimLine, range: r)
 
@@ -467,7 +469,7 @@ extension NSTextView {
 
     /// 逐字保留相关的「整行快照」属性：不参与输入属性继承
     static let lineSnapshotKeys: [NSAttributedString.Key] = [
-        .mdVerbatimLine, .mdCalloutSource, .mdCalloutDisplay,
+        .mdVerbatimLine, .mdCalloutSource, .mdCalloutDisplay, .mdCalloutTraits,
     ]
 
     /// 行内属性键：typingAttributes 同步时跟随光标前字符，不取段落头
@@ -491,7 +493,11 @@ extension NSTextView {
 
     func makeList(ordered: Bool) {
         performEdit { storage, ranges in
-            for r in ranges.reversed() {
+            // 有序列表按选中段落顺序从 1 编号写进文本：
+            // 序列化器逐字保留标记，不再重排编号，这里就要把正确序号写好。
+            // ranges 倒序处理（插入不挪动前面段落的偏移），序号按正序算。
+            let total = ranges.count
+            for (idx, r) in ranges.reversed().enumerated() {
                 let loc = r.location
                 var len = r.length
                 // 剥掉旧的项目符号（文末空行长度为 0，没有字符可读，直接跳到插入）
@@ -505,12 +511,13 @@ extension NSTextView {
                     }
                     storage.removeAttribute(.mdListItem, range: NSRange(location: loc, length: len))
                 }
-                let marker = ordered ? "1. " : "- "
+                let seq = total - idx
+                let marker = ordered ? "\(seq). " : "- "
                 let attrs = storage.attributes(at: max(min(loc - 1, storage.length - 1), 0), effectiveRange: nil)
                 storage.insert(NSAttributedString(string: marker, attributes: attrs), at: loc)
                 len += (marker as NSString).length
                 let full = NSRange(location: loc, length: len)
-                storage.addAttribute(.mdListItem, value: MDListItem(ordered: ordered, level: 0), range: full)
+                storage.addAttribute(.mdListItem, value: MDListItem(ordered: ordered, level: 0, number: seq), range: full)
                 storage.addAttribute(.mdBlockType, value: MDBlockType.paragraph.rawValue, range: full)
             }
         }

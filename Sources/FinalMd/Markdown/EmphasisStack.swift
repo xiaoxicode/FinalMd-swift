@@ -303,7 +303,8 @@ enum EmphasisStack {
     // MARK: - Flanking（CommonMark §6.4）
 
     private static func isWhitespace(_ c: Character) -> Bool {
-        c == " " || c == "\t" || c == "\n" || c == "\r"
+        // U+2028（段内软/硬换行）对 flanking 判定等同空白/行界（CommonMark §6.4）
+        c == " " || c == "\t" || c == "\n" || c == "\r" || c == "\u{2028}" || c == "\u{2029}"
             || c == "\u{0B}" || c == "\u{0C}"
     }
 

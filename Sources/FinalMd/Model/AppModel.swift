@@ -167,6 +167,21 @@ final class AppModel: ObservableObject {
 
     static let lineRulingKey = "finalmd.lineRuling"
 
+    /// Callout「只改格式不改文字」时是否让格式改动生效。
+    /// true（默认）：⌘B / ⌘I / 改色等格式改动按富文本重建写回；
+    /// false：逐字保真优先，文字没变就写回原行（格式改动被丢弃）。
+    /// 本机偏好，不写进文档；同步给 MarkdownSerializer.calloutFormatEdits。
+    @Published var calloutFormatEdits: Bool =
+        (UserDefaults.standard.object(forKey: AppModel.calloutFormatEditsKey) as? Bool) ?? true {
+        didSet {
+            guard oldValue != calloutFormatEdits else { return }
+            UserDefaults.standard.set(calloutFormatEdits, forKey: Self.calloutFormatEditsKey)
+            MarkdownSerializer.calloutFormatEdits = calloutFormatEdits
+        }
+    }
+
+    static let calloutFormatEditsKey = "finalmd.calloutFormatEdits"
+
     /// 界面外观。默认跟随系统；想固定成深色写字的人可以在这里盖一层。
     /// 和横线一样属于「本机偏好」，不进文档，所以存 UserDefaults。
     @Published var appearanceMode: AppearanceMode = .system {
@@ -220,6 +235,8 @@ final class AppModel: ObservableObject {
            let mode = AppearanceMode(rawValue: saved) {
             appearanceMode = mode
         }
+        // 同步 Callout 格式写回策略到序列化器（UserDefaults 恢复的初值也要生效）
+        MarkdownSerializer.calloutFormatEdits = calloutFormatEdits
         vaultRoot = UserDefaults.standard.string(forKey: Self.vaultRootKey)
         AppModel.shared = self
         applyAppearance()

@@ -164,6 +164,32 @@ func testBlocks() {
 
     let md = "段一\n\n段二\n"
     equal("多段落空一行分隔", roundTrip(md), "段一\n\n段二\n")
+
+    // ——— 逐行快照（B4x 存储边界）：编辑一行不改写兄弟行的写法 ———
+    // 引用：编辑正文行时，围栏兄弟行逐字保留（不再被重建转义毁掉）
+    let qEdit = NSMutableAttributedString(attributedString: MarkdownParser.parse("> ```\n> code\n> ```\n"))
+    qEdit.replaceCharacters(in: (qEdit.string as NSString).range(of: "code"), with: "codes")
+    let qOut = MarkdownSerializer.markdown(from: qEdit)
+    check("引用编辑一行保兄弟行围栏", qOut.contains("> ```") && qOut.contains("> codes"))
+    // 列表：编辑项文本时，懒续行与兄弟项逐字保留
+    let lEdit = NSMutableAttributedString(attributedString: MarkdownParser.parse("- a\n  lazy\n- b\n"))
+    lEdit.replaceCharacters(in: (lEdit.string as NSString).range(of: "a"), with: "z")
+    let lOut = MarkdownSerializer.markdown(from: lEdit)
+    check("列表编辑一项保续行与兄弟项",
+          lOut.contains("  lazy") && lOut.contains("- z") && lOut.contains("- b"))
+    // 多行段落：编辑第一行时，第二行的强调写法逐字保留
+    let pEdit = NSMutableAttributedString(attributedString: MarkdownParser.parse("x **y**\nz *w*\n"))
+    pEdit.replaceCharacters(in: (pEdit.string as NSString).range(of: "z"), with: "q")
+    let pOut = MarkdownSerializer.markdown(from: pEdit)
+    check("段落编辑一行保兄弟行强调", pOut.contains("x **y**") && pOut.contains("q *w*"))
+    // 跨行强调（自包含校验拦截）：整块重建保住强调，且不撕断出字面星号。
+    // 探针实证：`*a\nb*` 编辑 "a"→"aa" 后写 `*aa\nb*`——往返稳定、
+    // 重解析显示 `aa\u{2028}b` 无字面星号、斜体保留（期望丢强调的写法是误写）。
+    let xEdit = NSMutableAttributedString(attributedString: MarkdownParser.parse("*a\nb*\n"))
+    xEdit.replaceCharacters(in: (xEdit.string as NSString).range(of: "a"), with: "aa")
+    let xOut = MarkdownSerializer.markdown(from: xEdit)
+    equal("跨行强调编辑保强调写法", xOut, "*aa\nb*\n")
+    check("跨行强调编辑不长字面星号", !MarkdownParser.parse(xOut).string.contains("*"))
 }
 
 func testTable() {
@@ -220,6 +246,78 @@ func testEscaping() {
     let result = roundTrip(md)
     check("转义星号保留", result.contains("\\*"))
     check("转义不会炸", !result.isEmpty)
+}
+
+func testLinkTitles() {
+    // 链接 title（CommonMark 6.3）往返不能丢
+    equal("链接 title 双引号往返", roundTrip("[t](u \"ti\")\n"), "[t](u \"ti\")\n")
+    check("链接 title 单引号形式稳定", stable("[t](u 'sg')\n"))
+    check("链接 title 括号形式稳定", stable("[t](u (pa))\n"))
+    check("链接 title 存进属性",
+          MarkdownParser.parse("[t](u \"ti\")\n")
+            .attribute(.mdLinkTitle, at: 0, effectiveRange: nil) as? String == "ti")
+    check("带 title 链接显示文字不丢", MarkdownParser.parse("[t](u \"ti\")\n").string.hasPrefix("t"))
+    // 脚注定义（^/#/> 扩展标签）不是链接定义，脚注引用不能变坏链接
+    let fn = MarkdownParser.parse("See [^note].\n\n[^note]: https://x.com\n")
+    check("脚注引用不被解析成链接", fn.attribute(.link, at: 5, effectiveRange: nil) == nil)
+    check("脚注引用保留方括号显示", fn.string.hasPrefix("See [^note]"))
+    let fn2 = MarkdownParser.parse("See [^note].\n\n[^note]: a footnote definition\n")
+    check("自由文本脚注定义不进链接表",
+          fn2.attribute(.link, at: 5, effectiveRange: nil) == nil)
+    // 行首块级记号必须转义，否则下一轮被误拆成 hr / 标题（CommonMark ex106）
+    check("行首分割线记号转义", roundTrip("Foo\nbar\n\\---\nbaz\n").contains("\\---"))
+    check("行首 setext 下划线转义", roundTrip("=====\nTitle\n").contains("\\====="))
+    // B27：段落行 + 纯 =/- 行是 Setext 标题（CommonMark §4.3），转 ATX 写回
+    equal("setext 标题转 ATX 写回", roundTrip("Title\n=====\n"), "# Title\n")
+    // B26/B34/B35（主流语法矩阵回归）：转义闭合 # 不被当闭合串剥掉、
+    // 转义邮箱写回不再二轮长出扩展 autolink、引用懒续行缩进逐字写回
+    check("ATX 转义闭合 # 一次稳定", stable("### foo \\###\n# foo \\#\n"))
+    check("ATX 闭合 # 剥除后一次稳定", stable("# heading #\n### heading ###\n"))
+    check("转义邮箱写回一次稳定", stable("<foo\\+@bar.example.com>\n"))
+    check("引用懒续行缩进逐字写回",
+          roundTrip("> This is a quote\n    no code\n").contains("    no code"))
+    // B40：远程图片解析不得做同步网络 IO（黑洞地址 2s 内必须返回）
+    do {
+        let t0 = Date()
+        _ = MarkdownParser.parse("![a](http://10.255.255.1/i.png)\n")
+        check("远程图片解析零同步网络 IO", Date().timeIntervalSince(t0) < 2.0)
+    }
+    // 代码 span 反引号串按长度配对、换行视为空格（ex121/337/338）
+    check("跨行代码 span 配对", roundTrip("``\nfoo\n``\n").contains("`foo`"))
+    check("跨行代码 span 空格保留", roundTrip("``\nfoo \n``\n").contains("`foo `"))
+    // 反引号围栏的 info 串含反引号时不是围栏（ex138）
+    check("info 含反引号不构成围栏", roundTrip("``` ```\naaa\n").contains("` `"))
+    // 畸形链接目标不是链接（ex496），定义尾部杂字令定义失效（ex203）
+    check("畸形链接目标按字面处理",
+          MarkdownParser.parse("[a](<b)c\n").attribute(.link, at: 1, effectiveRange: nil) == nil)
+    let badDef = MarkdownParser.parse("[foo]: <bar>(baz)\n\n[foo]\n")
+    // 引用若被误解析成链接，显示文字会变成 foo（不带方括号）
+    check("无空白分隔的 title 不算定义", badDef.string.contains("[foo]"))
+    // ---改进 L 回归（BUG B18–B22，Top 50 语料二轮漂移）---
+    // B18：text==dest 的链接只有合法 autolink（§6.9）才能写 <...>，
+    // 否则重解析成字面文本、链接丢失且 < 转义来回振荡
+    equal("无方案同名链接保持 [x](x)", roundTrip("[b](b)\n"), "[b](b)\n")
+    check("无方案同名链接稳定", stable("[CONTRIBUTING.md](CONTRIBUTING.md)\n"))
+    check("路径同名链接不写尖括号", !roundTrip("See [scripts](scripts) x\n").contains("<scripts>"))
+    equal("合法 autolink 逐字往返", roundTrip("<https://x.co>\n"), "<https://x.co>\n")
+    equal("邮箱 autolink 逐字往返", roundTrip("<foo@bar.com>\n"), "<foo@bar.com>\n")
+    // B19：空内容硬换行写 "  \n" 会被解析成空行整行丢失，必须写反斜杠形式
+    check("空内容硬换行稳定", stable("\\\n\\\\\n\\\\\\\n"))
+    check("行尾反斜杠硬换行保留", roundTrip("a\\\nb\n").contains("a  \nb"))
+    // B20：带不可重建属性（class 等）的已知标签整段不透明保留（CommonMark §6.6）
+    equal("span class 不透明保留",
+          roundTrip("<span class=\"msrv\">1.89</span>\n"), "<span class=\"msrv\">1.89</span>\n")
+    equal("裸 span 不透明保留", roundTrip("<span>x</span>\n"), "<span>x</span>\n")
+    equal("b 带 class 不透明保留", roundTrip("<b class=\"k\">x</b>\n"), "<b class=\"k\">x</b>\n")
+    // B21：`\`+字母不是转义，反斜杠是字面量（CommonMark §2.5）
+    equal("\\+字母反斜杠保留", MarkdownParser.parse("\\t\n").string, "\\t\n")
+    // B22：表格单元格里的硬换行写 <br>，换行会撕裂表格行
+    equal("单元格 <br> 逐字往返",
+          roundTrip("| a | b |\n| --- | --- |\n| x | `c1`<br>`c2` |\n"),
+          "| a | b |\n| --- | --- |\n| x | `c1`<br>`c2` |\n")
+    check("单元格 <br><br> 稳定", stable("| a |\n| --- |\n| b<br><br>c |\n"))
+    // 转义对：`\\`+换行是字面反斜杠 + 软换行，不能被当硬换行吃掉
+    check("转义对反斜杠保留", roundTrip("`a\\\\\nb`\n").contains("`a\\\\ b`"))
 }
 
 func testHeroDocument() {
@@ -979,6 +1077,24 @@ func testRawPassthroughBlocks() {
           (MarkdownParser.parse(twoRules).attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
             != MDBlockType.raw.rawValue)
 
+    // 4b) 假 key 不吞正文：笑脸冒号 / 协议冒号不是 YAML key（B42，markdown-it/004）
+    //     `__Advertisement :)__` 曾被 `[:=]` 松散判定误认成 frontmatter
+    let smiley = "---\n__Advertisement :)__\n\n---\n"
+    check("分割线对：笑脸冒号不吞正文",
+          (MarkdownParser.parse(smiley).attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
+            != MDBlockType.raw.rawValue)
+    check("分割线对：笑脸内容进 HTML",
+          HTMLExporter.document(from: MarkdownParser.parse(smiley), title: "T", language: "zh")
+            .contains("Advertisement"))
+    check("分割线对：笑脸往返稳定", stable(smiley))
+    let urlKey = "---\nhttps://example.com/x\n\n---\n"
+    check("分割线对：协议冒号不吞正文",
+          (MarkdownParser.parse(urlKey).attribute(.mdBlockType, at: 0, effectiveRange: nil) as? String)
+            != MDBlockType.raw.rawValue)
+    let listSandwich = "---\n__Advertisement :)__\n\n- item one\n\ntext\n\n---\n"
+    check("分割线对：夹列表不吞正文", roundTrip(listSandwich).contains("- item one"))
+    check("分割线对：夹列表往返稳定", stable(listSandwich))
+
     // 5) 原始 HTML 块：尖括号与行内写法都不转义
     let html = "<div align=\"center\">\n  <img src=\"badge.svg\" />\n  <span>保留 **原样**</span>\n</div>\n\n正文\n"
     let htmlOut = roundTrip(html)
@@ -1463,6 +1579,66 @@ func testFinalCompatibilityEdges() {
               out.contains("[!NOTE] 新标题") && !out.contains("\\[!NOTE\\]"))
     }
 
+    // ── Callout「只改格式不改文字」：格式指纹快照 + 写回开关 ──
+    let fmtMd = "> [!NOTE] 标题\n> 这里有 **加粗** 与 *斜体*\n"
+    let fmtDoc = MarkdownParser.parse(fmtMd)
+    check("Callout 格式：指纹快照存在",
+          fmtDoc.attribute(.mdCalloutTraits, at: 0, effectiveRange: nil) is String)
+    check("Callout 格式：开关默认生效", MarkdownSerializer.calloutFormatEdits)
+
+    // 只改格式（去粗）不改文字：开关 ON → 重建该行，格式改动生效
+    let unbold = NSMutableAttributedString(attributedString: fmtDoc)
+    let unboldRange = (unbold.string as NSString).range(of: "加粗")
+    check("Callout 格式：去粗目标存在", unboldRange.location != NSNotFound)
+    if unboldRange.location != NSNotFound {
+        unbold.addAttribute(.font, value: DocTheme.bodyFont, range: unboldRange)
+        MarkdownSerializer.calloutFormatEdits = true
+        let onOut = MarkdownSerializer.markdown(from: unbold)
+        check("Callout 格式 ON：去粗生效", !onOut.contains("**加粗**") && onOut.contains("加粗"))
+        check("Callout 格式 ON：兄弟行强调写法保留", onOut.contains("*斜体*"))
+        check("Callout 格式 ON：不长字面星号", !MarkdownParser.parse(onOut).string.contains("*"))
+        check("Callout 格式 ON：往返稳定", stable(onOut))
+
+        // 开关 OFF：逐字保真优先 → 原行写回（格式改动被丢弃，旧取舍保留）
+        MarkdownSerializer.calloutFormatEdits = false
+        let offOut = MarkdownSerializer.markdown(from: unbold)
+        equal("Callout 格式 OFF：原行逐字写回", offOut, fmtMd)
+    }
+
+    // 未编辑行：两种模式都逐字往返
+    MarkdownSerializer.calloutFormatEdits = true
+    equal("Callout 格式 ON：未编辑逐字往返",
+          MarkdownSerializer.markdown(from: MarkdownParser.parse(fmtMd)), fmtMd)
+    MarkdownSerializer.calloutFormatEdits = false
+    equal("Callout 格式 OFF：未编辑逐字往返",
+          MarkdownSerializer.markdown(from: MarkdownParser.parse(fmtMd)), fmtMd)
+    MarkdownSerializer.calloutFormatEdits = true
+
+    // 改文字不受开关影响：OFF 时也不能让旧源码盖掉编辑
+    let textEdit = NSMutableAttributedString(attributedString: fmtDoc)
+    let teRange = (textEdit.string as NSString).range(of: "加粗")
+    if teRange.location != NSNotFound {
+        textEdit.replaceCharacters(in: teRange, with: "重点")
+        MarkdownSerializer.calloutFormatEdits = false
+        let teOut = MarkdownSerializer.markdown(from: textEdit)
+        check("Callout 格式 OFF：改文字仍生效",
+              teOut.contains("重点") && !teOut.contains("加粗"))
+        MarkdownSerializer.calloutFormatEdits = true
+    }
+
+    // 反向格式改动（给普通文字加粗）同样生效
+    let embolden = NSMutableAttributedString(attributedString: fmtDoc)
+    let emRange = (embolden.string as NSString).range(of: "斜体")
+    if emRange.location != NSNotFound {
+        embolden.addAttribute(.font,
+                              value: NSFont.boldSystemFont(ofSize: DocTheme.bodyFontSize),
+                              range: emRange)
+        let emOut = MarkdownSerializer.markdown(from: embolden)
+        check("Callout 格式 ON：加粗普通字生效", emOut.contains("**斜体**"))
+        check("Callout 格式 ON：加粗后往返稳定", stable(emOut))
+    }
+    MarkdownSerializer.calloutFormatEdits = true
+
     let calloutHTML = HTMLExporter.document(
         from: MarkdownParser.parse("> [!NOTE] 标题\n> 请 **备份** 数据\n"),
         title: "T", language: "zh")
@@ -1633,6 +1809,45 @@ func testInlineEmbeds() {
     try? FileManager.default.removeItem(atPath: dir)
 }
 
+// MARK: - 特征丢失甄别回归（ul/toc/refdef/highlight/strike/ol/image 11 项清零）
+
+func testFeatureLossRegressions() {
+    // ── 删除线 + 裸邮箱（marked 003）：~~ 不能被 autolink 短路吞掉 ──
+    let strikeSrc = "~~hello@email.com~~\n"
+    equal("删除线：裸邮箱往返保 ~~",
+          MarkdownSerializer.markdown(from: MarkdownParser.parse(strikeSrc)), strikeSrc)
+
+    let strikeEdit = NSMutableAttributedString(
+        attributedString: MarkdownParser.parse("~~hello@email.com and more~~"))
+    let moreRange = (strikeEdit.string as NSString).range(of: "more")
+    if moreRange.location != NSNotFound {
+        strikeEdit.replaceCharacters(in: moreRange, with: "extra")
+        let out = MarkdownSerializer.markdown(from: strikeEdit)
+        check("删除线：编辑后重建仍带 ~~", out.hasPrefix("~~") && out.contains("~~"))
+        check("删除线：编辑后不丢文字", out.contains("and extra"))
+    }
+
+    // ── 粗体 + 裸邮箱：强调与 autolink 共存不互吞 ──
+    equal("粗体：裸邮箱往返保 **",
+          MarkdownSerializer.markdown(from: MarkdownParser.parse("**me@example.com**\n")),
+          "**me@example.com**\n")
+
+    // ── `1)` 有序列表 + URL 带点（quarto 006）：不能被误判成段落转义成 1\) ──
+    let olSrc = "1)  The [x](https://mermaid.live/) y\n\n2)  z.dot\n"
+    let olOut = MarkdownSerializer.markdown(from: MarkdownParser.parse(olSrc))
+    check("有序列表：1) 项 URL 带点仍是列表", olOut.contains("1)  The"))
+    check("有序列表：不长 1\\) 转义", !olOut.contains("1\\)"))
+    check("有序列表：2) 项同样保留", olOut.contains("2)  z.dot"))
+
+    // ── [TOC] / [TOCM] 指令行（editormd 001）：逐字保留不转义 ──
+    equal("目录指令：[TOC] 逐字往返",
+          MarkdownSerializer.markdown(from: MarkdownParser.parse("[TOC]\n")), "[TOC]\n")
+    equal("目录指令：[TOCM] 逐字往返",
+          MarkdownSerializer.markdown(from: MarkdownParser.parse("[TOCM]\n")), "[TOCM]\n")
+    equal("目录指令：缩进 [TOC] 也逐字",
+          MarkdownSerializer.markdown(from: MarkdownParser.parse("  [TOC]\n")), "  [TOC]\n")
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -1642,6 +1857,7 @@ testTable()
 testImageAndChart()
 testColors()
 testEscaping()
+testLinkTitles()
 testHeroDocument()
 testWelcomeDocument()
 testScrollViewZoom()
@@ -1663,6 +1879,7 @@ testCaretAlignment()
 testInlineSelection()
 testInlineStyleOnTextView()
 testAIProtocol()
+testFeatureLossRegressions()
 
 print("")
 if failureDetails.isEmpty {

@@ -1,0 +1,2226 @@
+{
+ "source": "systematic mainstream Markdown matrix (CommonMark 0.31.2 core + GFM)",
+ "version": "round2",
+ "count": 317,
+ "cases": [
+  {
+   "id": 1,
+   "section": "paragraph-breaks",
+   "markdown": "single line paragraph",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 2,
+   "section": "paragraph-breaks",
+   "markdown": "line one\nline two",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 3,
+   "section": "paragraph-breaks",
+   "markdown": "line one  \nline two",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 4,
+   "section": "paragraph-breaks",
+   "markdown": "line one\\\nline two",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 5,
+   "section": "paragraph-breaks",
+   "markdown": "a  \nb  \nc",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 6,
+   "section": "paragraph-breaks",
+   "markdown": "a\\\nb\\\nc",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 7,
+   "section": "paragraph-breaks",
+   "markdown": "a  \n\nb",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 8,
+   "section": "paragraph-breaks",
+   "markdown": "trailing spaces here   ",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 9,
+   "section": "paragraph-breaks",
+   "markdown": "para ends with hard break  ",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 10,
+   "section": "paragraph-breaks",
+   "markdown": "para ends with backslash break\\",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 11,
+   "section": "paragraph-breaks",
+   "markdown": "  leading two spaces",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 12,
+   "section": "paragraph-breaks",
+   "markdown": "a\n   \nb",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 13,
+   "section": "paragraph-breaks",
+   "markdown": "loose  \n\n\ntight",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 14,
+   "section": "atx-headings",
+   "markdown": "# heading 1",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 15,
+   "section": "atx-headings",
+   "markdown": "## heading 2",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 16,
+   "section": "atx-headings",
+   "markdown": "### heading 3",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 17,
+   "section": "atx-headings",
+   "markdown": "#### heading 4",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 18,
+   "section": "atx-headings",
+   "markdown": "##### heading 5",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 19,
+   "section": "atx-headings",
+   "markdown": "###### heading 6",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 20,
+   "section": "atx-headings",
+   "markdown": "#no space",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 21,
+   "section": "atx-headings",
+   "markdown": "# closed heading #",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 22,
+   "section": "atx-headings",
+   "markdown": "### closed ###",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 23,
+   "section": "atx-headings",
+   "markdown": "## trailing hashes ##extra",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 24,
+   "section": "atx-headings",
+   "markdown": "# empty #",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 25,
+   "section": "atx-headings",
+   "markdown": "# `code` and **bold** in heading",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 26,
+   "section": "atx-headings",
+   "markdown": "   # indented up to 3",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 27,
+   "section": "atx-headings",
+   "markdown": "    # four spaces is code",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 28,
+   "section": "atx-headings",
+   "markdown": "# heading with [link](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 29,
+   "section": "atx-headings",
+   "markdown": "# escaped \\# not heading",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 30,
+   "section": "atx-headings",
+   "markdown": "#1 no space after hash",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 31,
+   "section": "setext-headings",
+   "markdown": "title\n=",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 32,
+   "section": "setext-headings",
+   "markdown": "title\n-",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 33,
+   "section": "setext-headings",
+   "markdown": "multi word title\n====",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 34,
+   "section": "setext-headings",
+   "markdown": "title\n---",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 35,
+   "section": "setext-headings",
+   "markdown": "with **bold**\n=",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 36,
+   "section": "setext-headings",
+   "markdown": "a\n=\nb\n=",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 37,
+   "section": "setext-headings",
+   "markdown": "  indented title\n=",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 38,
+   "section": "thematic-breaks",
+   "markdown": "***",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 39,
+   "section": "thematic-breaks",
+   "markdown": "---",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 40,
+   "section": "thematic-breaks",
+   "markdown": "___",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 41,
+   "section": "thematic-breaks",
+   "markdown": " * * * ",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 42,
+   "section": "thematic-breaks",
+   "markdown": "- - -",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 43,
+   "section": "thematic-breaks",
+   "markdown": "_____",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 44,
+   "section": "thematic-breaks",
+   "markdown": "**",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 45,
+   "section": "thematic-breaks",
+   "markdown": "--",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 46,
+   "section": "thematic-breaks",
+   "markdown": " ***\n ---\n ___",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 47,
+   "section": "thematic-breaks",
+   "markdown": "a\n\n---\n\nb",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 48,
+   "section": "fenced-code",
+   "markdown": "```\ncode\n```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 49,
+   "section": "fenced-code",
+   "markdown": "```swift\nlet x = 1\n```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 50,
+   "section": "fenced-code",
+   "markdown": "~~~python\nprint(1)\n~~~",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 51,
+   "section": "fenced-code",
+   "markdown": "````\n```\nnested\n```\n````",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 52,
+   "section": "fenced-code",
+   "markdown": "``` info with spaces\ncode\n```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 53,
+   "section": "fenced-code",
+   "markdown": "```info`tick\ncode\n```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 54,
+   "section": "fenced-code",
+   "markdown": "```\n```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 55,
+   "section": "fenced-code",
+   "markdown": "```\nunclosed fence",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 56,
+   "section": "fenced-code",
+   "markdown": "  ```\n  indented fence\n  ```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 57,
+   "section": "fenced-code",
+   "markdown": "```\n*not emphasis*\n[not link](x)\n```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 58,
+   "section": "fenced-code",
+   "markdown": "```bash\necho `date`\n```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 59,
+   "section": "fenced-code",
+   "markdown": "~~~\n~~~\n~~~",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 60,
+   "section": "fenced-code",
+   "markdown": "```\n\n\n```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 61,
+   "section": "indented-code",
+   "markdown": "    indented code",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 62,
+   "section": "indented-code",
+   "markdown": "    line 1\n    line 2",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 63,
+   "section": "indented-code",
+   "markdown": "    code\n\n    more code",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 64,
+   "section": "indented-code",
+   "markdown": "\ttab indented code",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 65,
+   "section": "indented-code",
+   "markdown": "text\n\n    code after para",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 66,
+   "section": "indented-code",
+   "markdown": "    *not a list*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 67,
+   "section": "indented-code",
+   "markdown": "     5 spaces, one kept",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 68,
+   "section": "blockquote",
+   "markdown": "> simple quote",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 69,
+   "section": "blockquote",
+   "markdown": "> line 1\n> line 2",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 70,
+   "section": "blockquote",
+   "markdown": "> line 1\nline 2 lazy",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 71,
+   "section": "blockquote",
+   "markdown": "> nested\n>> deeper",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 72,
+   "section": "blockquote",
+   "markdown": ">",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 73,
+   "section": "blockquote",
+   "markdown": "> # heading in quote",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 74,
+   "section": "blockquote",
+   "markdown": "> ```\n> code in quote\n> ```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 75,
+   "section": "blockquote",
+   "markdown": "> - list in quote\n> - second",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 76,
+   "section": "blockquote",
+   "markdown": "> quote\n\n> second quote",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 77,
+   "section": "blockquote",
+   "markdown": "> **bold** in quote",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 78,
+   "section": "blockquote",
+   "markdown": "> multi\n>\n> paragraph quote",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 79,
+   "section": "lists-ul",
+   "markdown": "- a\n- b",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 80,
+   "section": "lists-ul",
+   "markdown": "* a\n* b",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 81,
+   "section": "lists-ul",
+   "markdown": "+ a\n+ b",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 82,
+   "section": "lists-ul",
+   "markdown": "- a\n* b\n+ c",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 83,
+   "section": "lists-ul",
+   "markdown": "- one\n\n- two",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 84,
+   "section": "lists-ul",
+   "markdown": "- one\n  - nested\n  - nested2\n- two",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 85,
+   "section": "lists-ul",
+   "markdown": "- a\n  continued lazy",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 86,
+   "section": "lists-ul",
+   "markdown": "- a\n\n  para in item",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 87,
+   "section": "lists-ul",
+   "markdown": "- **bold** item\n- `code` item",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 88,
+   "section": "lists-ul",
+   "markdown": "-\n  empty item",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 89,
+   "section": "lists-ul",
+   "markdown": "- a\n\n\n- b",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 90,
+   "section": "lists-ul",
+   "markdown": "  - two space indent item",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 91,
+   "section": "lists-ol",
+   "markdown": "1. a\n2. b",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 92,
+   "section": "lists-ol",
+   "markdown": "1. a\n1. b",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 93,
+   "section": "lists-ol",
+   "markdown": "3. start at three\n4. next",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 94,
+   "section": "lists-ol",
+   "markdown": "1) paren delimiter\n2) next",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 95,
+   "section": "lists-ol",
+   "markdown": "1. a\n\n2. b",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 96,
+   "section": "lists-ol",
+   "markdown": "1. one\n   1. nested\n   2. nested2\n2. two",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 97,
+   "section": "lists-ol",
+   "markdown": "10. two digit\n11. eleven",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 98,
+   "section": "lists-ol",
+   "markdown": "1. **bold**\n2. [link](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 99,
+   "section": "lists-ol",
+   "markdown": "1. a\n  continued",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 100,
+   "section": "links-inline",
+   "markdown": "[text](http://example.com)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 101,
+   "section": "links-inline",
+   "markdown": "[text](http://example.com \"title\")",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 102,
+   "section": "links-inline",
+   "markdown": "[text](http://example.com 'title')",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 103,
+   "section": "links-inline",
+   "markdown": "[text](http://example.com (title))",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 104,
+   "section": "links-inline",
+   "markdown": "[text](/relative/path)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 105,
+   "section": "links-inline",
+   "markdown": "[text](<http://example.com/a b>)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 106,
+   "section": "links-inline",
+   "markdown": "[text](<>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 107,
+   "section": "links-inline",
+   "markdown": "[nested [brackets] here](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 108,
+   "section": "links-inline",
+   "markdown": "[empty]()",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 109,
+   "section": "links-inline",
+   "markdown": "[with *em* and `code`](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 110,
+   "section": "links-inline",
+   "markdown": "[spaces in text](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 111,
+   "section": "links-inline",
+   "markdown": "[escaped \\] bracket](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 112,
+   "section": "links-inline",
+   "markdown": "[](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 113,
+   "section": "links-inline",
+   "markdown": "[text](http://x \"ti(t)le\")",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 114,
+   "section": "links-inline",
+   "markdown": "[a](b(c)d)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 115,
+   "section": "links-inline",
+   "markdown": "[CONTRIBUTING.md](CONTRIBUTING.md)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 116,
+   "section": "links-inline",
+   "markdown": "[same](same) and <same>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 117,
+   "section": "links-inline",
+   "markdown": "[*em text*](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 118,
+   "section": "links-reference",
+   "markdown": "[text][ref]\n\n[ref]: http://example.com",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 119,
+   "section": "links-reference",
+   "markdown": "[text][]\n\n[text]: http://example.com",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 120,
+   "section": "links-reference",
+   "markdown": "[text]\n\n[text]: http://example.com",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 121,
+   "section": "links-reference",
+   "markdown": "[text][REF]\n\n[ref]: http://example.com",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 122,
+   "section": "links-reference",
+   "markdown": "[text][undefined]",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 123,
+   "section": "links-reference",
+   "markdown": "[text][ref]\n\n[ref]: http://example.com \"title\"",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 124,
+   "section": "links-reference",
+   "markdown": "[text][ref]\n\n   [ref]: /url\n",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 125,
+   "section": "links-reference",
+   "markdown": "[text][ref]\n\n[ref]: <http://example.com>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 126,
+   "section": "links-reference",
+   "markdown": "[a][b]\n\n[b]: /u1\n[a]: /u2",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 127,
+   "section": "autolinks",
+   "markdown": "<http://example.com>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 128,
+   "section": "autolinks",
+   "markdown": "<https://example.com/path?q=1>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 129,
+   "section": "autolinks",
+   "markdown": "<mailto:foo@bar.com>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 130,
+   "section": "autolinks",
+   "markdown": "<foo@bar.com>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 131,
+   "section": "autolinks",
+   "markdown": "<foo:bar>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 132,
+   "section": "autolinks",
+   "markdown": "<foo bar>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 133,
+   "section": "autolinks",
+   "markdown": "<http://example.com> and [text](http://example.com)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 134,
+   "section": "autolinks",
+   "markdown": "text <http://x.y> more",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 135,
+   "section": "images",
+   "markdown": "![alt](http://example.com/img.png)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 136,
+   "section": "images",
+   "markdown": "![alt](img.png \"title\")",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 137,
+   "section": "images",
+   "markdown": "![](img.png)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 138,
+   "section": "images",
+   "markdown": "![alt with *em*](img.png)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 139,
+   "section": "images",
+   "markdown": "[![img in link](i.png)](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 140,
+   "section": "images",
+   "markdown": "![alt][ref]\n\n[ref]: img.png",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 141,
+   "section": "images",
+   "markdown": "![](<img with space.png>)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 142,
+   "section": "emphasis",
+   "markdown": "*em*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 143,
+   "section": "emphasis",
+   "markdown": "_em_",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 144,
+   "section": "emphasis",
+   "markdown": "**strong**",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 145,
+   "section": "emphasis",
+   "markdown": "__strong__",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 146,
+   "section": "emphasis",
+   "markdown": "***both***",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 147,
+   "section": "emphasis",
+   "markdown": "___both___",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 148,
+   "section": "emphasis",
+   "markdown": "*foo **bar** baz*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 149,
+   "section": "emphasis",
+   "markdown": "**foo *bar* baz**",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 150,
+   "section": "emphasis",
+   "markdown": "*foo*bar*baz*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 151,
+   "section": "emphasis",
+   "markdown": "a*b*c",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 152,
+   "section": "emphasis",
+   "markdown": "a_b_c",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 153,
+   "section": "emphasis",
+   "markdown": "snake_case_word",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 154,
+   "section": "emphasis",
+   "markdown": "a * b",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 155,
+   "section": "emphasis",
+   "markdown": "a*b c",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 156,
+   "section": "emphasis",
+   "markdown": "*a b*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 157,
+   "section": "emphasis",
+   "markdown": "**foo*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 158,
+   "section": "emphasis",
+   "markdown": "*foo**",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 159,
+   "section": "emphasis",
+   "markdown": "**foo** bar **baz**",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 160,
+   "section": "emphasis",
+   "markdown": "*foo *bar* baz*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 161,
+   "section": "emphasis",
+   "markdown": "***foo** bar*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 162,
+   "section": "emphasis",
+   "markdown": "*foo **bar***",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 163,
+   "section": "emphasis",
+   "markdown": "*foo _bar* baz_",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 164,
+   "section": "emphasis",
+   "markdown": "__foo__ bar __baz__",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 165,
+   "section": "emphasis",
+   "markdown": "**a *b* c**",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 166,
+   "section": "emphasis",
+   "markdown": "*a*b*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 167,
+   "section": "emphasis",
+   "markdown": "*(text)*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 168,
+   "section": "emphasis",
+   "markdown": "**text with spaces**",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 169,
+   "section": "emphasis",
+   "markdown": "*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 170,
+   "section": "code-spans",
+   "markdown": "`code`",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 171,
+   "section": "code-spans",
+   "markdown": "`` code with ` tick ``",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 172,
+   "section": "code-spans",
+   "markdown": "`` ` ``",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 173,
+   "section": "code-spans",
+   "markdown": "``  ``",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 174,
+   "section": "code-spans",
+   "markdown": "`  padded  `",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 175,
+   "section": "code-spans",
+   "markdown": "`a\nb`",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 176,
+   "section": "code-spans",
+   "markdown": "`*not em*`",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 177,
+   "section": "code-spans",
+   "markdown": "`[not link](x)`",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 178,
+   "section": "code-spans",
+   "markdown": "`` `a` ``",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 179,
+   "section": "code-spans",
+   "markdown": "unmatched ` tick",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 180,
+   "section": "code-spans",
+   "markdown": "`\\` backslash in code",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 181,
+   "section": "backslash-escapes",
+   "markdown": "\\*not em\\*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 182,
+   "section": "backslash-escapes",
+   "markdown": "\\[not link\\](x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 183,
+   "section": "backslash-escapes",
+   "markdown": "\\`not code\\`",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 184,
+   "section": "backslash-escapes",
+   "markdown": "\\\\ literal backslash",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 185,
+   "section": "backslash-escapes",
+   "markdown": "\\# not heading",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 186,
+   "section": "backslash-escapes",
+   "markdown": "\\- not list",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 187,
+   "section": "backslash-escapes",
+   "markdown": "\\t not tab escape",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 188,
+   "section": "backslash-escapes",
+   "markdown": "\\e \\s \\d",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 189,
+   "section": "backslash-escapes",
+   "markdown": "\\\\",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 190,
+   "section": "backslash-escapes",
+   "markdown": "\\\\\nnext",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 191,
+   "section": "backslash-escapes",
+   "markdown": "a\\\nb",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 192,
+   "section": "backslash-escapes",
+   "markdown": "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 193,
+   "section": "backslash-escapes",
+   "markdown": "50\\*50\\*2",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 194,
+   "section": "entities",
+   "markdown": "&amp;",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 195,
+   "section": "entities",
+   "markdown": "&#65;",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 196,
+   "section": "entities",
+   "markdown": "&#x41;",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 197,
+   "section": "entities",
+   "markdown": "&nbsp;",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 198,
+   "section": "entities",
+   "markdown": "&copy;",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 199,
+   "section": "entities",
+   "markdown": "&unknown;",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 200,
+   "section": "entities",
+   "markdown": "a &amp; b &lt; c",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 201,
+   "section": "inline-html",
+   "markdown": "<b>bold html</b>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 202,
+   "section": "inline-html",
+   "markdown": "<em>em</em> and *md em*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 203,
+   "section": "inline-html",
+   "markdown": "<span class=\"x\">class span</span>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 204,
+   "section": "inline-html",
+   "markdown": "<span style=\"color:red\">color span</span>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 205,
+   "section": "inline-html",
+   "markdown": "<span style=\"background:red\">non-color style</span>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 206,
+   "section": "inline-html",
+   "markdown": "<u>underline</u>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 207,
+   "section": "inline-html",
+   "markdown": "text<br>more",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 208,
+   "section": "inline-html",
+   "markdown": "text<br/>more",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 209,
+   "section": "inline-html",
+   "markdown": "text<br />more",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 210,
+   "section": "inline-html",
+   "markdown": "a <sup>1</sup> b",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 211,
+   "section": "inline-html",
+   "markdown": "<img src=\"i.png\" alt=\"x\">",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 212,
+   "section": "inline-html",
+   "markdown": "html <b>with **md bold**</b> mix",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 213,
+   "section": "inline-html",
+   "markdown": "<a href=\"http://x\" title=\"t\">link html</a>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 214,
+   "section": "inline-html",
+   "markdown": "inline <!-- comment --> text",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 215,
+   "section": "inline-html",
+   "markdown": "<?php echo 1; ?>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 216,
+   "section": "inline-html",
+   "markdown": "<notatag",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 217,
+   "section": "inline-html",
+   "markdown": "<3 not a tag",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 218,
+   "section": "html-blocks",
+   "markdown": "<div>\nblock html\n</div>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 219,
+   "section": "html-blocks",
+   "markdown": "<script>\nvar x = 1;\n</script>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 220,
+   "section": "html-blocks",
+   "markdown": "<style>\np { color: red }\n</style>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 221,
+   "section": "html-blocks",
+   "markdown": "<!-- comment -->",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 222,
+   "section": "html-blocks",
+   "markdown": "<!--\nmulti line\ncomment\n-->",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 223,
+   "section": "html-blocks",
+   "markdown": "<pre>\n  preserved\n</pre>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 224,
+   "section": "html-blocks",
+   "markdown": "<textarea>\nx\n</textarea>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 225,
+   "section": "html-blocks",
+   "markdown": "<div class=\"x\">attr div</div>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 226,
+   "section": "html-blocks",
+   "markdown": "<p>para html</p>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 227,
+   "section": "html-blocks",
+   "markdown": "<div>\n\npara after blank\n\n</div>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 228,
+   "section": "html-blocks",
+   "markdown": "<div>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 229,
+   "section": "html-blocks",
+   "markdown": "<table>\n<tr><td>cell</td></tr>\n</table>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 230,
+   "section": "html-blocks",
+   "markdown": "<span>not block</span>",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 231,
+   "section": "tables-gfm",
+   "markdown": "| a | b |\n| --- | --- |\n| 1 | 2 |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 232,
+   "section": "tables-gfm",
+   "markdown": "| left | center | right |\n| :--- | :---: | ---: |\n| 1 | 2 | 3 |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 233,
+   "section": "tables-gfm",
+   "markdown": "| a | b |\n|---|---|\n| 1 |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 234,
+   "section": "tables-gfm",
+   "markdown": "| a | b |\n|---|---|\n| 1 | 2 | 3 |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 235,
+   "section": "tables-gfm",
+   "markdown": "| `a|b` | c |\n|---|---|\n| 1 | 2 |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 236,
+   "section": "tables-gfm",
+   "markdown": "| a \\| b | c |\n|---|---|\n| 1 | 2 |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 237,
+   "section": "tables-gfm",
+   "markdown": "| **b** | *i* |\n|---|---|\n| `c` | [l](x) |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 238,
+   "section": "tables-gfm",
+   "markdown": "| a | b |\n|---|---|\n| x<br>y | 2 |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 239,
+   "section": "tables-gfm",
+   "markdown": "| a | b |\n|---|---|\n| x  \ny | 2 |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 240,
+   "section": "tables-gfm",
+   "markdown": "| only | header |\n|---|---|",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 241,
+   "section": "tables-gfm",
+   "markdown": "a | b\n--- | ---\n1 | 2",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 242,
+   "section": "tables-gfm",
+   "markdown": "| a |\n|---|\n| `|` |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 243,
+   "section": "strikethrough-gfm",
+   "markdown": "~~struck~~",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 244,
+   "section": "strikethrough-gfm",
+   "markdown": "~single~",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 245,
+   "section": "strikethrough-gfm",
+   "markdown": "~~with *em* inside~~",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 246,
+   "section": "strikethrough-gfm",
+   "markdown": "~~unclosed",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 247,
+   "section": "strikethrough-gfm",
+   "markdown": "a ~~b~~ c",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 248,
+   "section": "strikethrough-gfm",
+   "markdown": "~~~~both~~~~",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 249,
+   "section": "tasklists-gfm",
+   "markdown": "- [ ] todo\n- [x] done",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 250,
+   "section": "tasklists-gfm",
+   "markdown": "- [X] uppercase done",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 251,
+   "section": "tasklists-gfm",
+   "markdown": "- [ ] **bold** todo",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 252,
+   "section": "tasklists-gfm",
+   "markdown": "1. [ ] ordered task",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 253,
+   "section": "tasklists-gfm",
+   "markdown": "- [ ] parent\n  - [x] child",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 254,
+   "section": "tasklists-gfm",
+   "markdown": "- [ ] task with [link](http://x)",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 255,
+   "section": "autolink-ext-gfm",
+   "markdown": "visit www.example.com now",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 256,
+   "section": "autolink-ext-gfm",
+   "markdown": "http://example.com plain",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 257,
+   "section": "autolink-ext-gfm",
+   "markdown": "https://example.com/path",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 258,
+   "section": "autolink-ext-gfm",
+   "markdown": "mail me at foo@bar.com ok",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 259,
+   "section": "autolink-ext-gfm",
+   "markdown": "<https://example.com> explicit",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 260,
+   "section": "breaks-html",
+   "markdown": "line one<br>line two",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 261,
+   "section": "breaks-html",
+   "markdown": "line one<br>\nline two",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 262,
+   "section": "breaks-html",
+   "markdown": "line one<br>\n\nline two",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 263,
+   "section": "breaks-html",
+   "markdown": "a<br><br>b",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 264,
+   "section": "breaks-html",
+   "markdown": "para end<br>",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 265,
+   "section": "breaks-html",
+   "markdown": "<br> para start",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 266,
+   "section": "combos",
+   "markdown": "# heading with **bold** and `code` and [link](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 267,
+   "section": "combos",
+   "markdown": "> quote with **bold**\n> and `code`",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 268,
+   "section": "combos",
+   "markdown": "- list **bold** item\n- [link](http://x) item",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 269,
+   "section": "combos",
+   "markdown": "1. numbered **strong**\n2. with *em*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 270,
+   "section": "combos",
+   "markdown": "[**bold link**](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 271,
+   "section": "combos",
+   "markdown": "[*em link*](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 272,
+   "section": "combos",
+   "markdown": "[`code link`](http://x)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 273,
+   "section": "combos",
+   "markdown": "![**bold alt**](i.png)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 274,
+   "section": "combos",
+   "markdown": "> - quote list **bold**\n> - second",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 275,
+   "section": "combos",
+   "markdown": "- item\n\n  ```\n  code in list\n  ```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 276,
+   "section": "combos",
+   "markdown": "- item\n\n      indented code in list",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 277,
+   "section": "combos",
+   "markdown": "1. a\n\n   ```\n   fence in ol\n   ```",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 278,
+   "section": "combos",
+   "markdown": "| h1 | h2 |\n|---|---|\n| **b** | `c` |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 279,
+   "section": "combos",
+   "markdown": "| link | img |\n|---|---|\n| [t](u) | ![a](i) |",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 280,
+   "section": "combos",
+   "markdown": "para\n> lazy quote start\n> continue",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 281,
+   "section": "combos",
+   "markdown": "text before\n\n- list\n- after\n\ntext after",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 282,
+   "section": "combos",
+   "markdown": "*em with [link](http://x) inside*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 283,
+   "section": "combos",
+   "markdown": "**strong with `code` and ~~strike~~**",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 284,
+   "section": "combos",
+   "markdown": "[link with *em* and **strong**](http://x \"title\")",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 285,
+   "section": "combos",
+   "markdown": "> ## heading in quote with *em*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 286,
+   "section": "combos",
+   "markdown": "- [ ] task with ~~strike~~",
+   "ref": "gfm",
+   "check": "full"
+  },
+  {
+   "id": 287,
+   "section": "combos",
+   "markdown": "1. first\n2. second\n\n   para in item two",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 288,
+   "section": "combos",
+   "markdown": "\\*literal\\* and *real em*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 289,
+   "section": "combos",
+   "markdown": "`code with **stars**` and **real**",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 290,
+   "section": "edge-cases",
+   "markdown": "",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 291,
+   "section": "edge-cases",
+   "markdown": "\n\n\n",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 292,
+   "section": "edge-cases",
+   "markdown": " ",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 293,
+   "section": "edge-cases",
+   "markdown": "|",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 294,
+   "section": "edge-cases",
+   "markdown": "[",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 295,
+   "section": "edge-cases",
+   "markdown": "](",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 296,
+   "section": "edge-cases",
+   "markdown": "![",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 297,
+   "section": "edge-cases",
+   "markdown": "<",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 298,
+   "section": "edge-cases",
+   "markdown": "`",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 299,
+   "section": "edge-cases",
+   "markdown": "*",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 300,
+   "section": "edge-cases",
+   "markdown": "_",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 301,
+   "section": "edge-cases",
+   "markdown": "~",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 302,
+   "section": "edge-cases",
+   "markdown": "#",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 303,
+   "section": "edge-cases",
+   "markdown": ">",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 304,
+   "section": "edge-cases",
+   "markdown": "-",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 305,
+   "section": "edge-cases",
+   "markdown": "1.",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 306,
+   "section": "edge-cases",
+   "markdown": "1)",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 307,
+   "section": "edge-cases",
+   "markdown": "text with  double  spaces",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 308,
+   "section": "edge-cases",
+   "markdown": "unicode 你好 **世界** `代码`",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 309,
+   "section": "edge-cases",
+   "markdown": "emoji 🎉 in **bold** 🚀",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 310,
+   "section": "edge-cases",
+   "markdown": "tab\tinside\ttext",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 311,
+   "section": "edge-cases",
+   "markdown": "a\\",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 312,
+   "section": "edge-cases",
+   "markdown": "line  \\",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 313,
+   "section": "frontmatter",
+   "markdown": "---\ntitle: x\ntags: [a, b]\n---\n\nbody text",
+   "ref": "cm",
+   "check": "stable"
+  },
+  {
+   "id": 314,
+   "section": "frontmatter",
+   "markdown": "---\nkey: value\n---",
+   "ref": "cm",
+   "check": "stable"
+  },
+  {
+   "id": 315,
+   "section": "frontmatter",
+   "markdown": "---\na: 1\n\nb: 2\n---\nbody",
+   "ref": "cm",
+   "check": "stable"
+  },
+  {
+   "id": 316,
+   "section": "definitions",
+   "markdown": "[ref]: http://example.com\n\nuse [ref]",
+   "ref": "cm",
+   "check": "full"
+  },
+  {
+   "id": 317,
+   "section": "definitions",
+   "markdown": "[ref]: /url \"title\"\n\n[ref]",
+   "ref": "cm",
+   "check": "full"
+  }
+ ]
+}

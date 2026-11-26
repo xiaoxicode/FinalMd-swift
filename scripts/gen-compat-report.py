@@ -18,6 +18,9 @@ FILES = R["files"]
 CASES = R["spec_cases"]
 FEATURES = {f["key"]: f["label"] for f in R["features"]}
 
+# 历史阶段（①–⑤）的文件语料是 207 份；⑥ 起语料扩到 51 来源 / 416 份。
+OLD_FILES = 207
+
 # 六个阶段的实测基线，用于对比（数字来自各阶段提交的 RESULTS.json）
 BASELINE = dict(
     retention=0.690,
@@ -39,7 +42,24 @@ STAGE4 = dict(
     case_stable=1301, case_converged=1323, structure=0.9034,
     raw_kept=227, raw_total=262, indented="52/57",
 )
-FIXED = dict(retention=S["avg_retention"], smoke=624)
+FIXED = dict(retention=S["avg_retention"], smoke=693)
+# 主流矩阵（run-mainstream.py 产出 tests/fixtures/MAINSTREAM.json），
+# 语义对比用例 314 条（3 条为字节级用例不进语义对比）。
+MS = json.load(open(os.path.join(FX, "MAINSTREAM.json"), encoding="utf-8"))["summary"]
+# 改进 J（CommonMark 定界符栈，207 份语料）实测，表内第 ⑤ 列。
+STAGE_J = dict(
+    retention=0.907, smoke=624, file_stable=200, file_converged=207,
+    case_stable=1325, case_converged=1327, structure=0.948,
+    raw_kept=262, raw_total=262, indented="57/57",
+)
+# 改进 K 前的「Top 50 语料首测」（未修复、416 份语料）实测：
+# 14 份文件一次不稳定、73 份保留率 <0.6、43 份丢特性、2 条规范用例不稳定；
+# 中间复测还暴露过 7 类根因（14 条用例），见 BUG 清单 B10–B16。
+STAGE10 = dict(
+    retention=0.878, smoke=624, file_stable=402, file_converged=416,
+    case_stable=1325, case_converged=1327,
+    raw_kept=858, raw_total=861,
+)
 # 第七阶段（列表容器块 / 嵌入内联展示，6071ed9）实测，
 # 用于「改进 H」给出本轮修复带来的增量。
 STAGE7 = dict(retention=0.907, smoke=601, file_stable=186, file_converged=196,
@@ -106,39 +126,39 @@ w(f"从 {len(M['sources'])} 个主流 Markdown 软件 / 解析器生态与 "
   "`MarkdownParser.parse` / `MarkdownSerializer.markdown` 逐份跑通。")
 w("")
 w("| 指标 | ① 首次运行 | ② 修复两个 P0 后 | ③ 原样透传块 + CI | ④ Obsidian 语法 | "
-  "⑤ 上一版：六轮全收敛 | ⑥ 当前：CommonMark 定界符栈 |")
+  "⑤ CommonMark 定界符栈（207 语料） | ⑥ 当前：Top 50 语料 + 主流矩阵 + 待决 1/2 + Callout 格式开关 + 特征丢失清零 |")
 w("|---|---|---|---|---|---|---|")
 w(f"| 解析崩溃 | {BASELINE['crashes']} 处（索引越界） | **0** | **0** | **0** | **0** | **0** |")
 w(f"| 平均可读字符保留率 | {pct(BASELINE['retention'])} | {pct(STAGE2['retention'])} | "
   f"{pct(STAGE3['retention'])} | {pct(STAGE4['retention'])} | "
-  f"{pct(STAGE9['retention'])} | **{pct(FIXED['retention'])}** |")
+  f"{pct(STAGE_J['retention'])} | **{pct(FIXED['retention'])}** |")
 w(f"| Obsidian 帮助库保留率 | {pct(BASELINE['obsidian'])} | "
   f"{pct(avg_for('obsidian'))} | {pct(avg_for('obsidian'))} | "
   f"{pct(avg_for('obsidian'))} | {pct(avg_for('obsidian'))} | **{pct(avg_for('obsidian'))}** |")
 w(f"| cmark-gfm 样本保留率 | {pct(BASELINE['cmark'])} | 87.5% | "
   f"{pct(avg_for('cmark-gfm'))} | {pct(avg_for('cmark-gfm'))} | "
   f"{pct(avg_for('cmark-gfm'))} | **{pct(avg_for('cmark-gfm'))}** |")
-w(f"| 文件一次稳定 | — | {ratio(STAGE2['file_stable'], S['files'])} | "
-  f"{ratio(STAGE3['file_stable'], S['files'])} | "
-  f"{ratio(STAGE4['file_stable'], S['files'])} | "
-  f"{ratio(STAGE9['file_stable'], S['files'])} | "
+w(f"| 文件一次稳定 | — | {ratio(STAGE2['file_stable'], OLD_FILES)} | "
+  f"{ratio(STAGE3['file_stable'], OLD_FILES)} | "
+  f"{ratio(STAGE4['file_stable'], OLD_FILES)} | "
+  f"{ratio(STAGE_J['file_stable'], OLD_FILES)} | "
   f"**{ratio(S['file_stable'], S['files'])}** |")
-w(f"| 文件收敛（六轮口径） | — | — | {ratio(STAGE3['file_converged'], S['files'])} | "
-  f"{ratio(STAGE4['file_converged'], S['files'])} | "
-  f"{ratio(STAGE9['file_converged'], S['files'])} | "
+w(f"| 文件收敛（六轮口径） | — | — | {ratio(STAGE3['file_converged'], OLD_FILES)} | "
+  f"{ratio(STAGE4['file_converged'], OLD_FILES)} | "
+  f"{ratio(STAGE_J['file_converged'], OLD_FILES)} | "
   f"**{ratio(S['file_converged'], S['files'])}** |")
 w(f"| 规范用例一次稳定 | — | {ratio(STAGE2['case_stable'], S['spec_cases'])} | "
   f"{ratio(STAGE3['case_stable'], S['spec_cases'])} | "
   f"{ratio(STAGE4['case_stable'], S['spec_cases'])} | "
-  f"{ratio(STAGE9['case_stable'], S['spec_cases'])} | "
+  f"{ratio(STAGE_J['case_stable'], S['spec_cases'])} | "
   f"**{ratio(S['case_stable'], S['spec_cases'])}** |")
 w(f"| 规范用例收敛（六轮口径） | — | — | {ratio(STAGE3['case_converged'], S['spec_cases'])} | "
   f"{ratio(STAGE4['case_converged'], S['spec_cases'])} | "
-  f"{ratio(STAGE9['case_converged'], S['spec_cases'])} | "
+  f"{ratio(STAGE_J['case_converged'], S['spec_cases'])} | "
   f"**{ratio(S['case_converged'], S['spec_cases'])}** |")
 w(f"| 规范用例结构识别率 | — | {pct(STAGE2['structure'])} | "
   f"{pct(STAGE3['structure'])} | {pct(STAGE4['structure'])} | "
-  f"{pct(STAGE9['structure'])} | **{pct(S['avg_structure'])}** |")
+  f"{pct(STAGE_J['structure'])} | **{pct(S['avg_structure'])}** |")
 rd_p, rd_d, _ = feature_rate("refdef")
 hb_p, hb_d, _ = feature_rate("htmlblock")
 wl_p, wl_d, _ = feature_rate("wikilink")
@@ -158,42 +178,141 @@ w(f"| Obsidian 双链 / 嵌入 / Callout / 任务框 | {STAGE3['wikilink']} / "
   f"{ratio(wl_p, wl_d)} / {ratio(em_p, em_d)} / {ratio(co_p, co_d)} / {ratio(tk_p, tk_d)} | "
   f"**{ratio(wl_p, wl_d)} / {ratio(em_p, em_d)} / {ratio(co_p, co_d)} / {ratio(tk_p, tk_d)}** |")
 w("| 缩进代码块（正则口径） | — | — | — | "
-  f"{STAGE4['indented']} | {STAGE9['indented']} | **{ratio(in_p, in_d)}** |")
+  f"{STAGE4['indented']} | {STAGE_J['indented']} | **{ratio(in_p, in_d)}** |")
 w("| 透传块逐字保留（整行字节比对） | — | — | "
   f"{ratio(STAGE3['raw_kept'], STAGE3['raw_total'])} | "
   f"{ratio(STAGE4['raw_kept'], STAGE4['raw_total'])} | "
-  f"{ratio(STAGE9['raw_kept'], STAGE9['raw_total'])} | "
+  f"{ratio(STAGE_J['raw_kept'], STAGE_J['raw_total'])} | "
   f"**{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} "
   f"({pct(S['raw_exact_rate'])})** |")
 w(f"| 冒烟测试 | {BASELINE['smoke']} 项 | {STAGE2['smoke']} 项 | "
-  f"{STAGE3['smoke']} 项 | {STAGE4['smoke']} 项 | {STAGE9['smoke']} 项 | "
+  f"{STAGE3['smoke']} 项 | {STAGE4['smoke']} 项 | {STAGE_J['smoke']} 项 | "
   f"**{FIXED['smoke']} 项** |")
+w(f"| 主流语法矩阵一次稳定（{MS['cases']} 例） | — | — | — | — | — | "
+  f"**{MS['stable']}/{MS['cases']}，语义 {MS['correct']}/{MS['full_checks']}，"
+  f"失败 {MS['failed']}（已知取舍 {MS['known']}）** |")
 w("")
 w(f"文件往返：一次稳定 {ratio(S['file_stable'], S['files'])}，"
   f"六轮内收敛 {ratio(S['file_converged'], S['files'])}；"
   f"规范用例：一次稳定 {ratio(S['case_stable'], S['spec_cases'])}，"
   f"收敛 {ratio(S['case_converged'], S['spec_cases'])}。"
-  "逐文件、逐用例对比本次与上一版结果：**保留率下降 0 份、失去稳定 0 份、"
-  "新增不收敛 0 份**；规范用例结构识别率 "
-  f"{pct(STAGE9['structure'])} → **{pct(S['avg_structure'])}**，"
-  f"平均保留率 {pct(STAGE9['retention'])} → **{pct(FIXED['retention'])}**。")
+  f"对比 Top 50 语料首测（未修复）：文件一次稳定 "
+  f"{STAGE10['file_stable']}/{STAGE10['file_converged']} → "
+  f"**{S['file_stable']}/{S['files']}**，规范用例一次稳定 "
+  f"{STAGE10['case_stable']} → **{S['case_stable']}/{S['spec_cases']}**，"
+  f"平均保留率 {pct(STAGE10['retention'])} → **{pct(FIXED['retention'])}**，"
+  f"透传块逐字保留 {ratio(STAGE10['raw_kept'], STAGE10['raw_total'])} → "
+  f"**{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])}**。")
 w("")
-w("**上一版增量（改进 I）**：实测复核确认上版 3 份「不收敛」是退化后收敛，"
-  "把收敛判定从四轮放宽到六轮后，文件收敛 "
-  f"{STAGE8['file_converged']} → {STAGE9['file_converged']}/{S['files']}（全部收敛），"
-  "不收敛清零；文件一次稳定、规范用例稳定 / 收敛、保留率与结构识别率全部持平。")
-w("")
-w(f"**本次增量（上一版 → 当前，改进 J）**：按 CommonMark 0.31.2 §6.4 重写行内强调，"
+w("**增量回顾（改进 J）**：按 CommonMark 0.31.2 §6.4 重写行内强调，"
   "用定界符栈（flanking 判定 + 最近 opener 匹配 + openers_bottom 剪枝 + "
   "removeDelimitersBetween + 权威 rule of 3）替换"
   "「首个匹配即闭合」的递归下降，并给强调行加源码快照：未编辑时逐字输出原文。"
-  "文件一次稳定 "
-  f"{STAGE9['file_stable']} → **{S['file_stable']}/{S['files']}**，"
-  f"规范用例一次稳定 {STAGE9['case_stable']} → **{S['case_stable']}/{S['spec_cases']}**；"
-  "深层嵌套强调从「第 5→6 轮才停止扁平化」变成**第 1 轮即逐字稳定**，"
-  "`inline-em-nested` / `inline-em-worst` 的字节数不再缩水（158/173 B 原样保留）。"
-  f"冒烟测试 {STAGE9['smoke']} → **{FIXED['smoke']} 项**；"
-  "保留率、结构识别率、收敛率、透传块 262/262 与五类扩展语法 100% 全部持平。")
+  "深层嵌套强调从「第 5→6 轮才停止扁平化」变成**第 1 轮即逐字稳定**。")
+w("")
+w("**上一版增量（改进 K：Top 50 语料扩测 + 25 类缺陷修复）**："
+  f"语料从 14 个来源 / {OLD_FILES} 份文件扩到 **{len(M['sources'])} 个来源 / "
+  f"{S['files']} 份文件**（dillinger、notable、trilium、boostnote、appflowy、"
+  "codimd、editormd、laverna、docsify、vitepress、mkdocs、mdbook、hugo、jekyll、"
+  "eleventy、hexo、slidev、reveal.js、marp、markdown-it、marked、remark、"
+  "commonmark.js、python-markdown、mistune、pulldown-cmark、goldmark、comrak、"
+  "markdownlint、prettier、md4c、discount、parsedown、league-commonmark、"
+  "remarkable、showdown、cmark 等），并按 CommonMark 0.31.2 + GFM 全量复测。"
+  "首测暴露 14 份不稳定文件 / 73 份低保留率 / 43 份丢特性；"
+  "逐类定位并修复 **25 个缺陷**（BUG 清单 B1–B25）："
+  "软换行拆段落、源码快照覆盖不足、有序列表编号重排、嵌套括号链接、"
+  "引用式链接缺失、围栏代码块二轮漂移、行内 HTML 丢失、链接 title 丢失、"
+  "脚注定义误入链接表、行首块级记号未转义、代码 span 反引号串配对、"
+  "反引号围栏 info 串校验、引用定义 destination 严格化、"
+  "畸形链接目标宽松回退、链接目标 `<...>` 包裹不收敛、"
+  "title 无空白分隔误解析、表头用户粗体被排版加粗吞掉、"
+  "text==dest 链接误写 autolink 形式（链接丢失 + 转义振荡）、"
+  "空内容硬换行序列化成空行丢失（且不得误伤续行缩进）、"
+  "带 class 等不可重建属性的行内 HTML 拆解丢信息、"
+  "反斜杠 + 字母误当转义（CommonMark §2.5）、表格单元格 `<br>` 换行撕裂表格行、"
+  "预处理不识别转义对误吃行尾反斜杠、`<br>` 与源码换行双标记误拆段落、"
+  "段尾硬换行序列化振荡（改按 `<br>` 逐字回写）。"
+  f"冒烟测试 {STAGE10['smoke']} → **653 项**（+29 项回归断言）。")
+w("")
+w("**上一版增量（改进 L：主流语法矩阵复测 + B26–B41）**：按 CommonMark 0.31.2 + "
+  "GFM 主流语法规则新建 **317 条测试矩阵**（`scripts/run-mainstream.py`，覆盖段落换行 / "
+  "ATX / Setext / 分割线 / 围栏 / 缩进代码 / 引用 / 列表 / 链接 / 引用式 / autolink / "
+  "图片 / 强调 / 代码 span / 转义 / 实体 / 行内 HTML / HTML 块 / 表格 / 删除线 / "
+  "任务框 / 扩展 autolink / 组合 / 边界 26 类），以 commonmark.js 0.31.2 + marked 为"
+  "权威参考做「稳定 / 语义 / 往返」三重校验（语义 token 流归一化对比）。首测 78 例失败，"
+  "逐类定位并修复 **16 个缺陷**（BUG 清单 B26–B41）：ATX 标题空格与闭合 `#` 串、"
+  "Setext 标题缺失、HTML 命名/数字实体不解析、空标签与空目标链接丢内容、"
+  "code span 边缘空格振荡、表格转义竖线/格数不齐/无框线/孤 `|` 误判（含死循环）、"
+  "链接与代码内嵌强调丢外层 trait、GFM 扩展 autolink（裸 URL/www./邮箱）、"
+  "引用懒续行与 `>>` 紧写、列表续行/嵌套/围栏归属、空列表项与空标题、"
+  "围栏 info 串与空内容语义、行内注释透传、**远程图片解析同步网络取图挂死（P0）**、"
+  "列表项内围栏续行误并。末轮闸门倒退（标题闭合串与转义邮箱的二轮漂移、"
+  "引用懒续行缩进丢失）以「尾部 `#` 转义 + 写回防御转义 + mdQuoteRaw 逐字快照」"
+  "清零。矩阵终态：**一次稳定 317/317、语义 312/314（2 例已知取舍）、"
+  "失败 0**；冒烟 659 项、416 份语料与 1327 条规范用例一次稳定 / 收敛保持全绿，"
+  "平均保留率 91.3% → **92.1%**、结构识别率 95.2% → **96.0%**。")
+w("")
+w("**本次增量（改进 M：编辑后重建的存储边界 + 两个遗留语义取舍清零）**："
+  "收掉矩阵遗留的 2 例已知取舍与编辑后重建的三处存储边界。"
+  "#112 空标签链接 `[](url)` 用 ZWSP 哨兵占位（属性 run 至少 1 字符），"
+  "序列化剥哨兵还原 `[](url)`、HTML 导出空锚点 `<a href></a>`"
+  "（CommonMark §6.3 空标签合法，不再按字面文本保留）；"
+  "#261 `<br>` + 源码换行的连续换行段（`[s,h]` / `[h,h]`）"
+  "由 `breakAwareMarkdown` 整体处理，双 br 折叠语义与 GFM 对齐。"
+  "矩阵语义 312/314 → **314/314**、已知取舍清零。"
+  "三处编辑后重建边界：引用块内层结构平化消费**组对齐映射** `mdQuoteLineMap`"
+  "（显示行 ↔ 连续原始行组，围栏 3 源行 → 1 显示行的合并组按显示文字直写、"
+  "结构行逐字保留；1:1 组走富文本重建），`quoteLinePrefix` 按解析侧口径提取"
+  "行首 `>` 前缀（保住 `>>` 紧写与懒续行缩进），`rebuildEditedLine` 剥离全部"
+  "快照属性防递归回短路；列表续行 / 兄弟项与段落兄弟行强调走同一重建路径，"
+  "跨行强调编辑写 `*aa\\nb*` 保强调写法、不长字面星号。"
+  "冒烟 659 → **664 项**（+5 条存储边界与语义回归断言），"
+  "全量回归全绿：主流 317/317、语料 416/416、规范 1327/1327、阈值闸门通过。")
+w("")
+w("**本次增量（改进 N：特征检测口径对齐，raw_exact_rate 抬到 1.0）**："
+  "清掉最后两类检测误报，产品语义零改动（与 commonmark.js 权威输出本就一致）。"
+  "其一，hr 特征把 Setext 标题下划线（`Title\\n---`）误计为分割线，"
+  "致 cmark/006 等 6 份 README 假报「hr 丢失」——`stripSetextUnderlines` "
+  "在 hr 检测前剔除紧跟段落行的纯 `=`/`-` 串（真分割线 112 份仍正常检出）。"
+  "其二，frontmatter 判定的松散 key 正则把 `__Advertisement :)__` 的笑脸冒号、"
+  "`https://` 的协议冒号误认成 YAML key，markdown-it/004 的「两条分割线夹正文」"
+  "被假报成 frontmatter 整块丢失；key 判定收紧为「冒号后须空白或行尾」"
+  "（`a:b` 是纯量不是 key），且 `exactPassthrough` 改调 `Parser.frontmatterEnd` "
+  "同一实现，检测与解析口径永不分叉。透传块逐字保留 872/873 → **872/872（100%）**，"
+  "`raw_exact_rate` 硬阈值抬到 **1.0**（BASELINE 同步）；冒烟 664 → 670 项"
+  "（+6 条假 key 不吞正文回归断言），"
+  "全量回归全绿：语料 416/416、规范 1327/1327、阈值闸门通过。")
+w("")
+w("**本次增量（改进 O：Callout 格式改动生效开关）**：打破「Callout 内只改格式、"
+  "不改文字也按原行写回」的取舍，且做成用户开关。解析侧为 Callout 行补存 "
+  "`mdCalloutTraits` 格式指纹（与普通强调行的 `mdEmphasisTraits` 同口径）；"
+  "序列化侧 `calloutLine` 比对指纹：指纹未动仍逐字写回原行（保住折叠标记、"
+  "双链原语法、`*斜*` vs `_斜_` 写法），只改格式（⌘B / ⌘I / 改色）则按富文本"
+  "重建该行——默认生效，与普通强调行行为对齐。视图菜单新增「Callout 格式改动"
+  "生效」开关（UserDefaults 本机偏好），关闭后回到旧取舍（文字没变就原行写回，"
+  "格式改动被丢弃），改文字的重建在两种模式下都不被旧源码盖掉。"
+  f"冒烟 670 → **683 项**（+13 条两态开关与指纹回归断言），"
+  "全量回归全绿：主流 317/317、语料 416/416、规范 1327/1327、阈值闸门通过。")
+w("")
+w("**本次增量（改进 P：11 项特征丢失甄别清零）**：对残留的 11 项语法特征丢失"
+  "（ul×4、toc×2、refdef / highlight / strike / ol / image 各 1）逐份甄别，"
+  "结论是 **8 项检测误报 + 3 项真缺陷**，全部清零。"
+  "检测侧四类误报沿 hr 轮「检测与解析口径同源」思路修复："
+  "① `hit()` 改走 NSRegularExpression——`String.range(of:)` 按 Swift 字位簇匹配，"
+  "CRLF 是单个 Character，`==[^=\\n]+==` 会在 CRLF 文件里跨行贯通"
+  "（editormd/001 的 highlight 假阳性即此因）；"
+  "② refdef 正则 `\\s` 改 `[ \\t]`，脚注定义 `[^1]:` + 缩进续行不再被跨行误捕"
+  "（discount/002）；③ ul/ol 检测前剔除主题分割线 `* * *`（cmark-gfm/006 等 4 份"
+  "把空格分隔的 hr 误计成列表）；④ toc 收紧为独立 `[TOC]` 行、image 要求合法"
+  "目标（空格裸目标按 CommonMark 是字面文本，zettlr/003 / boostnote/001 误报）。"
+  "产品侧三个真缺陷一并修复：`listItemInfo` 的 else-if 链先找全行第一个 `.`、"
+  "URL 带点时跳过 `)` 分支，`1)` 有序项被误判段落转义成 `1\\)`（quarto/006）；"
+  "纯删除线行不进强调快照（守卫只认 `*`/`_`）+ autolink 短路吞标记，"
+  "`~~hello@email.com~~` 被吃成裸 `<hello@email.com>`（marked/003，守卫补 `~`、"
+  "短路按 active 记账包回外层标记）；`[TOC]` / `[TOCM]` 指令行走普通段落被"
+  "防御性转义成 `\\[TOC\\]`，下游编辑器不再识别目录指令（editormd/001，改逐字"
+  "段落）。冒烟 683 → **693 项**（+10 条回归断言），全量回归全绿：主流 317/317、"
+  "语料 416/416、规范 1327/1327、特征丢失 **11 → 0**、阈值闸门通过。")
 w("")
 w("**结论**：从首次全量测试到现在，依次修复了 2 个会造成崩溃 / 数据丢失的缺陷、"
   "落地 P1「原样透传块」并把兼容性测试接入 CI、补齐 Obsidian 双链 / 嵌入 / "
@@ -202,15 +321,30 @@ w("**结论**：从首次全量测试到现在，依次修复了 2 个会造成�
   "让 Callout 内部行真解析行内强调、支持任务框点击勾选；中间几版补齐"
   "**列表项内部的缩进代码块（CommonMark 容器块语义）**、把 Obsidian 嵌入"
   "从只读预览面板改成**文档流里的内联卡片**、修掉表格多列与标记开闭振荡、"
-  "把收敛判定放宽到六轮清零不收敛；本次按 **CommonMark 定界符栈**重写行内强调，"
-  "让 `***a ***b***` 这类重叠定界符的语义与写法都逐字保住，一次稳定提升到 "
+  "把收敛判定放宽到六轮清零不收敛、按 **CommonMark 定界符栈**重写行内强调；"
+  "本次把语料扩到 **51 个来源 / 416 份真实文件**做 Top 50 级复测，"
+  "按 CommonMark 0.31.2 / GFM 逐条对齐修复 **25 个缺陷**（软换行、快照、"
+  "列表编号、嵌套链接、引用链接、围栏、行内 HTML、链接 title、脚注污染、"
+  "行首块记号转义、代码 span 配对、围栏 info 校验、定义与链接目标严格化、"
+  "autolink 误用、空硬换行、HTML 属性丢失、转义配对、表格 <br>、"
+  "段尾硬换行等），"
+  "一次稳定提升到 "
   f"**{ratio(S['file_stable'], S['files'])}**、规范用例 "
   f"**{ratio(S['case_stable'], S['spec_cases'])}**，不收敛保持 **0 份**。"
   "语法特征矩阵 C 类（<60%）保持清零，缩进代码块 "
   f"**{ratio(in_p, in_d)}（100%）**与双链 / 嵌入 / Callout / 任务框一起"
   "列为 CI 的 `required_features_100` 硬约束；透传块逐字保留 "
   f"**{ratio(S['raw_blocks_kept'], S['raw_blocks_total'])} "
-  f"({pct(S['raw_exact_rate'])})**。剩余边界见第 7 节。")
+  f"({pct(S['raw_exact_rate'])})**。"
+  "最新一轮按主流语法矩阵（317 例）复测再修 **16 个缺陷**（B26–B41，含远程图片"
+  "同步取图挂死 P0、表格分支死循环、围栏 / 列表 / 引用结构族），矩阵一次稳定 "
+  "**317/317**、失败清零，语料与规范用例全指标保持全绿，保留率提升到 "
+  f"**{pct(S['avg_retention'])}**；末轮再收掉编辑后重建的三处存储边界"
+  "（引用组对齐映射 / 列表续行 / 跨行强调）与两个遗留语义取舍"
+  "（空标签链接 ZWSP 哨兵、`<br>` + 换行双 br 折叠），矩阵语义 **314/314**、"
+  "已知取舍清零；最后一轮把残留的 11 项特征丢失甄别清零（8 项检测误报 + "
+  "3 项真缺陷，含 `1)` 列表被 URL 里的点误判、纯删除线被 autolink 短路吞掉、"
+  "`[TOC]` 指令被转义），**特征丢失 11 → 0**。剩余边界见第 7 节。")
 w("")
 # ---------------------------------------------------------------------------
 w("## 2. 语料来源")
@@ -667,13 +801,13 @@ w("| 源码快照 | 块级入口存「原行 + 解析后显示文字」，显示
   "无法还原树形嵌套；快照未编辑逐字保真，编辑后才按 trait 重建，"
   "绝不拿旧源码盖掉输入。块级限定避免 `[**x**](url)` 被截成 `**x**` |")
 w("")
-w(f"效果：文件一次稳定 {STAGE9['file_stable']} → **{S['file_stable']}/{S['files']}**（+"
-  f"{S['file_stable'] - STAGE9['file_stable']} 份），规范用例一次稳定 "
-  f"{STAGE9['case_stable']} → **{S['case_stable']}/{S['spec_cases']}**（+"
-  f"{S['case_stable'] - STAGE9['case_stable']} 条）；"
+w(f"效果：文件一次稳定 {STAGE9['file_stable']} → **{STAGE_J['file_stable']}/{OLD_FILES}**（+"
+  f"{STAGE_J['file_stable'] - STAGE9['file_stable']} 份），规范用例一次稳定 "
+  f"{STAGE9['case_stable']} → **{STAGE_J['case_stable']}/{S['spec_cases']}**（+"
+  f"{STAGE_J['case_stable'] - STAGE9['case_stable']} 条）；"
   "`inline-em-nested` / `inline-em-worst` / `EdgeCases.text` 三份从「需多轮收敛」"
   "变成第 1 轮即稳定，前两份字节数不再缩水（158/173 B 原样）。"
-  f"冒烟测试 {STAGE9['smoke']} → **{FIXED['smoke']} 项**（新增 flanking、rule of 3、"
+  f"冒烟测试 {STAGE9['smoke']} → **{STAGE_J['smoke']} 项**（新增 flanking、rule of 3、"
   "深层嵌套逐字保真与 CommonMark 语义断言）。收敛率、保留率、结构识别率、"
   "透传块 262/262 与五类扩展语法 100% 全部持平。")
 w("")
@@ -729,7 +863,9 @@ w("6. **交互边界**：⌘+点击双链会打开同库笔记（有未保存改
   "折叠只加 `NSLayoutManager` 临时属性、不写 `NSTextStorage`，"
   "重新打开后按 `+` / `-` 默认状态重置。"
   "Callout 内部行已解析行内强调，任务框可单击勾选（可撤销）；"
-  "但 Callout 内若只改格式、不改文字，保存时仍按原行写回（逐字保真优先）。")
+  "Callout 内只改格式不改文字时，格式改动默认生效（按富文本重建该行，"
+  "与普通强调行的指纹失效机制同口径）；视图菜单提供「Callout 格式改动生效」"
+  "开关，关闭后回到旧取舍——文字没变就原行逐字写回（格式改动被丢弃）。")
 w(f"7. **规范用例结构识别率 {pct(STAGE4['structure'])} → {pct(S['avg_structure'])}**"
   "（+4.4pp）：缩进代码块用 `raw` 块承载以逐字保住前导空格，测试程序按 `code` "
   "计入结构识别，符合 CommonMark 语义；受影响的 14 条官方用例全部恢复，"
@@ -739,12 +875,25 @@ w(f"8. **透传块逐字保留已达 {ratio(S['raw_blocks_kept'], S['raw_blocks_
   "非法引用定义（30 个 `[`）与 pandoc 里带嵌套引号的 2 空格缩进链接定义续行。"
   "二者在 CommonMark 里都是普通段落，之前被防御性转义改写成 `\\[` `\\]`；"
   "现在用「逐字段落」单独承载，块类型仍是 `p`，整行原样显示与写回，"
-  "规范用例结构识别率不受影响。`raw_exact_rate` 硬阈值已抬到 1.0。")
+  "规范用例结构识别率不受影响。最后一处残留是 markdown-it/004 的检测误报："
+  "`__Advertisement :)__` 的笑脸冒号被松散的 key 正则误认成 YAML key，"
+  "把「两条分割线夹一段正文」假报成 frontmatter 丢失（产品语义本就正确，"
+  "与 commonmark.js 一致按 hr + 正文处理）。修复：key 判定收紧为"
+  "「冒号后须空白或行尾」（`a:b` 是纯量不是 key），测试侧 frontmatter "
+  "检测改调 `Parser.frontmatterEnd` 同一实现，检测与解析口径永不分叉。"
+  "`raw_exact_rate` 硬阈值抬到 1.0，倒退一行即拦下。")
 w("9. **强调写法逐字保真**：`***a ***b***` 这类重叠定界符由 CommonMark 定界符栈"
   "正确配对，显示层与 commonmark.js 权威输出一致；块级源码快照让未编辑的原行"
   "逐字写回，编辑后才按当前富文本重建。富文本只有粗 / 斜两个 trait，"
   "无法在编辑后还原任意深度的嵌套写法——但这类写法的编辑属于主动改写，"
   "重建结果仍是一组合法的强调标记，不会引入转义垃圾或持续发散。")
+w("10. **编辑后重建的存储边界已收口**：编辑单行后重建只动该行的「内容行」，"
+  "兄弟结构逐字保留——引用块消费组对齐映射 `mdQuoteLineMap`（合并组如"
+  "「围栏 3 源行 → 1 显示行」按显示文字直写，`>` / `>>` 前缀按解析侧口径复写），"
+  "列表续行 / 兄弟项与段落兄弟行强调走同一重建路径；跨行强调（`*a\\nb*`）"
+  "编辑后写回带强调的跨行写法，不长字面星号。空标签链接 `[](url)` 以 ZWSP "
+  "哨兵占位，写回剥哨兵还原、HTML 导出空锚点（CommonMark §6.3）；"
+  "`<br>` + 源码换行的连续换行段按 GFM 语义折叠。")
 w("")
 
 # ---------------------------------------------------------------------------
@@ -789,17 +938,37 @@ w("| P1 | 链接内强调按嵌套顺序开闭，消除两周期振荡 | ✅ 前
 w("| P2 | 收敛判定从三轮扩到四轮，修掉假不收敛 | ✅ 上一轮完成 | "
   "把第 3 轮才稳定的 3 份从误报中摘出 |")
 w("| P2 | 收敛判定再放宽到六轮，修掉「退化后收敛」的误报 | ✅ 上一版完成 | "
-  f"文件收敛 {STAGE8['file_converged']} → {S['file_converged']}/{S['files']}（全部），"
-  f"不收敛清零；规范用例收敛 {ratio(S['case_converged'], S['spec_cases'])}（全部） |")
-w("| P2 | 深层嵌套强调按 CommonMark 定界符栈重写，保住嵌套语义 | ✅ 本次完成 | "
+  f"文件收敛 {STAGE8['file_converged']} → {STAGE9['file_converged']}/{OLD_FILES}（全部），"
+  f"不收敛清零；规范用例收敛 {ratio(STAGE9['case_converged'], S['spec_cases'])}（全部） |")
+w("| P2 | 深层嵌套强调按 CommonMark 定界符栈重写，保住嵌套语义 | ✅ 上一版完成 | "
   f"flanking + 最近匹配 + 权威 rule of 3 / openers_bottom / removeDelimitersBetween "
   f"替换递归下降，72 条语义用例与 commonmark.js 全部一致；"
-  f"文件一次稳定 {STAGE9['file_stable']} → {S['file_stable']}，"
-  f"规范用例一次稳定 {STAGE9['case_stable']} → {S['case_stable']} |")
+  f"文件一次稳定 {STAGE9['file_stable']} → {STAGE_J['file_stable']}，"
+  f"规范用例一次稳定 {STAGE9['case_stable']} → {STAGE_J['case_stable']} |")
+w("| P1 | Top 50 语料扩测（14 → 51 来源 / 207 → 416 份）+ 25 类缺陷修复 | ✅ 本次完成 | "
+  f"文件一次稳定 {STAGE10['file_stable']}/{STAGE10['file_converged']} → "
+  f"{S['file_stable']}/{S['files']}，规范用例一次稳定 {STAGE10['case_stable']} → "
+  f"{S['case_stable']}/{S['spec_cases']}，保留率 {pct(STAGE10['retention'])} → "
+  f"{pct(FIXED['retention'])}；14 条一次不稳定用例（7 类根因）全部清零，"
+  "冒烟 +15 项回归断言 |")
+w("| P1 | 主流矩阵 2 例已知取舍清零：空标签链接哨兵（#112）、`<br>`+换行双 br（#261） | "
+  f"✅ 本次完成 | 矩阵语义 {MS['correct']}/{MS['full_checks']}，已知取舍 0 |")
+w("| P2 | 编辑后重建的三处存储边界（引用组对齐 / 列表续行 / 跨行强调） | "
+  "✅ 本次完成 | 编辑单行不再毁掉兄弟结构（围栏 / `>>` 缩进 / 强调逐字保留），"
+  f"冒烟 {FIXED['smoke']} 项 |")
+w("| P3 | Callout 只改格式不改文字时格式改动生效（做成开关） | ✅ 本次完成 | "
+  "`mdCalloutTraits` 格式指纹 + 视图菜单开关：默认按富文本重建（⌘B / ⌘I / "
+  "改色生效），关闭回到「原行逐字写回」旧取舍；未编辑行两态均逐字 |")
+w("| P2 | 11 项特征丢失甄别清零（8 项检测误报 + 3 项真缺陷） | ✅ 本次完成 | "
+  "`hit()` 换 NSRegularExpression（CRLF 字位簇跨行误报）、refdef / ul / toc / "
+  "image 检测口径收紧；`1)` 列表 + URL 带点、纯删除线 autolink 吞标记、"
+  "`[TOC]` 指令转义三个真缺陷修复；特征丢失 11 → 0，冒烟 683 → "
+  f"{FIXED['smoke']} 项 |")
 w("")
 w("报告里列出的待办已全部完成或收敛。第 7 节剩余的是更细的边界"
-  "（内联卡片仍是只读展示、Callout 只改格式时按原行写回、"
-  "强调编辑后按富文本重建而非还原原嵌套写法），均非兼容性阻塞项。")
+  "（内联卡片仍是只读展示、强调编辑后按富文本重建而非还原原嵌套写法），"
+  "均非兼容性阻塞项；Callout 格式改动已可生效（默认开启，可关回逐字保真）；"
+  "语法特征丢失已全部清零（11 项 → 0）。")
 w("")
 
 # ---------------------------------------------------------------------------
@@ -814,7 +983,12 @@ w("")
 w("# 2) 冒烟测试（含透传块 / Obsidian 语法 / 外部文件体检 / 缩进代码块 / "
   "交互 / 最后 2 行逐字保留 / Callout 行内强调 / 任务框点选 / "
   "列表容器块 / 嵌入内联展示 / 空表头表格 / 链接内强调开闭顺序 / "
-  "CommonMark flanking 与 rule of 3 的回归断言）")
+  "CommonMark flanking 与 rule of 3 的回归断言 / "
+  "链接 title、行首块记号转义、代码 span 配对、围栏 info 校验、"
+  "引用定义与链接目标严格化的回归断言 / "
+  "空标签链接哨兵、`<br>`+换行双 br、编辑后重建存储边界（引用组对齐 / "
+  "列表续行 / 跨行强调）的回归断言 / "
+  "特征丢失清零（删除线+裸邮箱、`1)` 列表 URL 带点、`[TOC]` 指令逐字）的回归断言）")
 w("./scripts/run-smoke.sh")
 w("")
 w("# 3) 编译并运行全部语料的兼容性测试")
@@ -855,10 +1029,15 @@ w("| 列表容器块 / 嵌入内联卡片 | 冒烟回归断言覆盖逐字往返
 w("| CommonMark 定界符栈 | `***foo** bar*` → foo 粗斜 / bar 仅斜、"
   "`*foo **bar***` → foo 斜 / bar 粗斜（与 commonmark.js 0.31.2 权威输出一致）；"
   "深层嵌套与 rule of 3 样例六轮逐字稳定 |")
+w(f"| 主流语法矩阵（{MS['cases']} 例） | 一次稳定 {MS['stable']}/{MS['cases']}、"
+  f"语义 {MS['correct']}/{MS['full_checks']}、往返 {MS['preserved']}/{MS['full_checks']}，"
+  f"失败 {MS['failed']}（已知取舍 {MS['known']}） |")
 w(f"| 一次稳定 | 文件 {ratio(S['file_stable'], S['files'])}、"
   f"规范用例 {ratio(S['case_stable'], S['spec_cases'])}，"
-  f"较上一版分别提升 {S['file_stable'] - STAGE9['file_stable']} 份 / "
-  f"{S['case_stable'] - STAGE9['case_stable']} 条 |")
+  f"较 Top 50 语料首测（{STAGE10['file_stable']}/{STAGE10['file_converged']}、"
+  f"{STAGE10['case_stable']}/{STAGE10['case_converged']}）提升 "
+  f"{S['file_stable'] - STAGE10['file_stable']} 份 / "
+  f"{S['case_stable'] - STAGE10['case_stable']} 条 |")
 w(f"| 收敛结果（六轮口径） | 文件 {ratio(S['file_converged'], S['files'])}、"
   f"规范用例 {ratio(S['case_converged'], S['spec_cases'])}，全部收敛、不收敛 0 份；"
   "深层嵌套强调第 1 轮即逐字稳定 |")
@@ -898,7 +1077,7 @@ readme = [
     "| `MANIFEST.json` | 每个文件的来源路径、URL、字节数、sha256 与许可证 |",
     "| `PATHS.json` | 固化的下载路径清单（让脚本不依赖 GitHub API，可复现） |",
     "| `RESULTS.json` | `run-compat.sh` 生成的结构化测试结果 |",
-    "| `BASELINE.json` | CI 回归阈值（保留率 / 结构识别率 / 稳定率、`required_features_100` 五类语法特征 100% 硬约束、`raw_exact_rate = 1.0` 即透传块逐字保留 262/262；`min_feature_rates` 当前为空，预留给未来低频语法）；指标提升后用 `check-compat-thresholds.py --update-baseline` 更新 |",
+    "| `BASELINE.json` | CI 回归阈值（保留率 / 结构识别率 / 稳定率、`required_features_100` 五类语法特征 100% 硬约束、`raw_exact_rate = 1.0` 即全部透传行〔frontmatter 整块 / 原始 HTML / 链接定义〕逐字保留，倒退一行即拦下；`min_feature_rates` 当前为空，预留给未来低频语法）；指标提升后用 `check-compat-thresholds.py --update-baseline` 更新 |",
     "| `sources/<slug>/` | 按来源分组的原始 `.md` 文件 |",
     "| `specs/` | CommonMark / GFM 规范原文与解析后的结构化用例 |",
     "",

@@ -26,6 +26,7 @@ FILES=(
   "$SRC/Sources/FinalMd/I18n/Localizer.swift"
   "$SRC/Sources/FinalMd/AI/AIProtocol.swift"
   "$SRC/Sources/FinalMd/AI/AIPresets.swift"
+  "$SRC/Sources/FinalMd/Markdown/HTMLEntities.swift"
   "$SRC/Sources/FinalMd/Markdown/AttributedKeys.swift"
   "$SRC/Sources/FinalMd/Markdown/Typography.swift"
   "$SRC/Sources/FinalMd/Markdown/EmphasisStack.swift"

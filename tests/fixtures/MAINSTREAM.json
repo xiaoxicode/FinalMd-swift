@@ -1,0 +1,14 @@
+{
+ "generated_at": "2026-11-26T11:27:15",
+ "summary": {
+  "cases": 317,
+  "full_checks": 314,
+  "stable": 317,
+  "correct": 314,
+  "preserved": 314,
+  "known": 0,
+  "failed": 0
+ },
+ "failures": [],
+ "known_divergences": []
+}

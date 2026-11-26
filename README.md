@@ -6,8 +6,9 @@ Electron 版（[xiaoxicode/FinalMd](https://github.com/xiaoxicode/FinalMd)）的
 - 目标平台：**macOS 14+**（仅桌面端）
 - 编辑器内核：**NSTextView + NSAttributedString**（原生富文本，无内嵌浏览器）
 - 语言：Swift 6 / SwiftUI / AppKit / Swift Charts，零第三方依赖
-- 已发布版本：**[Release v1.0.1](https://github.com/xiaoxicode/FinalMd-swift/releases/tag/v1.0.1)**
-  （`FinalMd-macOS-1.0.1-*.zip`，macOS 14+ / arm64）
+- 最新版本：**[Release v1.1.0](https://github.com/xiaoxicode/FinalMd-swift/releases/tag/v1.1.0)**
+  （`FinalMd-macOS-1.1.0-*.zip`，macOS 14+ / arm64）
+- Markdown 兼容性报告：[COMPATIBILITY.md](COMPATIBILITY.md)（51 个来源 / 416 份真实语料 + 1327 条规范用例 + 317 条主流语法矩阵）
 
 ---
 
@@ -21,12 +22,12 @@ cd FinalMdSwift
 > ⚠️ **完整编译需要安装 Xcode（15+）**。
 > SwiftUI 的 `@State` / `@Environment` 等是**外部宏**，其插件 `SwiftUIMacros` 只随 Xcode 提供；
 > 只装 Command Line Tools 时 `swift build` 会报 `plugin for module 'SwiftUIMacros' not found`。
-> 本机没有 Xcode，因此本仓库用下面两个脚本做了**替代验证**（详见「验证情况」）。
+> `make_app.sh` 会自动切换到已安装的完整 Xcode 工具链；没有 Xcode 的机器可用下面两个脚本做**替代验证**（详见「验证情况」）。
 
 在没有 Xcode 的机器上仍可运行的两项检查：
 
 ```bash
-./scripts/run-smoke.sh   # Markdown 双向转换 + 编辑器行为 + AI 协议冒烟测试（207 项）—— 直接跑，不需要 Xcode
+./scripts/run-smoke.sh   # Markdown 双向转换 + 编辑器行为 + AI 协议冒烟测试（693 项）—— 直接跑，不需要 Xcode
 ./scripts/verify.sh      # 整套视图代码的类型校验（用宏桩顶替 @State 等）
 ```
 
@@ -83,14 +84,14 @@ git push -u origin main
 
 # 2. 触发构建
 gh workflow run build-macos.yml            # 手动触发
-git tag v1.0.1 && git push --tags          # 或打 tag：构建完自动发 Release
+git tag v1.1.0 && git push --tags          # 或打 tag：构建完自动发 Release
 ```
 
 流水线做的事：
 
 | 步骤 | 说明 |
 |---|---|
-| 冒烟测试 | 先跑 158 项断言（Markdown 往返 + 真实 `NSTextView` 行内样式范围），不过就不往下走 |
+| 冒烟测试 | 先跑 693 项断言（Markdown 往返 + 真实 `NSTextView` 行内样式范围 + AI 协议），不过就不往下走 |
 | 编译 + 组装 | `swift build -c release` → `build/FinalMd.app`，ad-hoc 签名 |
 | bundle 校验 | 检查可执行文件、Info.plist、图标、版本、最低系统版本、中英文 `InfoPlist.strings` 与英文回退，并做 `codesign --verify` 签名自检 |
 | Developer ID 签名 + 公证（可选） | 配了证书 secrets 才执行，`scripts/sign_and_notarize.sh` |
@@ -215,7 +216,7 @@ FinalMdSwift/
 | `renderer/styles.css` | `Markdown/Typography.swift` + SwiftUI 修饰符 | 字号/行高/配色逐项对齐 |
 | `shared/i18n/*.js`（7 语言） | `I18n/Dictionaries.swift` + `Localizer.swift` | 词典由脚本从 JS 原文件生成 |
 | `updater.js`（electron-updater） | `Util/UpdateChecker.swift` | 查 GitHub Release tag，引导浏览器下载 |
-| `scripts/smoke.js`（64 项） | `scripts/smoke.swift`（89 项） | 聚焦 Markdown 往返一致性，含 7 语言欢迎文档 |
+| `scripts/smoke.js`（64 项） | `scripts/smoke.swift`（693 项） | 聚焦 Markdown 往返一致性、编辑器行为与 AI 协议 |
 
 ### 重新生成本地化词典
 
@@ -345,18 +346,28 @@ AppKit 默认按视图的 `font`（固定 16pt 正文）计算插入点高度，
 - `applicationShouldTerminateAfterLastWindowClosed` 返回 `false`，窗口关掉后进程留在 Dock；Info.plist 同步关掉 `NSSupportsAutomaticTermination`，避免系统悄悄终止进程丢掉未保存内容；
 - `WindowGroup(id: "main")` + `ContentView` 把 `openWindow` 注册给 `WindowBridge`，`applicationShouldHandleReopen` 在点 Dock 图标时重建 / 唤醒主窗口。
 
+### 10. 原样透传与 Callout 格式开关
+
+frontmatter、原始 HTML、链接 / 脚注定义、独立与列表项内的缩进代码块、双链 / 嵌入 / Callout / 任务框都用原始行快照承载，未编辑时逐字写回；语法特征由 `.mdCalloutTraits` 等属性记录，编辑后才按当前富文本重建。Callout 行额外保存一份**格式指纹**：文字没变而只改了粗 / 斜 / 颜色等格式时，默认让改动生效；若你更看重「原行逐字保真」，可在「视图 → Callout 格式改动生效」关掉该开关（偏好持久化在 `UserDefaults`）。
+
 ---
 
 ## 验证情况
 
 | 项目 | 结果 |
 |---|---|
-| Markdown / 编辑器 / AI 协议冒烟测试 | ✅ **207 项全部通过**（`./scripts/run-smoke.sh`） |
+| Markdown / 编辑器 / AI 协议冒烟测试 | ✅ **693 项全部通过**（`./scripts/run-smoke.sh`） |
+| 主流语法矩阵 | ✅ **317/317 一次稳定，语义 314/314，已知取舍 0**（`scripts/run-mainstream.py`，对照 commonmark.js / marked） |
+| 真实语料 + 官方规范用例 | ✅ **416/416 语料、1327/1327 规范用例**一次稳定且收敛，平均字符保留率 92.3% |
+| 逐字透传 / 扩展语法硬约束 | ✅ 透传块 **872/872（100%）**；双链 / 嵌入 / Callout / 任务框 / 缩进代码块均 100% 逐字保留 |
+| 回归阈值闸门 | ✅ `python3 scripts/check-compat-thresholds.py` 全绿（不收敛 0、倒退 0） |
 | 全套视图代码类型校验 | ✅ **Build complete，0 error**（`./scripts/verify.sh`） |
 | 完整 `swift build` + 打包 | ✅ 本机完整 Xcode 工具链 release 编译 + bundle 自检通过（`./scripts/make_app.sh`） |
 | 签名 / 启动 | ✅ `codesign --verify --deep --strict` 通过；entitlements 已签入；`open -a` 实测可启动 |
 | 窗口生命周期 | ✅ 关闭窗口后进程保留、点 Dock 图标窗口恢复；未保存时应用级确认框弹出，退出完成 |
-| GitHub Actions | ✅ `Build macOS App` 全流程通过（含 bundle 签名与 entitlement 自检） |
+| GitHub Actions | ✅ `Build macOS App` + `Markdown 兼容性回归` 两条流水线 |
+
+一键复现：`bash scripts/regress-all.sh`（主流矩阵 + 冒烟）、`bash scripts/compat-and-gate.sh`（全量语料 + 阈值闸门）、`bash scripts/update-report-baseline.sh`（重生成 `COMPATIBILITY.md`）。完整缺陷清单、逐来源数据与已知边界见 [COMPATIBILITY.md](COMPATIBILITY.md)。
 
 冒烟测试覆盖：六级标题、粗斜体/删除线/行内代码/下划线/链接/嵌套强调、段落、引用、分割线、
 有序与无序列表、围栏代码块（含语言）、表格（含表头）、图片（Base64）、
@@ -393,6 +404,8 @@ AppKit 默认按视图的 `font`（固定 16pt 正文）计算插入点高度，
 - 文字对齐、字体颜色、高亮依赖 HTML 标签，在纯 Markdown 阅读器中可能失效（与原版一致）
 - 图片全部内嵌 Base64，`.md` 体积偏大（换取单文件带走）
 - 标题内部的 `**加粗**` 无法在 Markdown 中区分（结构上标题已自带字重），与多数所见即所得编辑器一致
+- `***a ***b***` 这类嵌套强调在未编辑时逐字保真；编辑该行后只能按富文本的粗 / 斜 trait 重建，不还原原嵌套写法
+- 即刻模式会统一列表符号、段落空行与标题写法；需要逐字节保留外部文件时请用传统模式，或调整「视图 → 打开外部 Markdown 时」策略
 - 未配置 Developer ID 时产物为 ad-hoc 签名，经下载传递后会被 Gatekeeper 拦截，需先解除隔离属性（见「首次打开提示已损坏」）
 - AI 功能为非流式请求，长文档生成期间面板会等待；模型不支持的语言会直接返回服务端错误
 - AI 界面文案只有中 / 英完整，其余 5 种语言沿 `Localizer` 既有链路回退英文

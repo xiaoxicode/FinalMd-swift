@@ -11,6 +11,42 @@ enum HTMLExporter {
 
     static func document(from attr: NSAttributedString, title: String, language: String) -> String {
         let blocks = MarkdownSerializer.blocks(from: attr)
+        var body = renderBlocks(blocks)
+
+        // 列表项包一层 <ul>/<ol>
+        body = wrapLists(body)
+
+        return """
+        <!DOCTYPE html>
+        <html lang="\(language)">
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>\(escape(title))</title>
+        <style>\(css)</style>
+        </head>
+        <body>
+        \(body)</body>
+        </html>
+        """
+    }
+
+    /// 引用块内容按块结构递归渲染：`> # 标题` / `> - 列表` / `> ``` 围栏 ````
+    /// 里的内层语法要按各自语义输出，不能当字面文本印出来。
+    /// 优先重解析原始源码（mdQuoteSource）：content.string 是行内解析后的
+    /// 显示文本，`**粗体**` 等标记已经被吃掉，重解析显示文本救不回格式。
+    private static func quoteInnerHTML(_ content: NSAttributedString) -> String {
+        var inner = content.string.replacingOccurrences(of: "\u{2028}", with: "\n")
+        if content.length > 0,
+           let raw = content.attribute(.mdQuoteSource, at: 0, effectiveRange: nil) as? String {
+            inner = raw
+        }
+        let attr = MarkdownParser.parse(inner)
+        let blocks = MarkdownSerializer.blocks(from: attr)
+        return wrapLists(renderBlocks(blocks))
+    }
+
+    private static func renderBlocks(_ blocks: [DocBlock]) -> String {
         var body = ""
 
         for block in blocks {
@@ -20,19 +56,33 @@ enum HTMLExporter {
             case .paragraph(let content):
                 body += "<p>\(InlineSerializer.html(content))</p>\n"
             case .quote(let content):
-                body += "<blockquote>\(InlineSerializer.html(content))</blockquote>\n"
+                body += "<blockquote>" + quoteInnerHTML(content) + "</blockquote>\n"
             case .code(let text, let language):
-                let cls = language.isEmpty ? "" : " class=\"language-\(escape(language))\""
+                // CommonMark：info 串第一个空白分隔的词才是语言类名，其余丢弃
+                let lang = language.split(whereSeparator: { $0 == " " || $0 == "\t" })
+                    .first.map(String.init) ?? ""
+                let cls = lang.isEmpty ? "" : " class=\"language-\(escape(lang))\""
                 body += "<pre><code\(cls)>\(escape(text))</code></pre>\n"
             case .rule:
                 body += "<hr />\n"
             case .listItem(let ordered, let level, let content, let originalIndent):
                 _ = level
                 _ = originalIndent
-                body += "<li>\(InlineSerializer.html(content))</li>\n"
                 _ = ordered
+                // 成文标记（"- " / "8. "）是文本的一部分，HTML 语义里剥掉
+                var body2 = content
+                let s = body2.string
+                if let sp = s.firstIndex(of: " ") {
+                    let drop = s.distance(from: s.startIndex, to: sp) + 1
+                    if drop < body2.length {
+                        body2 = body2.attributedSubstring(from: NSRange(location: drop, length: body2.length - drop))
+                    } else {
+                        body2 = NSAttributedString()
+                    }
+                }
+                body += "<li>\(InlineSerializer.html(body2))</li>\n"
             case .image(let att):
-                var tag = "<img src=\"\(escape(att.src))\" alt=\"\(escape(att.alt))\""
+                var tag = "<img src=\"\(escape(att.src))\" alt=\"\(escape(att.altPlainText))\""
                 if !att.mdTitle.isEmpty { tag += " title=\"\(escape(att.mdTitle))\"" }
                 body += tag + " />\n"
             case .table(let rows, let hasHeader):
@@ -99,23 +149,7 @@ enum HTMLExporter {
                 body += "</div>\n"
             }
         }
-
-        // 列表项包一层 <ul>/<ol>
-        body = wrapLists(body)
-
-        return """
-        <!DOCTYPE html>
-        <html lang="\(language)">
-        <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>\(escape(title))</title>
-        <style>\(css)</style>
-        </head>
-        <body>
-        \(body)</body>
-        </html>
-        """
+        return body
     }
 
     /// 把连续的 <li> 包进 <ul>（本版本统一用无序列表承载，与原版 TOC/列表输出一致）

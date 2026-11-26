@@ -135,6 +135,10 @@ struct AppCommands: Commands {
                 set: { _ in model.perform(.lineRuling) }
             ))
             .keyboardShortcut("l", modifiers: [.command, .shift])
+            Toggle(l10n.t("menu.view.calloutFormat"), isOn: Binding(
+                get: { model.calloutFormatEdits },
+                set: { model.calloutFormatEdits = $0 }
+            ))
             Divider()
             Menu(l10n.t("menu.view.appearance")) {
                 ForEach(AppearanceMode.allCases) { mode in

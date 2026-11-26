@@ -1,15 +1,16 @@
 name: Markdown 兼容性回归
 
 # 与 build-macos.yml 并列的独立 job：每次 push / PR 都用仓库内已提交的
-# 207 份真实语料 + 1327 条官方规范用例跑解析器往返，并用阈值闸门拦回归。
+# 416 份真实语料 + 1327 条官方规范用例跑解析器往返，并用阈值闸门拦回归。
 # 语料全部来自 git，CI 不需要联网下载，也不需要任何 secrets。
-# 冒烟测试（624 项）同时覆盖外部文件体检、独立与列表项内缩进代码块、
-# Obsidian 双链 / 嵌入内联卡片 / Callout 折叠与行内强调、任务框点选、
-# 空表头表格往返、链接内强调开闭顺序、CommonMark flanking / rule of 3 /
-# openers_bottom / removeDelimitersBetween 等逻辑；
+# 冒烟测试（693 项）同时覆盖外部文件体检、独立与列表项内缩进代码块、
+# Obsidian 双链 / 嵌入内联卡片 / Callout 折叠与行内强调 / 格式改动开关、
+# 任务框点选、空表头表格往返、链接内强调开闭顺序、`1)` 列表 URL 带点、
+# 纯删除线 + 裸邮箱 autolink、[TOC] 指令逐字保留，以及 CommonMark
+# flanking / rule of 3 / openers_bottom / removeDelimitersBetween 等逻辑；
 # 阈值闸门见 scripts/check-compat-thresholds.py：required_features_100 要求
 # 双链 / 嵌入 / Callout / 任务框 / 缩进代码块五类特征 100%，
-# 逐字保留要求 262/262 = 100%，min_feature_rates 当前为空。
+# 逐字保留要求 872/872 = 100%，min_feature_rates 当前为空。
 on:
   push:
     branches: [main, master]
@@ -22,7 +23,7 @@ permissions:
 
 jobs:
   compat:
-    name: 207 份语料 + 1327 条规范用例往返测试
+    name: 416 份语料 + 1327 条规范用例往返测试
     runs-on: macos-15
     timeout-minutes: 30
 
