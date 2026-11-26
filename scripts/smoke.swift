@@ -1848,6 +1848,37 @@ func testFeatureLossRegressions() {
           MarkdownSerializer.markdown(from: MarkdownParser.parse("  [TOC]\n")), "  [TOC]\n")
 }
 
+// MARK: - 指标口径修正带回的产品回归
+
+func testMetricCorrectnessRegressions() {
+    // CommonMark §4.4：空格 + tab 按 4 列展开即缩进代码块，不能只看行首字符。
+    equal("缩进代码：空格+tab 按列判定",
+          roundTrip("  \tfoo\tbaz\t\tbim\n"), "  \tfoo\tbaz\t\tbim\n")
+
+    // CommonMark §4.3：Setext 下划线最多缩进 3 列，4 列是段落里的字面 `---`。
+    let setext = roundTrip("Foo\n    ---\n")
+    check("Setext：4 空格下划线不成标题", !setext.hasPrefix("#") && setext.contains("---"))
+
+    // 4 空格缩进的 `>` 行是代码内容，不是引用块。
+    equal("缩进代码：`>` 内容不被抢成引用",
+          roundTrip("    > # Foo\n    > bar\n"), "    > # Foo\n    > bar\n")
+
+    // 段落以图片开头、后续还有行内 HTML 时，不能把整段剩余内容吞掉。
+    equal("图片段落：后续行内 HTML 不丢",
+          roundTrip("![alt](x)\n<img src=\"y\" width=\"1\" height=\"1\"/>\n"),
+          "![alt](x)\n<img src=\"y\" width=\"1\" height=\"1\"/>\n")
+
+    // 相邻两张表各有独立 NSTextTable，行号都从 0 开始，不能判重丢掉第二张。
+    let twoTables = roundTrip("| A | B |\n| --- | --- |\n| 1 | 2 |\n\n| C | D |\n| --- | --- |\n| 3 | 4 |\n")
+    check("相邻表格：两张表都在", twoTables.contains("| 1 | 2 |") && twoTables.contains("| 3 | 4 |"))
+
+    // 语义级保留率：引用式链接展开成内联链接后，用户看到的文字不变。
+    let refs = "[remark][logo]\n\n[logo]: https://example.com/logo.png\n"
+    equal("显示层保留：引用式链接展开不改正文",
+          MarkdownParser.parse(refs).string,
+          MarkdownParser.parse(roundTrip(refs)).string)
+}
+
 // MARK: - 入口
 
 testHeadings()
@@ -1880,6 +1911,7 @@ testInlineSelection()
 testInlineStyleOnTextView()
 testAIProtocol()
 testFeatureLossRegressions()
+testMetricCorrectnessRegressions()
 
 print("")
 if failureDetails.isEmpty {

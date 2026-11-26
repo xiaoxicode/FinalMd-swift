@@ -391,12 +391,14 @@ enum MarkdownSerializer {
         // 表格累积器
         var tableRows: [[NSAttributedString]] = []
         var tableHeader = false
+        var currentTable: NSTextTable?
 
         func flushTable() {
             guard !tableRows.isEmpty else { return }
             result.append(.table(rows: tableRows, hasHeader: tableHeader))
             tableRows = []
             tableHeader = false
+            currentTable = nil
         }
 
         var loc = 0
@@ -463,7 +465,10 @@ enum MarkdownSerializer {
 
             if para.length == 0, !isTableCellParagraph(attrs), attrs[.mdListItem] == nil {
                 let bt = attrs[.mdBlockType] as? String
-                if bt == nil || bt == MDBlockType.paragraph.rawValue { continue }
+                if bt == nil || bt == MDBlockType.paragraph.rawValue {
+                    flushTable()
+                    continue
+                }
             }
 
             // 附件（图片 / 分割线）
@@ -471,8 +476,12 @@ enum MarkdownSerializer {
             // .image 通道只输出裸图片，外层链接会丢。
             // 表格单元格里的附件也是行内内容（`| ![a](i) |`），不能抽成独立块
             // 把表格拦腰截断。
+            // 只有「整段恰好就是这一个附件」才能抽成独立块。段落以图片开头但后面
+            // 还有同行文字 / 续行行内 HTML（Joplin 的 `![](url)` + `<img …/>`）时，
+            // 旧写法在这里 continue 把整段剩余内容吞掉，保存后图片属性整行消失。
+            let paragraphIsOnlyAttachment = para.string.count == 1
             if let attachment = attrs[.attachment], attrs[.link] == nil,
-               !isTableCellParagraph(attrs) {
+               paragraphIsOnlyAttachment, !isTableCellParagraph(attrs) {
                 if let image = attachment as? MDImageAttachment {
                     flushTable()
                     result.append(.image(image))
@@ -492,6 +501,14 @@ enum MarkdownSerializer {
             // 表格单元格
             if let style = attrs[.paragraphStyle] as? NSParagraphStyle,
                let tableBlock = style.textBlocks.compactMap({ $0 as? NSTextTableBlock }).first {
+                // 相邻两张表会各自建一个 NSTextTable，但行号都从 0 开始。
+                // 不按表实例切换就 flush，旧行还在累积器里，新 cell 会被
+                // `count == col` 的判重逻辑整张丢掉（stackedit 002 实测）。
+                let table = tableBlock.table
+                if table !== currentTable {
+                    flushTable()
+                    currentTable = table
+                }
                 let row = tableBlock.startingRow
                 let col = tableBlock.startingColumn
                 while tableRows.count <= row { tableRows.append([]) }

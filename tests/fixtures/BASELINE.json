@@ -1,10 +1,10 @@
 {
-  "note": "FinalMd 兼容性回归阈值。CI 上由 scripts/check-compat-thresholds.py 读取；指标提升后用 python3 scripts/check-compat-thresholds.py --update-baseline 更新本文件。语料数与规范用例数必须完全相等，其余指标不得低于阈值；required_features_100 列出的语法（含 CommonMark 缩进代码块）必须逐字保留 100%，min_feature_rates 保留给未来新增的低频语法下限（按实测向下取整，避免浮点误判）。raw_exact_rate 为 1.0：全部透传行（frontmatter 整块 / 原始 HTML / 链接定义）必须逐字保留，倒退一行即拦下。",
+  "note": "FinalMd 兼容性回归阈值。CI 上由 scripts/check-compat-thresholds.py 读取；指标提升后用 python3 scripts/check-compat-thresholds.py --update-baseline 更新本文件。语料数与规范用例数必须完全相等，其余指标不得低于阈值；required_features_100 列出的语法（含 CommonMark 缩进代码块）必须逐字保留 100%，min_feature_rates 保留给未来新增的低频语法下限（按实测向下取整，避免浮点误判）。raw_exact_rate 为 1.0：全部透传行（frontmatter 整块 / 原始 HTML / 链接定义）必须逐字保留，倒退一行即拦下。avg_retention / avg_structure 同为 1.0：前者按 parse 后「显示文字」比较往返前后内容（不把引用链接展开、实体解码等语义等价改写算作丢失），后者按官方 HTML 期望块类型与解析器结构（含引用 / 列表项快照里的嵌套块）比对；任一倒退即拦下。",
   "thresholds": {
     "files": 416,
     "spec_cases": 1327,
-    "avg_retention": 0.922,
-    "avg_structure": 0.959,
+    "avg_retention": 1.0,
+    "avg_structure": 1.0,
     "raw_exact_rate": 1.0,
     "file_stable": 416,
     "file_converged": 416,

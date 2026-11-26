@@ -27,7 +27,7 @@ jobs:
           swift --version
           sw_vers
 
-      - name: Markdown 双向转换冒烟测试（693 项）
+      - name: Markdown 双向转换冒烟测试（699 项）
         run: ./scripts/run-smoke.sh
 
       - name: 编译 Release 并组装 app

@@ -292,7 +292,9 @@ enum MarkdownParser {
                 // Setext 标题下划线（CommonMark §4.3）：段落行 + 纯 `=`/`-` 行。
                 // 优先于分割线 / 列表判定——`Foo\n---` 是 h2，不是段落+hr。
                 // 多行内容用空格连接（标题序列化是单行 ATX 形式）。
-                if !para.isEmpty, let lvl = setextLevel(t) {
+                // CommonMark §4.3：Setext 下划线最多缩进 3 列；4 列及以上是缩进代码，
+                // 而缩进代码不能打断段落，所以 `Foo\n    ---` 是段落内的字面 `---`。
+                if !para.isEmpty, expandedIndent(l) <= 3, let lvl = setextLevel(t) {
                     let title = para.joined(separator: " ")
                         .trimmingCharacters(in: mdWS)
                     out.append(headingBlock(title, level: lvl))
@@ -766,12 +768,12 @@ enum MarkdownParser {
     }
 
     private static func isIndentedCodeLine(_ line: String) -> Bool {
-        let trimmed = line.trimmingCharacters(in: mdWS)
-        // 缩进的 "> ..." 在 FinalMd 里一直是引用块（常见于列表项内的嵌套引用），
-        // 不能因为前面有 4 个空格就把它降级成代码源码、丢掉引用排版。
-        guard !trimmed.isEmpty, !trimmed.hasPrefix(">") else { return false }
-        if line.hasPrefix("\t") { return true }
-        return line.prefix(while: { $0 == " " }).count >= 4
+        // CommonMark §4.4：前导空白按 4 列 tab 展开，达到 4 列即缩进代码块。
+        // `  \tfoo` 这类「空格 + tab」也必须按列数判定，不能只看行首字符。
+        // 块首的 `> ...` 即使内容以 > 开头也是代码（4 空格缩进优先于容器记号）；
+        // 列表项内的嵌套引用走 listIndentedKind 的 containerStart 单独排除，不受影响。
+        guard !line.trimmingCharacters(in: mdWS).isEmpty else { return false }
+        return expandedIndent(line) >= 4
     }
 
     /// 把整块原始行原封不动放进 storage：不走 InlineParser，也不做任何转义。

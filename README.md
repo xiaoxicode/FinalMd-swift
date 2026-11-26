@@ -27,7 +27,7 @@ cd FinalMdSwift
 在没有 Xcode 的机器上仍可运行的两项检查：
 
 ```bash
-./scripts/run-smoke.sh   # Markdown 双向转换 + 编辑器行为 + AI 协议冒烟测试（693 项）—— 直接跑，不需要 Xcode
+./scripts/run-smoke.sh   # Markdown 双向转换 + 编辑器行为 + AI 协议冒烟测试（699 项）—— 直接跑，不需要 Xcode
 ./scripts/verify.sh      # 整套视图代码的类型校验（用宏桩顶替 @State 等）
 ```
 
@@ -91,7 +91,7 @@ git tag v1.1.0 && git push --tags          # 或打 tag：构建完自动发 Rel
 
 | 步骤 | 说明 |
 |---|---|
-| 冒烟测试 | 先跑 693 项断言（Markdown 往返 + 真实 `NSTextView` 行内样式范围 + AI 协议），不过就不往下走 |
+| 冒烟测试 | 先跑 699 项断言（Markdown 往返 + 真实 `NSTextView` 行内样式范围 + AI 协议），不过就不往下走 |
 | 编译 + 组装 | `swift build -c release` → `build/FinalMd.app`，ad-hoc 签名 |
 | bundle 校验 | 检查可执行文件、Info.plist、图标、版本、最低系统版本、中英文 `InfoPlist.strings` 与英文回退，并做 `codesign --verify` 签名自检 |
 | Developer ID 签名 + 公证（可选） | 配了证书 secrets 才执行，`scripts/sign_and_notarize.sh` |
@@ -216,7 +216,7 @@ FinalMdSwift/
 | `renderer/styles.css` | `Markdown/Typography.swift` + SwiftUI 修饰符 | 字号/行高/配色逐项对齐 |
 | `shared/i18n/*.js`（7 语言） | `I18n/Dictionaries.swift` + `Localizer.swift` | 词典由脚本从 JS 原文件生成 |
 | `updater.js`（electron-updater） | `Util/UpdateChecker.swift` | 查 GitHub Release tag，引导浏览器下载 |
-| `scripts/smoke.js`（64 项） | `scripts/smoke.swift`（693 项） | 聚焦 Markdown 往返一致性、编辑器行为与 AI 协议 |
+| `scripts/smoke.js`（64 项） | `scripts/smoke.swift`（699 项） | 聚焦 Markdown 往返一致性、编辑器行为与 AI 协议 |
 
 ### 重新生成本地化词典
 
@@ -356,9 +356,9 @@ frontmatter、原始 HTML、链接 / 脚注定义、独立与列表项内的缩�
 
 | 项目 | 结果 |
 |---|---|
-| Markdown / 编辑器 / AI 协议冒烟测试 | ✅ **693 项全部通过**（`./scripts/run-smoke.sh`） |
+| Markdown / 编辑器 / AI 协议冒烟测试 | ✅ **699 项全部通过**（`./scripts/run-smoke.sh`） |
 | 主流语法矩阵 | ✅ **317/317 一次稳定，语义 314/314，已知取舍 0**（`scripts/run-mainstream.py`，对照 commonmark.js / marked） |
-| 真实语料 + 官方规范用例 | ✅ **416/416 语料、1327/1327 规范用例**一次稳定且收敛，平均字符保留率 92.3% |
+| 真实语料 + 官方规范用例 | ✅ **416/416 语料、1327/1327 规范用例**一次稳定且收敛，平均可读字符保留率 **100.0%**、结构识别率 **100.0%** |
 | 逐字透传 / 扩展语法硬约束 | ✅ 透传块 **872/872（100%）**；双链 / 嵌入 / Callout / 任务框 / 缩进代码块均 100% 逐字保留 |
 | 回归阈值闸门 | ✅ `python3 scripts/check-compat-thresholds.py` 全绿（不收敛 0、倒退 0） |
 | 全套视图代码类型校验 | ✅ **Build complete，0 error**（`./scripts/verify.sh`） |

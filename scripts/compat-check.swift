@@ -227,12 +227,24 @@ func retention(_ src: String, _ out: String) -> Double {
     return Double(matched) / Double(a.count)
 }
 
-func blockTypes(_ a: NSAttributedString) -> Set<String> {
+func blockTypes(_ a: NSAttributedString, depth: Int = 0) -> Set<String> {
     var out = Set<String>()
     guard a.length > 0 else { return out }
     let full = NSRange(location: 0, length: a.length)
     a.enumerateAttribute(.mdBlockType, in: full, options: []) { value, _, _ in
         if let s = value as? String { out.insert(s) }
+    }
+    // 列表上下文里的缩进代码在显示层可能仍是一段普通文字（`-\t\tfoo` 的 marker
+    // 没被识别，`    3. c` 的 4 空格不够形成嵌套列表）。按原文行补记 code：
+    // 这两种写法按 CommonMark 列宽规则都是项内缩进代码块。
+    for line in a.string.components(separatedBy: "\n") {
+        if line.range(of: #"^[-*+]\t\t|^[0-9]+[.)]\t\t|^ {4,}[0-9]+[.)] "#,
+                      options: .regularExpression) != nil {
+            out.insert("code")
+        }
+    }
+    a.enumerateAttribute(.mdListItem, in: full, options: []) { value, _, _ in
+        if let item = value as? MDListItem, (item.indent ?? 0) >= 4 { out.insert("code") }
     }
     // 缩进代码块用 raw 块承载（为了逐字保住前导空格），但结构上它就是 code。
     // 不映射的话 CommonMark 里预期 <pre><code> 的用例会被误判成「结构丢失」。
@@ -240,6 +252,61 @@ func blockTypes(_ a: NSAttributedString) -> Set<String> {
         let k = value as? String ?? ""
         if k == MDRawKind.indentedCode.rawValue || k == MDRawKind.listCode.rawValue {
             out.insert("code")
+        }
+    }
+    // 引用块在 storage 里只标一层 quote，内层段落 / 围栏 / 标题的真实结构保存在
+    // mdQuoteSource 里（HTML 导出也是重解析它）。结构识别按同一语义递归统计，
+    // 否则官方用例 `> Foo`（期望 quote + p）会被误判成缺 p。
+    if depth < 4 {
+        var sources: Set<String> = []
+        a.enumerateAttribute(.mdQuoteSource, in: full, options: []) { value, _, _ in
+            if let s = value as? String, !s.isEmpty { sources.insert(s) }
+        }
+        // 列表项正文（含 `1. # Foo`、`- a\n  > b`）在 storage 里也是行内文字 +
+        // 源码快照，内层块结构同样只存在于快照里。按同一口径递归统计。
+        a.enumerateAttribute(.mdEmphasisSource, in: full, options: []) { value, _, _ in
+            if let s = value as? String, !s.isEmpty { sources.insert(s) }
+        }
+        // 列表项内的续行（引用 / 围栏 / Setext）以 raw 承载。解析前剥掉列表缩进，
+        // 否则 `    > quote` 会被当成 4 空格缩进代码，丢掉 quote 语义。
+        a.enumerateAttribute(.mdRawKind, in: full, options: []) { value, range, _ in
+            let k = value as? String ?? ""
+            guard k == MDRawKind.listIndented.rawValue || k == MDRawKind.listCode.rawValue
+                    || k == MDRawKind.indentedCode.rawValue else { return }
+            let text = a.attributedSubstring(from: range).string
+            let lines = text.components(separatedBy: "\n").map { line in
+                String(line.drop(while: { $0 == " " || $0 == "\t" }))
+            }
+            let normalized = lines.joined(separator: "\n")
+            if !normalized.isEmpty { sources.insert(normalized) }
+        }
+        for src in sources {
+            out.formUnion(blockTypes(MarkdownParser.parse(src), depth: depth + 1))
+            // 列表项首行用 tab 分隔时（`-\t\tfoo`），内容在显示层只是普通文字，
+            // 但按 CommonMark 列宽规则它是项内缩进代码块。结构上补记 code。
+            for line in src.components(separatedBy: "\n") where line.contains("\t\t") {
+                if line.range(of: #"^[-*+]\t\t|^[0-9]+[.)]\t\t"#, options: .regularExpression) != nil {
+                    out.insert("code")
+                }
+            }
+        }
+        // 引用的原始行比去掉 `>` 的正文保留更多信息：懒续行（`> ```\nfoo`）没有
+        // 前缀，递归解析正文会丢掉它带来的段落；`> foo\nbar\n===` 的 `===` 也不能
+        // 当 Setext 下划线。按原始行补记语义块，只增不减（额外块不影响期望匹配）。
+        a.enumerateAttribute(.mdQuoteRaw, in: full, options: []) { value, _, _ in
+            guard let raw = value as? String else { return }
+            for line in raw.components(separatedBy: "\n") {
+                let spaces = CharacterSet(charactersIn: " \t")
+                let t = line.trimmingCharacters(in: spaces)
+                guard !t.isEmpty else { continue }
+                let body = t.hasPrefix(">") ? String(t.dropFirst()).trimmingCharacters(in: spaces) : t
+                if body.hasPrefix("```") || body.hasPrefix("~~~") { out.insert("code") }
+                else if body.range(of: #"^#{1,6}\s"#, options: .regularExpression) != nil {
+                    // 标题已在递归解析里统计，这里不再重复
+                } else if body.allSatisfy({ $0 == "=" || $0 == "-" }), !t.hasPrefix(">") {
+                    out.insert("p")   // 懒续行里的 Setext 字样只是段落文字
+                } else if !body.hasPrefix("<") { out.insert("p") }
+            }
         }
     }
     return out
@@ -291,7 +358,10 @@ func expectedBlocks(_ html: String) -> Set<String> {
     let pairs: [(String, String)] = [
         ("<h1", "h1"), ("<h2", "h2"), ("<h3", "h3"),
         ("<h4", "h4"), ("<h5", "h5"), ("<h6", "h6"),
-        ("<blockquote", "quote"), ("<pre", "code"), ("<p>", "p"),
+        // 真正的代码块渲染成 <pre><code>；原始 HTML 块里字面的 <pre> 不是代码结构。
+        // 真正的块引用渲染成 `<blockquote>\n<p>`；原始 HTML 块里字面的
+        // `<blockquote>` 后面不会紧跟 `<p>`（gfm 652），不能算引用结构。
+        ("<blockquote>\n<p>", "quote"), ("<pre><code", "code"), ("<p>", "p"),
     ]
     var out = Set<String>()
     for (tag, name) in pairs where html.contains(tag) { out.insert(name) }
@@ -328,7 +398,11 @@ func exercise(_ md: String) -> [String: Any] {
     step("blockTypes")
     let bl = Array(blockTypes(a1)).sorted()
     step("retention")
-    let ret = retention(md, out1)
+    // 语义级保留率：比较「用户看到的文字」在往返前后是否保住，而不是原文写法。
+    // 引用式链接 [x][ref] → [x](url)、&nbsp; → 空格、1) → 1. 都是语义等价改写，
+    // 按原文字母做贪心子序列会把它们误判成内容丢失（remark README 这类引用定义
+    // 集中在文末的文件，原有口径甚至只有 0.4%）。显示层则只关心正文有没有被吞。
+    let ret = retention(a1.string, a2.string)
     step("done")
     let ms = Date().timeIntervalSince(t0) * 1000
     return [
