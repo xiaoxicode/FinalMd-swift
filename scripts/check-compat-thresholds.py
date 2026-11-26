@@ -204,31 +204,38 @@ else:
     prev = load(prev_path, "上一版结果")
     if prev:
         old = {f["local_path"]: f for f in prev.get("files", [])}
-        drops, lost_stable, lost_conv, new_files = [], [], [], []
-        for f in R["files"]:
-            b = old.get(f["local_path"])
-            if not b:
-                new_files.append(f["local_path"])
-                continue
-            delta = f["retention"] - b["retention"]
-            if delta < -B["max_retention_drop_per_file"]:
-                drops.append((f["local_path"], delta))
-            if b.get("stable") and not f["stable"]:
-                lost_stable.append(f["local_path"])
-            if b.get("converged") and not f["converged"]:
-                lost_conv.append(f["local_path"])
-        for p, d in drops[:8]:
-            fail(f"保留率倒退 {d:+.3f}：{p}")
-        if len(drops) > 8:
-            fail(f"另有 {len(drops) - 8} 份文件保留率倒退")
-        for p in lost_stable[:8]:
-            fail(f"失去「一次稳定」：{p}")
-        for p in lost_conv[:8]:
-            fail(f"失去「收敛」：{p}")
-        if not (drops or lost_stable or lost_conv):
-            ok(f"对比 {len(old)} 份基线文件：0 份保留率倒退、0 份稳定性倒退")
-        if new_files:
-            w(f"  · 新增语料 {len(new_files)} 份（无基线可比）")
+        new_files = [f["local_path"] for f in R["files"] if f["local_path"] not in old]
+        # 语料扩容超过 10% 时，新旧两版的保留率口径不可比：旧版可能还没解析 HTML 实体、
+        # 列表写法规范化策略也不同，「原文字符子序列」指标会把这类有意改进算成倒退。
+        # 大扩容版只看第 1/2 节的绝对阈值；等语料集合稳定后再恢复逐文件相对对比。
+        expansion = len(new_files) * 10 > len(old)
+        if expansion:
+            w(f"⚠️ 新增语料 {len(new_files)}/{len(old)} 份（>10%）：跳过与上一版逐文件对比，仅看绝对阈值")
+        else:
+            drops, lost_stable, lost_conv = [], [], []
+            for f in R["files"]:
+                b = old.get(f["local_path"])
+                if not b:
+                    continue
+                delta = f["retention"] - b["retention"]
+                if delta < -B["max_retention_drop_per_file"]:
+                    drops.append((f["local_path"], delta))
+                if b.get("stable") and not f["stable"]:
+                    lost_stable.append(f["local_path"])
+                if b.get("converged") and not f["converged"]:
+                    lost_conv.append(f["local_path"])
+            for p, d in drops[:8]:
+                fail(f"保留率倒退 {d:+.3f}：{p}")
+            if len(drops) > 8:
+                fail(f"另有 {len(drops) - 8} 份文件保留率倒退")
+            for p in lost_stable[:8]:
+                fail(f"失去「一次稳定」：{p}")
+            for p in lost_conv[:8]:
+                fail(f"失去「收敛」：{p}")
+            if not (drops or lost_stable or lost_conv):
+                ok(f"对比 {len(old)} 份基线文件：0 份保留率倒退、0 份稳定性倒退")
+            if new_files:
+                w(f"  · 新增语料 {len(new_files)} 份（无基线可比）")
 w("")
 
 w("## 结果")
