@@ -6,8 +6,8 @@ Electron 版（[xiaoxicode/FinalMd](https://github.com/xiaoxicode/FinalMd)）的
 - 目标平台：**macOS 14+**（仅桌面端）
 - 编辑器内核：**NSTextView + NSAttributedString**（原生富文本，无内嵌浏览器）
 - 语言：Swift 6 / SwiftUI / AppKit / Swift Charts，零第三方依赖
-- 最新版本：**[Release v1.1.1](https://github.com/xiaoxicode/FinalMd-swift/releases/tag/v1.1.1)**
-  （`FinalMd-macOS-1.1.1-*.zip`，macOS 14+ / arm64）
+- 最新版本：**[Release v1.1.2](https://github.com/xiaoxicode/FinalMd-swift/releases/tag/v1.1.2)**
+  （`FinalMd-macOS-1.1.2-*.zip`，macOS 14+ / arm64）
 - Markdown 兼容性报告：[COMPATIBILITY.md](COMPATIBILITY.md)（51 个来源 / 416 份真实语料 + 1327 条规范用例 + 317 条主流语法矩阵）
 
 ---
@@ -84,7 +84,7 @@ git push -u origin main
 
 # 2. 触发构建
 gh workflow run build-macos.yml            # 手动触发
-git tag v1.1.1 && git push --tags          # 或打 tag：构建完自动发 Release
+git tag v1.1.2 && git push --tags          # 或打 tag：构建完自动发 Release
 ```
 
 流水线做的事：
@@ -195,8 +195,8 @@ FinalMdSwift/
 │   ├── zh.lproj/InfoPlist.strings    中文（通用）：墨写
 │   ├── zh-Hans.lproj/InfoPlist.strings  简体中文：墨写
 │   ├── zh-Hant.lproj/InfoPlist.strings  繁体中文：墨写
-│   └── AppIcon.icns
-└── scripts/                          make_app.sh / run-smoke.sh / verify.sh / gen-i18n.js
+│   └── AppIcon.icns                  红色渐变圆角底 + 白色大写 M（`scripts/generate-icon.swift` 生成）
+└── scripts/                          make_app.sh / run-smoke.sh / verify.sh / generate-icon.swift / gen-i18n.js
 ```
 
 ---
